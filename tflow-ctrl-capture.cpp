@@ -1,13 +1,13 @@
+#include <sys/stat.h>
 #include <glib-unix.h>
-#include <gst/gst.h>
+//#include <glib/gmem.h>
 
-#include <json11.h>
+#include <json11.hpp>
 #include "tflow-ctrl-capture.h"
-#include "atic-app-streamer.h"
 
 using namespace json11;
 
-static const char raw_cfg_default =  R"( 
+static const char *raw_cfg_default =  R"( 
     {"dev_name" : "/dev/video0"} 
 )";
 
@@ -27,19 +27,19 @@ void TFlowCtrlCapture::Init()
     cfg_fd = open(cfg_fname, O_RDWR);
 
     if (fstat(cfg_fd, &sb) < 0) {
-        g_error("Can't open configuration file %s", cfg_name);
+        g_warning("Can't open configuration file %s", cfg_fname);
         use_default_cfg = true;
     }
     else if (!S_ISREG(sb.st_mode)) {
-        g_error("Config name isn't a file %s", cfg_name);
+        g_warning("Config name isn't a file %s", cfg_fname);
         use_default_cfg = true;
     }
 
     if (!use_default_cfg) {
-        const char *raw_cfg = alloc(sb.st_size);
+        char* raw_cfg = (char*)g_malloc(sb.st_size);
         int bytes_read = read(cfg_fd, raw_cfg, sb.st_size);
         if (bytes_read != sb.st_size) {
-            g_error("Can't read config file %s", cfg_name);
+            g_warning("Can't read config file %s", cfg_fname);
             use_default_cfg = true;
         }
 
@@ -47,7 +47,7 @@ void TFlowCtrlCapture::Init()
             std::string err;
             json_cfg = Json::parse(raw_cfg, err);
             if (json_cfg.is_null()) {
-                g_error("Error in JSON format - %s\n%s", (char*)err.data(), raw_cfg);
+                g_warning("Error in JSON format - %s\n%s", (char*)err.data(), raw_cfg);
                 use_default_cfg = true;
             }
         }
@@ -60,24 +60,33 @@ void TFlowCtrlCapture::Init()
         json_cfg = Json::parse(raw_cfg_default, err);
     }
 
-    tflow_cmd_cb_config(json_cfg)
-
+    set_cmd_fields((tflow_cmd_field_t*)&cmd_flds_config, json_cfg);
 }
 
-int TFlowCtrlCapture::cam_name_is_valid()
+int TFlowCtrlCapture::dev_name_is_valid()
 { 
-    // check cmd_flds_config.cam_name.v.str;
-    return 0;
+    // check cmd_flds_config.dev_name.v.str;
+    return 1;
 }
 char* TFlowCtrlCapture::cam_name_get()
 {
-    return cam_name_is_valid() ? cmd_flds_config.cam_name.v.str : nullptr;
+    return dev_name_is_valid() ? cmd_flds_config.dev_name.v.str : nullptr;
+}
+int TFlowCtrlCapture::cam_fmt_get()
+{
+    return (int)cmd_flds_config.fmt_idx.v.u32;
 }
 
 /*********************************/
 /*** Application specific part ***/
 /*********************************/
 
+static int ctrl_capture_cmd_cb_sign_s(void* ctx, Json& in_params)
+{
+    return 0;
+}
+
+#if 0
 int TFlowCtrlCapture::tflow_cmd_cb_sign(void* ctx)
 {
     using namespace std;
@@ -97,61 +106,12 @@ int TFlowCtrlCapture::tflow_cmd_cb_sign(void* ctx)
     return 0;
 }
 
-int TFlowCtrlCapture::tflow_cmd_cb_config(Json &json_cfg)
-{
-    g_info("Config command\n    params:\t";
-
-    // Loop over all config cpmmand fields and check json_cfg
-    tflow_cmd_field_t* cfg_field = cmd_flds_config;
-    while (cfg_field->name != nullptr) {
-        Json cfg_param = json_cfg[cfg_field->name];
-        if (!cfg_param.is_null()) {
-            // Configuration parameter is found in Json config
-            // Check field type is valid
-            cfg_field.set(cfg_param);
-        }
-
-    }
-
-    if (ctx != nullptr) {
-//        auto* param_arr_ptr = static_cast<vector<variant<int, string>>*>(ctx);
-        json11::Json::array &paramsArray = *static_cast<json11::Json::array *>(ctx);
-        if (paramsArray.empty()) {
-            cout << "EMPTY PARAMS" << endl;
-            return -1;
-        } else {
-            cout << json11::Json(paramsArray).dump() << endl;
-            if (paramsArray.size() == 3) {
-                state = paramsArray[0].int_value();
-                cam_name = paramsArray[1].int_value();
-                ip = paramsArray[2].int_value();
-            } else {
-                cout << "WRONG NUM OF ARGS" << endl;
-                return -1;
-            }
-        }
-
-        cout << endl;
-    } else {
-        cout << "EMPTY PARAMS" << endl;
-        return -1;
-    }
-
-    cout << "state:\t\t" << to_string(state)
-         << "\nport:\t\t" << to_string(port)
-         << "\nip:\t\t" << to_string(ip) << endl;
-
-
-//    app.gst->onGstConfig();
-    return 0;
-}
-
 int TFlowCtrlCapture::tflow_cmd_cb_set_as_def(void* ctx)
 {
     using namespace std;
     cout << "\nset_as_def\n";
     if (ctx != nullptr) {
-        json11::Json::array &params = *static_cast<json11::Json::array *>(ctx);
+        json11::Json::array& params = *static_cast<json11::Json::array*>(ctx);
 
         if (!params.empty()) {
             cout << "has PARAMS when shouldn't" << endl;
@@ -161,4 +121,30 @@ int TFlowCtrlCapture::tflow_cmd_cb_set_as_def(void* ctx)
     cout << "EMPTY PARAMS (ALL OK)" << endl;
     return 0;
 }
+
+#endif
+
+
+static int ctrl_capture_cmd_cb_set_as_def_s(void* ctx, Json& json_cfg)
+{
+    return 0;
+}
+
+static int ctrl_capture_cmd_cb_config_s(void* ctx, Json& in_params)
+{
+    TFlowCtrlCapture *ctrl_capture = (TFlowCtrlCapture*)ctx;
+    return ctrl_capture->cmd_cb_config(in_params);
+}
+
+int TFlowCtrlCapture::cmd_cb_config(Json &in_params)
+{
+    g_info("Config command\n    params:\t");
+
+    int rc = set_cmd_fields((tflow_cmd_field_t*)&cmd_flds_config, in_params);
+
+    if (rc != 0) return -1;
+
+    return 0;
+}
+
 

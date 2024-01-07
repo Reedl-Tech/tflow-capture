@@ -4,7 +4,7 @@
 
 #include "tflow-capture.h"
 
-using namespace reedl;
+//using namespace reedl;
 
 TFlowCapture *gp_app;
 
@@ -46,6 +46,12 @@ int main(int argc, char** argv)
     gp_app = new TFlowCapture;
 
     setup_sig_handlers();
+
+    gp_app->Attach();
+
+#if CODE_BROWSE
+    gp_app->OnIdle();   
+#endif
 
     g_main_loop_run(gp_app->main_loop);
 

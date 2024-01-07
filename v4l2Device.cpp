@@ -5,51 +5,175 @@
 #include <giomm.h>
 #include <glib-unix.h>
 
+#include "tflow-capture.h"
 #include "v4l2Device.h"
 
 #define CAM_DESCR 1
 
-V4L2Device::V4L2Device()
+gboolean cam_io_in_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
 {
-    m_buffers = 0;
+    V4L2Device::GSourceCam* source = (V4L2Device::GSourceCam*)g_source;
+    V4L2Device* cam = source->cam;
+
+
+//    g_info("IO IN DISPATCH ");
+
+    int rc = cam->onBuff();
+
+    //int index;
+    //timeval frame_ts;
+    //cam->ioctlDequeueBuffer(&index, &frame_ts);
+
+    return G_SOURCE_CONTINUE;
+}
+
+
+gboolean g_cam_io_in_cb(gpointer user_data)
+{
+    g_info("IO IN CB");
+    return 0;
+}
+
+//V4L2Device::V4L2Device(TFlowCapture* in_parent)
+V4L2Device::V4L2Device(GMainContext* in_context)
+{
+    context = in_context;
+    buf_srv = NULL;
+
+    io_in_tag = NULL;
+    io_in_src = NULL;
+    CLEAR(gsource_funcs);
+
+    gsource_funcs.dispatch = cam_io_in_dispatch;
+    io_in_src = (GSourceCam*)g_source_new(&gsource_funcs, sizeof(GSourceCam));
+    io_in_src->cam = this;
+    g_source_attach((GSource*)io_in_src, in_context);
+
 }
 
 V4L2Device::~V4L2Device()
 {
+    if (io_in_src) {
+        if (io_in_tag) {
+            g_source_remove_unix_fd((GSource*)io_in_src, io_in_tag);
+            io_in_tag = nullptr;
+        }
+        g_source_destroy((GSource*)io_in_src);
+        g_source_unref((GSource*)io_in_src);
+        io_in_src = nullptr;
+    }
+
+    Deinit();
+/*
+    {
+        // Release all previously requested DMA buffers
+        // implicit VIDIOC_STREAMOFF.
+        v4l2_requestbuffers req;
+        int rc;
+        CLEAR(req);
+
+        req.count = 0;
+        req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;  // Is it necessary then count == 0?
+        req.memory = V4L2_MEMORY_MMAP;                  // Is it necessary then count == 0?
+        rc = ioctl(dev_fd, VIDIOC_REQBUFS, &req);
+        if (-1 == rc) {
+            g_warning("clear_me");
+        }
+        // TODO: Check STREAMOFF
+    }
+*/
+    // TODO: Check STREAMOFF after DMA buffers release
     if (m_isStreamOn) {
         ioctlSetStreamOff();
     }
-
-    unMmapBuffers();
-    if (m_buffers) {
-        free(m_buffers);
-    }
-    if (m_fname) free((void*)m_fname);
-
-    closeDevice();
 }
 
-// Open video device
-int V4L2Device::openDevice(const char* filename)
+void V4L2Device::redeem(int indx)
 {
-    cam_fd = open(filename, O_RDWR); // By default with block mode
-    if (cam_fd == -1) {
-        std::cerr << "Cann't open video device " << filename << std::endl;
-        return -1;
+    // Sanity check ???
+
+    ioctlQueueBuffer(indx);
+}
+/*
+ * The function is a calback called on async VIDIOC_DQBUF completion
+ */
+int V4L2Device::onBuff()
+{
+    v4l2_buffer v4l2_buf;
+    v4l2_plane mplanes[PLANE_NUM];
+    int rc;
+
+    CLEAR(v4l2_buf);
+    v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    v4l2_buf.memory = V4L2_MEMORY_MMAP;
+    v4l2_buf.m.planes = mplanes;
+    v4l2_buf.length = PLANE_NUM;
+
+    //Dequeue buffers
+    while (1) {
+
+
+        rc = ioctl(dev_fd, VIDIOC_DQBUF, &v4l2_buf);
+        if (rc == 0) {
+            // new buffer received normally
+            {
+                static int cnt = 0;
+                cnt++;
+                if ((cnt & 0x3F) == 0) {
+                    g_info("Consumed %d frames", cnt);
+                }
+            }
+            buf_srv->consume(v4l2_buf);
+        }
+        else if (rc == -1) {
+            if (errno == EAGAIN) {
+                // std::cout << "EAGAIN..." << std::endl;
+                break;
+            }
+            else {
+                g_warning("VIDIOC_DQBUF: unexpected error (%d) - %s",
+                    errno, strerror(errno));
+
+                // TODO: Close the device?
+                // ...
+            }
+        }
     }
-    m_fname = strdup(filename);
 
     return 0;
+
+}
+// Open video device
+int V4L2Device::Open(const char* dev_fname)
+{
+    int rc = 0;
+
+    dev_fd = open(dev_fname, O_RDWR | O_NONBLOCK);
+    if (dev_fd == -1) {
+        g_warning("Can't open the video device %s (%d) - %s", 
+            dev_fname, errno, strerror(errno));
+        return -1;
+    }
+    m_fname = strdup(dev_fname);
+
+#if CAM_DESCR
+    rc |= ioctlQueryCapability();
+    rc |= ioctlGetStreamParm();
+    rc |= ioctlEnumFmt();
+    //    rc |= ioctlGetStreamFmt();
+#endif
+
+    return rc;
 }
 
 // Close video device
-void V4L2Device::closeDevice()
+void V4L2Device::Close()
 {
-    if (m_fd != -1) {
-        if (close(m_fd) == -1) {
+    if (dev_fd != -1) {
+        if (close(dev_fd) == -1) {
             std::cerr << m_fname << " close device failed" << std::endl;
         }
-        m_fd = -1;
+        dev_fd = -1;
     }
 }
 
@@ -59,7 +183,7 @@ int V4L2Device::ioctlQueryCapability()
     v4l2_capability capa;
     CLEAR(capa);
 
-    if (-1 == ioctl(m_fd, VIDIOC_QUERYCAP, &capa)) {
+    if (-1 == ioctl(dev_fd, VIDIOC_QUERYCAP, &capa)) {
         perror("VIDIOC_QUERYCAP");
         return -1;
     }
@@ -90,12 +214,12 @@ int V4L2Device::ioctlEnumFmt()
     fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
     std::cout << "\nSupport Format:\n";
-    while (-1 != ioctl(m_fd, VIDIOC_ENUM_FMT, &fmtdesc)) {
+    while (-1 != ioctl(dev_fd, VIDIOC_ENUM_FMT, &fmtdesc)) {
         v4l2_frmsizeenum frmsize;
         CLEAR(frmsize);
         frmsize.pixel_format = fmtdesc.pixelformat;
         frmsize.index = 0;
-        while (-1 != ioctl(m_fd, VIDIOC_ENUM_FRAMESIZES, &frmsize)) {
+        while (-1 != ioctl(dev_fd, VIDIOC_ENUM_FRAMESIZES, &frmsize)) {
             std::cout << "description=" << fmtdesc.description << "\tpixelformat=" << std::oct
                 << char(fmtdesc.pixelformat&0xFF) << char((fmtdesc.pixelformat>>8)&0xFF)
                 << char((fmtdesc.pixelformat>>16)&0xFF) << char((fmtdesc.pixelformat>>24)&0xFF)
@@ -118,10 +242,11 @@ int V4L2Device::ioctlGetStreamParm()
     CLEAR(streamparm);
 
     streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    if (-1 == ioctl(m_fd, VIDIOC_G_PARM, &streamparm)) {
-        perror("VIDIOC_G_PARM");
+    if (-1 == ioctl(dev_fd, VIDIOC_G_PARM, &streamparm)) {
+        g_warning("Can't VIDIOC_G_PARM (%d)", errno);
         return -1;
     }
+    
     std::cout << "\nCapture Streamparm:\n"
         << "Capture capability=" << streamparm.parm.capture.capability
         << "\tCapture mode=" << streamparm.parm.capture.capturemode
@@ -140,7 +265,7 @@ int V4L2Device::ioctlSetStreamParm(bool highQuality, u_int timeperframe)
     streamparm.parm.capture.capturemode = V4L2_CAP_TIMEPERFRAME | (u_char)highQuality;
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = timeperframe;
-    if (-1 == ioctl(m_fd, VIDIOC_S_PARM, &streamparm)) {
+    if (-1 == ioctl(dev_fd, VIDIOC_S_PARM, &streamparm)) {
         perror("VIDIOC_S_PARM");
         return -1;
     }
@@ -153,7 +278,7 @@ int V4L2Device::ioctlGetStreamFmt()
     v4l2_format fmt;
     CLEAR(fmt);
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    if (-1 == ioctl(m_fd, VIDIOC_G_FMT, &fmt)) {
+    if (-1 == ioctl(dev_fd, VIDIOC_G_FMT, &fmt)) {
         perror("VIDIOC_G_FMT");
         return -1;
     }
@@ -176,9 +301,10 @@ int V4L2Device::ioctlSetStreamFmt(u_int pixelformat, u_int width, u_int height)
     v4l2_format fmt;
     CLEAR(fmt);
 
+#if 1    
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    if (-1 == ioctl(m_fd, VIDIOC_G_FMT, &fmt)) {
-        perror("VIDIOC_G_FMT");
+    if (-1 == ioctl(dev_fd, VIDIOC_G_FMT, &fmt)) {
+        g_warning("Can't VIDIOC_G_FMT (%d)", errno);
         return -1;
     }
 
@@ -186,6 +312,7 @@ int V4L2Device::ioctlSetStreamFmt(u_int pixelformat, u_int width, u_int height)
         std::cerr << m_fname << ": out of support range." << std::endl;
         return -1;
     }
+#endif
 
     fmt.fmt.pix_mp.width = width;
     fmt.fmt.pix_mp.height = height;
@@ -193,38 +320,68 @@ int V4L2Device::ioctlSetStreamFmt(u_int pixelformat, u_int width, u_int height)
     fmt.fmt.pix_mp.num_planes = 1;
     fmt.fmt.pix_mp.pixelformat = pixelformat;
     fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-    if (-1 == ioctl(m_fd, VIDIOC_S_FMT, &fmt)) {
-        perror("VIDIOC_S_FMT");
+    if (-1 == ioctl(dev_fd, VIDIOC_S_FMT, &fmt)) {
+        g_warning("Can't VIDIOC_S_FMT (%d)", errno);
         return -1;
     }
     return 0;
+}
+
+void V4L2Device::DeinitBuffers()
+{
+    v4l2_requestbuffers req;
+    int rc;
+    
+    /*
+     * Unmap DMA memory
+     */
+    for (auto &buf : m_buffers) {
+        if (buf.start) {
+            munmap(buf.start, buf.length);
+            buf.start = NULL;
+        }
+    }
+
+    /*
+     * Returns all memory buffers to the Kernel
+     */
+
+    // Release all previously requested DMA buffers
+    // implicit VIDIOC_STREAMOFF.
+    CLEAR(req);
+    req.count = 0;
+    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;  // Is it necessary then count == 0?
+    req.memory = V4L2_MEMORY_MMAP;                  // Is it necessary then count == 0?
+    rc = ioctl(dev_fd, VIDIOC_REQBUFS, &req);
+    if (-1 == rc) {
+        g_warning("clear me as we don't care");
+    }
+    // TODO: Check STREAMOFF
+    // TODO: Check double release (i.e. close application at stoped camera)
 }
 
 // Request buffers in kernel space
-int V4L2Device::ioctlRequestBuffers()
+int V4L2Device::InitBuffers()
 {
+    int rc = 0;
     v4l2_requestbuffers req;
     CLEAR(req);
 
+    /* 
+     * Request buffers 
+     */
     req.count = BUFFER_NUM;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     req.memory = V4L2_MEMORY_MMAP;
-    if (-1 == ioctl(m_fd, VIDIOC_REQBUFS, &req)) {
-        perror("VIDIOC_REQBUFS");
+    if (-1 == ioctl(dev_fd, VIDIOC_REQBUFS, &req)) {
+        g_warning("Can't VIDIOC_REQBUFS (%d)", errno);
         return -1;
     }
 
-    m_buffers = (struct Buffer*)calloc(req.count, sizeof(struct Buffer));
-    if (!m_buffers) {
-        perror("calloc");
-        return -1;
-    }
-    return 0;
-}
+    /*
+     * Map DMA memory to the user space
+     */
 
-// Query the infomation of buffers in kernel, and memory map them to user space
-int V4L2Device::ioctlMmapBuffers()
-{
     for(int n = 0; n < BUFFER_NUM; n++) {
         v4l2_buffer buf;
         v4l2_plane mplanes[PLANE_NUM];
@@ -237,21 +394,27 @@ int V4L2Device::ioctlMmapBuffers()
         buf.length = PLANE_NUM;
 
         // Query the information of the buffer with index=n into struct buf
-        if (-1 == ioctl(m_fd, VIDIOC_QUERYBUF, &buf)) {
-            perror("VIDIOC_QUERYBUF");
+        if (-1 == ioctl(dev_fd, VIDIOC_QUERYBUF, &buf)) {
+            g_warning("Can't VIDIOC_QUERYBUF (%d)", errno);
             return -1;
         }
+
         // Record the length and mmap buffer to user space
         m_buffers[n].length = buf.m.planes[0].length;
         m_buffers[n].start = mmap(NULL, buf.m.planes[0].length, 
-                PROT_READ | PROT_WRITE, MAP_SHARED, m_fd, buf.m.planes[0].m.mem_offset); 
+                PROT_READ | PROT_WRITE, MAP_SHARED, dev_fd, buf.m.planes[0].m.mem_offset); 
+
         if (MAP_FAILED == m_buffers[n].start) {
-            perror("mmap");
+            g_warning("Can't MMAP (%d)", errno);
             return -1;
         }
     }
 
-    return 0;
+    for (int i = 0; i < BUFFER_NUM; i++) {
+        rc != ioctlQueueBuffer(i);
+    }
+
+    return rc;
 }
 
 // Enqueue a buffer
@@ -268,7 +431,7 @@ int V4L2Device::ioctlQueueBuffer(int index)
     buf.index = index;
 
     // Buffer back to queue
-    if (-1 == ioctl(m_fd, VIDIOC_QBUF, &buf)) {
+    if (-1 == ioctl(dev_fd, VIDIOC_QBUF, &buf)) {
         std::cout << "VIDIOC_QBUF error: buffer " << index << " already enqueue." << std::endl;
         return -1;
     }
@@ -288,7 +451,7 @@ int V4L2Device::ioctlDequeueBuffer(int *index, struct timeval *ts)
     buf.length = PLANE_NUM;
     
     //Dequeue a buffer with captured frame
-    if (-1 == ioctl(m_fd, VIDIOC_DQBUF, &buf)) {
+    if (-1 == ioctl(dev_fd, VIDIOC_DQBUF, &buf)) {
         perror("VIDIOC_DQBUF");
         return -1;
     }
@@ -302,18 +465,35 @@ int V4L2Device::ioctlDequeueBuffer(int *index, struct timeval *ts)
 }
 
 // Start stream
-int V4L2Device::ioctlSetStreamOn()
+int V4L2Device::StreamOn(int fmt_idx)
 {
+    int rc = 0;
+
+    // TODO: get format by index
+    //       v4l2_format fmt = fmt_enum[fmt_idx]
+    //       ioctlSetStreamFmt(fmt)
+    rc |= ioctlSetStreamFmt(V4L2_PIX_FMT_GREY, IMAGEWIDTH, IMAGEHEIGHT);
+
+    if (rc) {
+        return -1;
+    }
+    rc |= InitBuffers();
+
     if (m_isStreamOn) {
         return 0;
     }
     v4l2_buf_type type { V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE };
-    if (-1 == ioctl(m_fd, VIDIOC_STREAMON, &type)) {
-        perror("VIDIOC_STREAMON");
+    if (-1 == ioctl(dev_fd, VIDIOC_STREAMON, &type)) {
+        g_warning("VIDIOC_STREAMON");
         return -1;
     }
     
     m_isStreamOn = true;
+
+    // TODO: Preserve currently used format ?
+
+    io_in_tag = g_source_add_unix_fd((GSource*)io_in_src, dev_fd, (GIOCondition)(G_IO_IN | G_IO_ERR));
+
     return 0;
 }
 
@@ -321,7 +501,7 @@ int V4L2Device::ioctlSetStreamOn()
 void V4L2Device::ioctlSetStreamOff()
 {
     v4l2_buf_type type {V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE};
-    while (-1 == ioctl(m_fd, VIDIOC_STREAMOFF, &type)) {
+    while (-1 == ioctl(dev_fd, VIDIOC_STREAMOFF, &type)) {
         perror("VIDIOC_STREAMOFF");
         return;
     }
@@ -329,51 +509,36 @@ void V4L2Device::ioctlSetStreamOff()
     m_isStreamOn = false;
 }
 
- // Unmap buffers 
-void V4L2Device::unMmapBuffers()
-{
-    if (m_buffers) {
-        if (m_buffers[0].start != NULL) {
-            for (int i{ 0 }; i < BUFFER_NUM; ++i) {
-                munmap(m_buffers[i].start, m_buffers[i].length);
-            }
-            m_buffers[0].start = NULL;
-        }
-    }
-}
 
 void* V4L2Device::buffGet(int i)
 {
-    if (m_buffers) {
-        return m_buffers[i].start;
-    }
-    return nullptr;
+    return m_buffers[i].start;
 }
 
-int V4L2Device::CaptureInit(const char *dev_name)
+void V4L2Device::Deinit()
+{
+    DeinitBuffers();
+
+    Close();
+}
+
+int V4L2Device::Init(const char *dev_name)
 {
     int rc;
 
-    rc = openDevice(dev_name);
-    if (rc) return rc;
-
-#if CAM_DESCR
-    rc |= ioctlQueryCapability();
-    rc |= ioctlGetStreamParm();
-    rc |= ioctlEnumFmt();
-    rc |= ioctlGetStreamFmt();
-#endif
-    rc |= ioctlSetStreamFmt(V4L2_PIX_FMT_GREY, IMAGEWIDTH, IMAGEHEIGHT);
-    rc |= ioctlRequestBuffers();
-    if (rc) return rc;
-
-    rc = ioctlMmapBuffers();
-    if (rc) return rc;
-
-    for (u_int i = 0; i < BUFFER_NUM; i++) {
-        rc = ioctlQueueBuffer(i);
-        if (rc) return rc;
+    if (!dev_name) {
+        g_warning("Device name isn't specified");
+        return -1;
     }
+
+    rc = Open(dev_name);
+    if (rc) return rc;
+
+    // TODO: Compare the current ENUM list in the configuration with the 
+    //       received one. 
+    //       What if differs? compare enum at particular index?
+    //       Update Ctrl with formats enumerated from the device
+    //       ? Ctrl must send this enum to the UI ?
 
     return 0;
 }

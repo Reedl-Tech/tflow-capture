@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for atic-streamer, include source and define
+﻿# CMakeList.txt : CMake project for tflow-capture, include source and define
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.8)
@@ -9,29 +9,31 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("atic-streamer")
+
+project ("tflow-capture")
 
 find_package(PkgConfig REQUIRED)
 
 # Add source to this project's executable.
-add_executable (atic-streamer
+add_executable (tflow-capture
     "v4l2Device.cpp"
     "v4l2Device.h"
     "main.cpp"
     "tflow-capture.cpp"
     "tflow-capture.h"
-    "tflow-ctrl_capture.cpp"
-    "tflow-ctrl_capture.h"
+    "tflow-buf-srv.cpp"
+    "tflow-buf-srv.h"
+    "tflow-ctrl-capture.cpp"
+    "tflow-ctrl-capture.h"
     "tflow-ctrl.h"
     "tflow-ctrl.cpp"
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET atic-streamer PROPERTY CXX_STANDARD 20)
+  set_property(TARGET tflow-capture PROPERTY CXX_STANDARD 20)
 endif()
 
-pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET
-    gmodule-2.0
+pkg_check_modules(JSON11 REQUIRED IMPORTED_TARGET
     json11
 )
 
@@ -47,9 +49,13 @@ pkg_check_modules(GLIBMM REQUIRED IMPORTED_TARGET
     giomm-2.4
 )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0") # Add debug information
+
+target_include_directories(tflow-capture PRIVATE ${JSON11_INCLUDE_DIRS})
 target_include_directories(tflow-capture PRIVATE ${GLIB_INCLUDE_DIRS})
 target_include_directories(tflow-capture PRIVATE ${GLIBMM_INCLUDE_DIRS})
  
+target_link_libraries(tflow-capture PkgConfig::JSON11)
 target_link_libraries(tflow-capture PkgConfig::GLIB)
 target_link_libraries(tflow-capture PkgConfig::GLIBMM)
 

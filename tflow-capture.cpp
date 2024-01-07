@@ -1,41 +1,64 @@
+#include <iostream>
 #include <giomm.h>
 #include <glib-unix.h>
+#include <json11.hpp>
 
 #include "tflow-capture.h"
 
+using namespace json11;
+
+v4l2_buffer g_buf;
+
+//static GSourceFuncs f_gsf = {
+//    .prepare = NULL,
+//    .check = NULL,
+//    .dispatch = f_cam_io_in_dispatch,
+//    .finalize = NULL
+//};
+
+TFlowBuf::TFlowBuf()
+{
+    // ???
+}
+
+int TFlowBuf::age() {
+    int rc;
+    struct timespec tp;
+    unsigned long proc_frame_ms, now_ms;
+
+    rc = clock_gettime(CLOCK_MONOTONIC, &tp);
+    now_ms = tp.tv_sec * 1000 + tp.tv_nsec / 1000000;
+    proc_frame_ms = ts.tv_sec * 1000 + ts.tv_usec / 1000;
+
+    return (now_ms - proc_frame_ms);
+}
+
 TFlowCapture::TFlowCapture() : 
-    ctrl(this)
+    ctrl(*this)
 {
     context = g_main_context_new();
     g_main_context_push_thread_default(context);
     
     main_loop = g_main_loop_new(context, false);
 
-    //dbg  = new AticDbg(*this);
-    //dbg->Init(); // Q: ? Should it be part of constructor ?
-
-    // ctrl = new TFlowCtrlCapture(*this);
     ctrl.Init(); // Q: ? Should it be part of constructor ?
+
+    buf_srv = new TFlowBufSrv(context);
+    cam = new V4L2Device(context);
+
+    /* Link Camera and TFlowBufferServer*/
+    cam->buf_srv = buf_srv;
+    buf_srv->cam = cam;
 
     last_cam_check = clock();
 }
 
 TFlowCapture::~TFlowCapture()
 {
+    delete buf_srv;
+
     g_main_loop_unref(main_loop);
     main_loop = NULL;
-
-    if (ctrl) {
-        delete ctrl;
-    }
-
-    if (dbg) {
-        delete dbg;
-    }
-
-    if (gst) {
-        delete gst;
-    }
 
     g_main_context_pop_thread_default(context);
     g_main_context_unref(context);
@@ -58,28 +81,57 @@ void TFlowCapture::checkCamState(clock_t now)
 
     /* Do not check to often*/
     if (dt < 3 * CLOCKS_PER_SEC ) return;
+    last_cam_check = now;
 
-    if (cam_state_flag == FL_SET || cam_state_flag == FL_CLR) {
+#if 0
+    std::cout << "kuku5" << std::endl;
+    cam.f_in_fd = open("/dev/ttyACM0", O_RDWR | O_NONBLOCK);
+
+    cam.f_in_src = g_source_new(&f_gsf, sizeof(CamFdSource));
+    cam.f_in_tag = g_source_add_unix_fd(cam.f_in_src, cam.f_in_fd, (GIOCondition)(G_IO_OUT | G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP | G_IO_NVAL));
+    g_source_attach(cam.f_in_src, context);
+
+    char b[10];
+    int rc = read(cam.f_in_fd, b, 10);
+    int err = errno;
+#endif
+
+    if (cam_state_flag.v == Flag::SET || cam_state_flag.v == Flag::CLR) {
         return;
     }
     
-    if (cam_state_flag == FL_UNDEF || cam_state_flag == FL_RISE) {
-        // Check camera device name
-        if (!ctrl.cam_name_is_valid()) return;
+    if (cam_state_flag.v == Flag::UNDEF || cam_state_flag.v == Flag::RISE) {
+        int rc;
 
-        int rc = cam.CaptureInit(ctrl.cam_name_get());
+        // Check camera device name
+        if (!ctrl.dev_name_is_valid()) return;
+
+        // TODO: How to put all supported configuration into the config before 
+        //       opening the camera.
+        //       Update Ctrl Format enum on camera Open and sed it to the UI
+        //       The Ctrl configuration stores number of Format in enumeration list.
+        //       If index is valid then use this format to start the stream
+        rc = cam->Init(ctrl.cam_name_get()); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
         if (rc == 0) {
-            cam_state_flag == FL_SET;
+            rc = cam->StreamOn(ctrl.cam_fmt_get());
+        }
+
+        if (rc == 0) {
+            cam_state_flag.v = Flag::SET;
+            cam->onBuff();          // Trigger initial buffer readout - aka kick
         }
         else {
             // Can't open camera - try again later 
-            cam_state_flag = FL_RISE;
+            cam_state_flag.v = Flag::RISE;
         }
+        return;
     }
 
-    if (cam_state_flag == FL_FALL) {
+    if (cam_state_flag.v == Flag::FALL) {
         // close the camera
-        cam_state_flag = FL_FALL;
+        delete cam;
+        cam = NULL;
+        cam_state_flag.v = Flag::CLR;
     }
 
 }
@@ -88,19 +140,21 @@ void TFlowCapture::OnIdle()
 {
     clock_t now = clock();
 
-    checkCamState(now);
+    checkCamState(now);     // 
+    buf_srv->onIdle(now);
 
 }
 
-void TFlowCapture::Start()
+void TFlowCapture::Attach()
 {
     g_info("App Streamer Started");
 
     GSource* src_idle = g_idle_source_new();
-    g_source_set_callback(src_idle, (GSourceFunc)tflow_capture_idle, &app, nullptr);
-    g_source_attach(src_idle, app.context);
+    g_source_set_callback(src_idle, (GSourceFunc)tflow_capture_idle, this, nullptr);
+    g_source_attach(src_idle, context);
     g_source_unref(src_idle);
 
     return;
 }
+
 
