@@ -13,8 +13,8 @@
 #include <memory.h>
 #include <string.h>
 
-#define BUFFER_NUM  4   // Number of buffers
-#define PLANE_NUM   1   // Number of planes
+//#define BUFFERS_NUM  4   // Number of buffers
+//#define PLANES_NUM   1   // Number of planes
 
 // AV: TODO: HxW are part of of configuration!!!
 #define IMAGEHEIGHT 240
@@ -30,7 +30,7 @@ class V4L2Device {
 public:
 //    V4L2Device(TFlowCapture *parent);
 
-    V4L2Device(GMainContext* context);
+    V4L2Device(GMainContext* context, int buffs_num, int planes_num);
     ~V4L2Device();
 
     int Init(const char* dev_name);
@@ -48,13 +48,13 @@ public:
     int  ioctlGetStreamFmt();
     int  ioctlSetStreamFmt(u_int pixelformat, u_int width, u_int height); 
 
-    // TODO: Rework to InitBuffers/DeinitBuffers
     int  InitBuffers();
     void DeinitBuffers();
 
     //Frame capture
     int  ioctlQueueBuffer(int index);
-    int  ioctlDequeueBuffer(int *index, struct timeval *ts);
+    //int  ioctlDequeueBuffer(int* index, struct timeval* ts);    // not in use
+    int  ioctlDequeueBuffer(v4l2_buffer &v4l2_buf);    // not in use
 
     int  StreamOn(int fmt_idx);
     void ioctlSetStreamOff();
@@ -66,16 +66,21 @@ public:
     gpointer f_in_tag;
 
     int onBuff();       // Called at new buffer available from the driver
-    int onBuffRet();    // Returns the buffer back to driver
-    void redeem(int);
+    //int onBuffRet();    // Returns the buffer back to driver
 
     typedef struct {
         GSource g_source;
         V4L2Device* cam;
     } GSourceCam;
 
-    TFlowBufSrv *buf_srv;  // Server to pass V4L2 buffers
+    TFlowBufSrv *buf_srv;   // Server to pass V4L2 buffers
+    int buffs_num;          // Initialized on creation by callee 
+    int planes_num;         // Initialized on creation by callee 
+                            // TODO: AV: Planes_num is used for ioctl only. 
+                            //           Consider usage of the same v4l2_buffer for all operation (4 times).
+                            //           This will reduce the code size slightly
 private:
+
 
     int  Open(const char* filename = "/dev/video0");
     void Close();
@@ -91,10 +96,13 @@ private:
         void* start;
         size_t length;
     };
-    std::array<struct Buffer, BUFFER_NUM> m_buffers {};
+    std::vector<struct Buffer> m_buffers {};     // AV: Memory content isn't used by Capture module, thus not in use
 
     GSourceCam* io_in_src;
     gpointer io_in_tag;
     GSourceFuncs gsource_funcs;
+
+    v4l2_buffer v4l2_buf_template;
+    std::vector<v4l2_plane> mplanes_template;
 
 };

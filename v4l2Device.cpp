@@ -1,3 +1,5 @@
+// 1) How V4L2 Device is related with TFlowBufSrv and TFlowBuf[]
+// 2) Consider usage TFlowBuf[] inside of V4L2_Device
 #include <thread>
 #include <iostream>
 #include <fcntl.h>
@@ -15,14 +17,13 @@ gboolean cam_io_in_dispatch(GSource* g_source, GSourceFunc callback, gpointer us
     V4L2Device::GSourceCam* source = (V4L2Device::GSourceCam*)g_source;
     V4L2Device* cam = source->cam;
 
-
 //    g_info("IO IN DISPATCH ");
 
     int rc = cam->onBuff();
-
-    //int index;
-    //timeval frame_ts;
-    //cam->ioctlDequeueBuffer(&index, &frame_ts);
+    if (rc) {
+        // Close camera???
+        // return G_SOURCE_REMOVE;
+    }
 
     return G_SOURCE_CONTINUE;
 }
@@ -34,10 +35,13 @@ gboolean g_cam_io_in_cb(gpointer user_data)
     return 0;
 }
 
-//V4L2Device::V4L2Device(TFlowCapture* in_parent)
-V4L2Device::V4L2Device(GMainContext* in_context)
+V4L2Device::V4L2Device(GMainContext* in_context, int _buffs_num, int _planes_num)
 {
     context = in_context;
+
+    buffs_num = _buffs_num;
+    planes_num = _planes_num;
+
     buf_srv = NULL;
 
     io_in_tag = NULL;
@@ -48,6 +52,19 @@ V4L2Device::V4L2Device(GMainContext* in_context)
     io_in_src = (GSourceCam*)g_source_new(&gsource_funcs, sizeof(GSourceCam));
     io_in_src->cam = this;
     g_source_attach((GSource*)io_in_src, in_context);
+
+    //v4l2_plane mplanes[PLANES_NUM];
+
+    CLEAR(v4l2_buf_template);
+    
+    v4l2_plane empty_plane {};
+    mplanes_template = std::vector<v4l2_plane>(planes_num, empty_plane);
+
+    v4l2_buf_template.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    v4l2_buf_template.memory = V4L2_MEMORY_MMAP;
+    v4l2_buf_template.m.planes = mplanes_template.data();
+    v4l2_buf_template.length = planes_num;
+    v4l2_buf_template.index = 0; // ???
 
 }
 
@@ -88,56 +105,26 @@ V4L2Device::~V4L2Device()
     }
 }
 
-void V4L2Device::redeem(int indx)
-{
-    // Sanity check ???
-
-    ioctlQueueBuffer(indx);
-}
 /*
  * The function is a calback called on async VIDIOC_DQBUF completion
  */
 int V4L2Device::onBuff()
 {
-    v4l2_buffer v4l2_buf;
-    v4l2_plane mplanes[PLANE_NUM];
     int rc;
 
-    CLEAR(v4l2_buf);
-    v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory = V4L2_MEMORY_MMAP;
-    v4l2_buf.m.planes = mplanes;
-    v4l2_buf.length = PLANE_NUM;
+    //CLEAR(v4l2_buf);
+    //v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    //v4l2_buf.memory = V4L2_MEMORY_MMAP;
+    //v4l2_buf.m.planes = mplanes.data();
+    //v4l2_buf.length = planes_num;
 
     //Dequeue buffers
     while (1) {
+        v4l2_buffer v4l2_buf = v4l2_buf_template; // TODO: Q: can it be reused without reinitialization?
+        rc = ioctlDequeueBuffer(v4l2_buf);
+        if (rc) return rc;
 
-
-        rc = ioctl(dev_fd, VIDIOC_DQBUF, &v4l2_buf);
-        if (rc == 0) {
-            // new buffer received normally
-            {
-                static int cnt = 0;
-                cnt++;
-                if ((cnt & 0x3F) == 0) {
-                    g_info("Consumed %d frames", cnt);
-                }
-            }
-            buf_srv->consume(v4l2_buf);
-        }
-        else if (rc == -1) {
-            if (errno == EAGAIN) {
-                // std::cout << "EAGAIN..." << std::endl;
-                break;
-            }
-            else {
-                g_warning("VIDIOC_DQBUF: unexpected error (%d) - %s",
-                    errno, strerror(errno));
-
-                // TODO: Close the device?
-                // ...
-            }
-        }
+        buf_srv->consume(v4l2_buf);
     }
 
     return 0;
@@ -370,7 +357,7 @@ int V4L2Device::InitBuffers()
     /* 
      * Request buffers 
      */
-    req.count = BUFFER_NUM;
+    req.count = buffs_num;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     req.memory = V4L2_MEMORY_MMAP;
     if (-1 == ioctl(dev_fd, VIDIOC_REQBUFS, &req)) {
@@ -380,38 +367,44 @@ int V4L2Device::InitBuffers()
 
     /*
      * Map DMA memory to the user space
+     * AV: not really needed because Capture don't care about buffers' content
      */
 
-    for(int n = 0; n < BUFFER_NUM; n++) {
-        v4l2_buffer buf;
-        v4l2_plane mplanes[PLANE_NUM];
-        CLEAR(buf);
+    //std::vector<v4l2_plane> mplanes(planes_num);
+    //v4l2_buffer buf;
+    struct Buffer buf {};
+    m_buffers = std::vector<struct Buffer>(buffs_num, buf);
 
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-        buf.memory = V4L2_MEMORY_MMAP;
-        buf.index = n;
-        buf.m.planes = mplanes;
-        buf.length = PLANE_NUM;
+    v4l2_buffer v4l2_buf = v4l2_buf_template;
+
+    for(int index = 0; index < buffs_num; index++) {
+        // CLEAR(buf);
+
+        v4l2_buf.index = index;
+        //buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+        //buf.memory = V4L2_MEMORY_MMAP;
+        //buf.index = n;
+        //buf.m.planes = mplanes.data();
+        //buf.length = planes_num;
 
         // Query the information of the buffer with index=n into struct buf
-        if (-1 == ioctl(dev_fd, VIDIOC_QUERYBUF, &buf)) {
+        if (-1 == ioctl(dev_fd, VIDIOC_QUERYBUF, &v4l2_buf)) {
             g_warning("Can't VIDIOC_QUERYBUF (%d)", errno);
             return -1;
         }
 
+        /* AV: TODO: we don't care about buffer content. Remove this. */
         // Record the length and mmap buffer to user space
-        m_buffers[n].length = buf.m.planes[0].length;
-        m_buffers[n].start = mmap(NULL, buf.m.planes[0].length, 
-                PROT_READ | PROT_WRITE, MAP_SHARED, dev_fd, buf.m.planes[0].m.mem_offset); 
+        m_buffers[index].length = v4l2_buf.m.planes[0].length;
+        m_buffers[index].start = mmap(NULL, v4l2_buf.m.planes[0].length,
+                PROT_READ | PROT_WRITE, MAP_SHARED, dev_fd, v4l2_buf.m.planes[0].m.mem_offset);
 
-        if (MAP_FAILED == m_buffers[n].start) {
+        if (MAP_FAILED == m_buffers[index].start) {
             g_warning("Can't MMAP (%d)", errno);
             return -1;
         }
-    }
 
-    for (int i = 0; i < BUFFER_NUM; i++) {
-        rc != ioctlQueueBuffer(i);
+        buf_srv->add_new(index);
     }
 
     return rc;
@@ -420,44 +413,60 @@ int V4L2Device::InitBuffers()
 // Enqueue a buffer
 int V4L2Device::ioctlQueueBuffer(int index)
 {
-    v4l2_buffer buf;
-    v4l2_plane mplanes[PLANE_NUM];
-    CLEAR(buf);
+    //v4l2_buffer buf;
+    //std::vector<v4l2_plane> mplanes(planes_num); 
+    ////v4l2_plane mplanes[PLANES_NUM];
+    //CLEAR(buf);
 
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    buf.memory = V4L2_MEMORY_MMAP;
-    buf.m.planes = mplanes;
-    buf.length = PLANE_NUM;
-    buf.index = index;
+    //buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    //buf.memory = V4L2_MEMORY_MMAP;
+    //buf.m.planes = mplanes.data();
+    //buf.length = planes_num;
+    
+    v4l2_buffer v4l2_buf = v4l2_buf_template;
+    v4l2_buf.index = index;
 
     // Buffer back to queue
-    if (-1 == ioctl(dev_fd, VIDIOC_QBUF, &buf)) {
-        std::cout << "VIDIOC_QBUF error: buffer " << index << " already enqueue." << std::endl;
+    if (-1 == ioctl(dev_fd, VIDIOC_QBUF, &v4l2_buf)) {
+        g_warning("V4L2Device: Ooops VIDIOC_QBUF @%d", index);
         return -1;
     }
     return 0;
 }
 
 // Dequeue a buffer /read a frame
-int V4L2Device::ioctlDequeueBuffer(int *index, struct timeval *ts)
+int V4L2Device::ioctlDequeueBuffer(v4l2_buffer &v4l2_buf)
 {
-    v4l2_buffer buf;
-    v4l2_plane mplanes[PLANE_NUM];
-    CLEAR(buf);
+    int rc;
+    //v4l2_buffer buf;
+    ////v4l2_plane mplanes[PLANES_NUM];
+    //std::vector<v4l2_plane> mplanes(planes_num);
+    //CLEAR(buf);
 
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    buf.memory = V4L2_MEMORY_MMAP;
-    buf.m.planes = mplanes;
-    buf.length = PLANE_NUM;
+    //buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    //buf.memory = V4L2_MEMORY_MMAP;
+    //buf.m.planes = mplanes.data();
+    //buf.length = planes_num;
     
     //Dequeue a buffer with captured frame
-    if (-1 == ioctl(dev_fd, VIDIOC_DQBUF, &buf)) {
-        perror("VIDIOC_DQBUF");
-        return -1;
+
+    rc = ioctl(dev_fd, VIDIOC_DQBUF, &v4l2_buf);
+    if (rc == -1) {
+        if (errno == EAGAIN) {
+            v4l2_buf.index = -1;
+            return 0;
+        }
+        else {
+            g_warning("VIDIOC_DQBUF: unexpected error (%d) - %s", errno, strerror(errno));
+
+            // TODO: Close the device?
+            // ...
+            return -1;
+        }
     }
 
-    *index = buf.index;
-    *ts = buf.timestamp;
+    //*index = v4l2_buf.index;
+    //*ts = v4l2_buf.timestamp;
 //    frame = (u_char*)m_buffers[buf.index].start; // Point to the buffer where a frame is captured
 //    size = m_buffers[buf.index].length;
 

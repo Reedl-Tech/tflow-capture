@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\tflow-buf-srv.h" />
+    <ClInclude Include="..\tflow-buf.h" />
     <ClInclude Include="..\tflow-capture.h" />
     <ClInclude Include="..\tflow-ctrl-capture.h" />
     <ClInclude Include="..\tflow-ctrl.h" />

@@ -21,6 +21,7 @@ add_executable (tflow-capture
     "main.cpp"
     "tflow-capture.cpp"
     "tflow-capture.h"
+    "tflow-buf.h"
     "tflow-buf-srv.cpp"
     "tflow-buf-srv.h"
     "tflow-ctrl-capture.cpp"

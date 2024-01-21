@@ -21,6 +21,7 @@
       <Filter>V4L2Device</Filter>
     </ClInclude>
     <ClInclude Include="..\tflow-buf-srv.h" />
+    <ClInclude Include="..\tflow-buf.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">

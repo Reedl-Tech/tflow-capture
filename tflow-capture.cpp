@@ -1,3 +1,4 @@
+// adsa
 #include <iostream>
 #include <giomm.h>
 #include <glib-unix.h>
@@ -9,16 +10,9 @@ using namespace json11;
 
 v4l2_buffer g_buf;
 
-//static GSourceFuncs f_gsf = {
-//    .prepare = NULL,
-//    .check = NULL,
-//    .dispatch = f_cam_io_in_dispatch,
-//    .finalize = NULL
-//};
-
-TFlowBuf::TFlowBuf()
+TFlowBuf::TFlowBuf(int _index)
 {
-    // ???
+    index = _index;
 }
 
 int TFlowBuf::age() {
@@ -43,8 +37,12 @@ TFlowCapture::TFlowCapture() :
 
     ctrl.Init(); // Q: ? Should it be part of constructor ?
 
-    buf_srv = new TFlowBufSrv(context);
-    cam = new V4L2Device(context);
+    {
+        int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.u32;
+
+        buf_srv = new TFlowBufSrv(context, cfg_buffs_num);
+        cam = new V4L2Device(context, cfg_buffs_num, 1);
+    }
 
     /* Link Camera and TFlowBufferServer*/
     cam->buf_srv = buf_srv;
@@ -111,23 +109,33 @@ void TFlowCapture::checkCamState(clock_t now)
         //       Update Ctrl Format enum on camera Open and sed it to the UI
         //       The Ctrl configuration stores number of Format in enumeration list.
         //       If index is valid then use this format to start the stream
-        rc = cam->Init(ctrl.cam_name_get()); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
-        if (rc == 0) {
-            rc = cam->StreamOn(ctrl.cam_fmt_get());
-        }
+        do {
+            rc = cam->Init(ctrl.cam_name_get()); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
+            if (rc) break;
 
-        if (rc == 0) {
+            rc = cam->StreamOn(ctrl.cam_fmt_get());
+            if (rc) break;
+
             cam_state_flag.v = Flag::SET;
-            cam->onBuff();          // Trigger initial buffer readout - aka kick
+//            rc = cam->onBuff();          // Trigger initial buffer readout - aka kick ???
         }
-        else {
+        while (0);
+        
+        if (rc) {
             // Can't open camera - try again later 
             cam_state_flag.v = Flag::RISE;
+        }
+        else {
+            /* Camera is open. Now we can advertise video buffers */
+            buf_srv->sck_state_flag.v = Flag::RISE;
         }
         return;
     }
 
     if (cam_state_flag.v == Flag::FALL) {
+        
+        buf_srv->sck_state_flag.v == Flag::FALL;
+
         // close the camera
         delete cam;
         cam = NULL;
@@ -145,7 +153,7 @@ void TFlowCapture::OnIdle()
 
 }
 
-void TFlowCapture::Attach()
+void TFlowCapture::AttachIdle()
 {
     g_info("App Streamer Started");
 

@@ -1,4 +1,6 @@
 #include <sys/stat.h>
+#include <functional>
+
 #include <glib-unix.h>
 //#include <glib/gmem.h>
 
@@ -8,13 +10,20 @@
 using namespace json11;
 
 static const char *raw_cfg_default =  R"( 
-    {"dev_name" : "/dev/video0"} 
+    {
+        "buffs_num"  : 4,
+        "dev_name" : "/dev/video0"
+    } 
 )";
+
+static int _cmd_cb_sign      (TFlowCtrlCapture* obj, Json& json) { return obj->cmd_cb_sign(json); }
+static int _cmd_cb_config    (TFlowCtrlCapture* obj, Json& json) { return obj->cmd_cb_config(json); }
+static int _cmd_cb_set_as_def(TFlowCtrlCapture* obj, Json& json) { return obj->cmd_cb_set_as_def(json); }
 
 TFlowCtrlCapture::TFlowCtrlCapture(TFlowCapture& parent) :
     app(parent)
 {
-    
+
 }
 
 void TFlowCtrlCapture::Init()
@@ -60,6 +69,7 @@ void TFlowCtrlCapture::Init()
         json_cfg = Json::parse(raw_cfg_default, err);
     }
 
+
     set_cmd_fields((tflow_cmd_field_t*)&cmd_flds_config, json_cfg);
 }
 
@@ -81,60 +91,16 @@ int TFlowCtrlCapture::cam_fmt_get()
 /*** Application specific part ***/
 /*********************************/
 
-static int ctrl_capture_cmd_cb_sign_s(void* ctx, Json& in_params)
+int TFlowCtrlCapture::cmd_cb_sign(Json& in_params)
 {
     return 0;
 }
 
-#if 0
-int TFlowCtrlCapture::tflow_cmd_cb_sign(void* ctx)
-{
-    using namespace std;
-    cout << "\nset_as_def\n";
-    if (ctx != nullptr) {
-        json11::Json::array &params = *static_cast<json11::Json::array *>(ctx);
-
-        if (!params.empty()) {
-            cout << "has PARAMS when shouldn't" << endl;
-            return -1;
-        }
-    }
-    cout << "EMPTY PARAMS (ALL OK)" << endl;
-
-    // Reply with the module signature
-    // ...
-    return 0;
-}
-
-int TFlowCtrlCapture::tflow_cmd_cb_set_as_def(void* ctx)
-{
-    using namespace std;
-    cout << "\nset_as_def\n";
-    if (ctx != nullptr) {
-        json11::Json::array& params = *static_cast<json11::Json::array*>(ctx);
-
-        if (!params.empty()) {
-            cout << "has PARAMS when shouldn't" << endl;
-            return -1;
-        }
-    }
-    cout << "EMPTY PARAMS (ALL OK)" << endl;
-    return 0;
-}
-
-#endif
-
-
-static int ctrl_capture_cmd_cb_set_as_def_s(void* ctx, Json& json_cfg)
+int TFlowCtrlCapture::cmd_cb_set_as_def(Json& in_params)
 {
     return 0;
 }
 
-static int ctrl_capture_cmd_cb_config_s(void* ctx, Json& in_params)
-{
-    TFlowCtrlCapture *ctrl_capture = (TFlowCtrlCapture*)ctx;
-    return ctrl_capture->cmd_cb_config(in_params);
-}
 
 int TFlowCtrlCapture::cmd_cb_config(Json &in_params)
 {

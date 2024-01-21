@@ -9,18 +9,6 @@
 typedef Glib::RefPtr<Glib::MainLoop> MainLoopPtr;
 typedef Glib::RefPtr<Glib::MainContext> MainContextPtr;
 
-/* Buffer that is passed to TFlowBufSrv */
-class TFlowBuf {
-public:
-    TFlowBuf();
-
-    int index = -1;
-    struct timeval ts = { 0 };
-    uint32_t subscribers = 0;   // Bit mask of TFlowBufCli. Bit 0 - means buffer is in user space
-
-    int age();
-};
-
 class Flag {
 public:
     enum states {
@@ -37,12 +25,6 @@ public:
 #include "tflow-buf-srv.h"
 #include "v4l2Device.h"
 
-
-class TFlowBufCli {
-public:
-};
-
-
 class TFlowCapture {
 public:
     TFlowCapture();
@@ -51,7 +33,7 @@ public:
     GMainContext *context;
     GMainLoop *main_loop;
     
-    void Attach();
+    void AttachIdle();
     void OnIdle();
 
     TFlowBufSrv *buf_srv;

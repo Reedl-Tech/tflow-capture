@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 
     setup_sig_handlers();
 
-    gp_app->Attach();
+    gp_app->AttachIdle();
 
 #if CODE_BROWSE
     gp_app->OnIdle();   

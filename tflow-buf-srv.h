@@ -7,21 +7,66 @@
 //#include <giomm.h>
 #include <glib-unix.h>
 
-#define TFLOWBUFSRV_SOCKET_NAME "com.reedl.tflowbufsrv"
-#include "tflow-capture.h"
-
+//#include "tflow-capture.h"
+#include "tflow-buf.h"
 //class Flag;
+
+#define TFLOWBUFSRV_SOCKET_NAME "com.reedl.tflow.buf-server"
+
+class TFlowBufSrv;
+
+class TFlowBufCliPort {
+
+public:
+    TFlowBufCliPort(TFlowBufSrv* srv, uint32_t mask, int fd);
+    ~TFlowBufCliPort();
+
+    GMainContext* context;      // AV: Q: ? is in use ? Use server context instead?
+    clock_t last_idle_check = 0;
+
+    char* signature;
+
+    TFlowBufSrv* srv;
+
+    int onMsg();
+
+    uint32_t cli_port_mask;     // TODO: Q: ? Use sck_fd as a mask ?
+
+    typedef struct
+    {
+        GSource g_source;
+        TFlowBufCliPort* cli_port;
+    } GSourceCliPort;
+
+    int                 sck_fd;
+private:
+
+    int onSign(struct TFlowBuf::pck_sign *sign_msg);
+    int SendCamFD();
+
+    GSourceCliPort*     sck_src;
+    gpointer            sck_tag;
+    GSourceFuncs        sck_gsfuncs;
+
+    int msg_seq_num;
+
+};
 
 class V4L2Device;
 
-class TFlowBufSrv {
+class TFlowBufSrv  {
 public:
-    TFlowBufSrv(GMainContext* context);
+
+    TFlowBufSrv(GMainContext* context, int _buffs_num);
     ~TFlowBufSrv();
     int StartListening();
     void onIdle(clock_t now);
-    int consume(v4l2_buffer &v4l2_buf);
+    
+    void add_new(int index);                    // Called by Camera device upon new V4L2 buffer allocation
+    int consume(v4l2_buffer &v4l2_buf);         // Pass newly incoming frame to Client Ports
+    void redeem(TFlowBuf& buf, uint32_t mask);  // Called when CliPort returns buffers back to TFlow Buffer Server
 
+    // int get_free();                         // Gets next Called by Camera device upon new V4L2 buffer allocation
     char* sck_name;
     int sck_fd = -1;
     Flag sck_state_flag;
@@ -38,26 +83,32 @@ public:
     gpointer sck_tag;
     GSourceFuncs sck_gsfuncs;
 
-private:
+    int SendCamFD(TFlowBufCliPort *cli_port);
+    int onConnect();
+    void releaseCliPort(TFlowBufCliPort* cli_port);
+
     GMainContext* context;
+
+    int buffs_num;
+
+private:
     clock_t last_idle_check = 0;
 
-    struct cli_port {
-        char* sck_name;
-        int sck_fd;
-        uint32_t subscriber_mask;
-        int consumed_cnt;
-        int redeemed_cnt;
-        struct timeval last_act;
-    };
+    //struct cli_port {
+    //    char* sck_name;
+    //    int sck_fd;
+    //    uint32_t subscriber_mask;
+    //    int consumed_cnt;
+    //    int redeemed_cnt;
+    //    struct timeval last_act;
+    //};
 
-    static constexpr int PORT_VPROCESS = 0;
-    static constexpr int PORT_STREAMER = 1;
-    static constexpr int PORT_LAST = 2;
+    std::array<TFlowBufCliPort*, 4> cli_ports{};
 
-    std::array<struct cli_port, PORT_LAST> cli_ports{};
+    std::vector<TFlowBuf> bufs{};                       // Use external oject shared between V4L2_Device and TFlowBufSrv/CliPort
+//    std::deque<TFlowBuf*> free_usr_bufs = {};           // Buffers ready to be send to the Camera driver
 
-    static constexpr int TFLOW_BUF_NUM = 4; // AV: Should be the same as V4L2 bufs?
-    std::array<TFlowBuf, TFLOW_BUF_NUM> bufs{};
+    //void onBuffShare(TFlowBuf& buf, uint32_t mask);            // Called when TFlow Buffer Server shares the buffer to a CliPort
+
 };
 
