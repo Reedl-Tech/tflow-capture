@@ -17,8 +17,6 @@ gboolean cam_io_in_dispatch(GSource* g_source, GSourceFunc callback, gpointer us
     V4L2Device::GSourceCam* source = (V4L2Device::GSourceCam*)g_source;
     V4L2Device* cam = source->cam;
 
-//    g_info("IO IN DISPATCH ");
-
     int rc = cam->onBuff();
     if (rc) {
         // Close camera???
@@ -35,10 +33,9 @@ gboolean g_cam_io_in_cb(gpointer user_data)
     return 0;
 }
 
-V4L2Device::V4L2Device(GMainContext* in_context, int _buffs_num, int _planes_num)
+V4L2Device::V4L2Device(GMainContext* _context, int _buffs_num, int _planes_num)
 {
-    context = in_context;
-
+    context = _context;
     buffs_num = _buffs_num;
     planes_num = _planes_num;
 
@@ -51,9 +48,7 @@ V4L2Device::V4L2Device(GMainContext* in_context, int _buffs_num, int _planes_num
     gsource_funcs.dispatch = cam_io_in_dispatch;
     io_in_src = (GSourceCam*)g_source_new(&gsource_funcs, sizeof(GSourceCam));
     io_in_src->cam = this;
-    g_source_attach((GSource*)io_in_src, in_context);
-
-    //v4l2_plane mplanes[PLANES_NUM];
+    g_source_attach((GSource*)io_in_src, _context);
 
     CLEAR(v4l2_buf_template);
     
@@ -64,7 +59,7 @@ V4L2Device::V4L2Device(GMainContext* in_context, int _buffs_num, int _planes_num
     v4l2_buf_template.memory = V4L2_MEMORY_MMAP;
     v4l2_buf_template.m.planes = mplanes_template.data();
     v4l2_buf_template.length = planes_num;
-    v4l2_buf_template.index = 0; // ???
+    v4l2_buf_template.index = 0;
 
 }
 
@@ -80,29 +75,11 @@ V4L2Device::~V4L2Device()
         io_in_src = nullptr;
     }
 
-    Deinit();
-/*
-    {
-        // Release all previously requested DMA buffers
-        // implicit VIDIOC_STREAMOFF.
-        v4l2_requestbuffers req;
-        int rc;
-        CLEAR(req);
-
-        req.count = 0;
-        req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;  // Is it necessary then count == 0?
-        req.memory = V4L2_MEMORY_MMAP;                  // Is it necessary then count == 0?
-        rc = ioctl(dev_fd, VIDIOC_REQBUFS, &req);
-        if (-1 == rc) {
-            g_warning("clear_me");
-        }
-        // TODO: Check STREAMOFF
-    }
-*/
-    // TODO: Check STREAMOFF after DMA buffers release
     if (m_isStreamOn) {
         ioctlSetStreamOff();
     }
+
+    Deinit();
 }
 
 /*
@@ -112,15 +89,10 @@ int V4L2Device::onBuff()
 {
     int rc;
 
-    //CLEAR(v4l2_buf);
-    //v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    //v4l2_buf.memory = V4L2_MEMORY_MMAP;
-    //v4l2_buf.m.planes = mplanes.data();
-    //v4l2_buf.length = planes_num;
-
-    //Dequeue buffers
+    //Dequeue all buffers
+    v4l2_buffer v4l2_buf = v4l2_buf_template; // TODO: Q: can it be reused without reinitialization?
     while (1) {
-        v4l2_buffer v4l2_buf = v4l2_buf_template; // TODO: Q: can it be reused without reinitialization?
+        // ? reinit v4l2_buf ?
         rc = ioctlDequeueBuffer(v4l2_buf);
         if (rc) return rc;
 
@@ -370,22 +342,12 @@ int V4L2Device::InitBuffers()
      * AV: not really needed because Capture don't care about buffers' content
      */
 
-    //std::vector<v4l2_plane> mplanes(planes_num);
-    //v4l2_buffer buf;
     struct Buffer buf {};
     m_buffers = std::vector<struct Buffer>(buffs_num, buf);
-
     v4l2_buffer v4l2_buf = v4l2_buf_template;
 
     for(int index = 0; index < buffs_num; index++) {
-        // CLEAR(buf);
-
         v4l2_buf.index = index;
-        //buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-        //buf.memory = V4L2_MEMORY_MMAP;
-        //buf.index = n;
-        //buf.m.planes = mplanes.data();
-        //buf.length = planes_num;
 
         // Query the information of the buffer with index=n into struct buf
         if (-1 == ioctl(dev_fd, VIDIOC_QUERYBUF, &v4l2_buf)) {
@@ -413,20 +375,10 @@ int V4L2Device::InitBuffers()
 // Enqueue a buffer
 int V4L2Device::ioctlQueueBuffer(int index)
 {
-    //v4l2_buffer buf;
-    //std::vector<v4l2_plane> mplanes(planes_num); 
-    ////v4l2_plane mplanes[PLANES_NUM];
-    //CLEAR(buf);
-
-    //buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    //buf.memory = V4L2_MEMORY_MMAP;
-    //buf.m.planes = mplanes.data();
-    //buf.length = planes_num;
-    
     v4l2_buffer v4l2_buf = v4l2_buf_template;
     v4l2_buf.index = index;
 
-    // Buffer back to queue
+    // Put the buffer back to kernel's queue
     if (-1 == ioctl(dev_fd, VIDIOC_QBUF, &v4l2_buf)) {
         g_warning("V4L2Device: Ooops VIDIOC_QBUF @%d", index);
         return -1;
@@ -434,22 +386,11 @@ int V4L2Device::ioctlQueueBuffer(int index)
     return 0;
 }
 
-// Dequeue a buffer /read a frame
 int V4L2Device::ioctlDequeueBuffer(v4l2_buffer &v4l2_buf)
 {
     int rc;
-    //v4l2_buffer buf;
-    ////v4l2_plane mplanes[PLANES_NUM];
-    //std::vector<v4l2_plane> mplanes(planes_num);
-    //CLEAR(buf);
-
-    //buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    //buf.memory = V4L2_MEMORY_MMAP;
-    //buf.m.planes = mplanes.data();
-    //buf.length = planes_num;
     
     //Dequeue a buffer with captured frame
-
     rc = ioctl(dev_fd, VIDIOC_DQBUF, &v4l2_buf);
     if (rc == -1) {
         if (errno == EAGAIN) {
@@ -464,11 +405,6 @@ int V4L2Device::ioctlDequeueBuffer(v4l2_buffer &v4l2_buf)
             return -1;
         }
     }
-
-    //*index = v4l2_buf.index;
-    //*ts = v4l2_buf.timestamp;
-//    frame = (u_char*)m_buffers[buf.index].start; // Point to the buffer where a frame is captured
-//    size = m_buffers[buf.index].length;
 
     return 0;
 }

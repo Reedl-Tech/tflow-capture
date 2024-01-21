@@ -4,12 +4,9 @@
 #include <time.h>
 #include <linux/videodev2.h> //V4L2 stuff
 
-//#include <giomm.h>
 #include <glib-unix.h>
 
-//#include "tflow-capture.h"
 #include "tflow-buf.h"
-//class Flag;
 
 #define TFLOWBUFSRV_SOCKET_NAME "com.reedl.tflow.buf-server"
 
@@ -49,7 +46,6 @@ private:
     GSourceFuncs        sck_gsfuncs;
 
     int msg_seq_num;
-
 };
 
 class V4L2Device;
@@ -63,10 +59,9 @@ public:
     void onIdle(clock_t now);
     
     void add_new(int index);                    // Called by Camera device upon new V4L2 buffer allocation
-    int consume(v4l2_buffer &v4l2_buf);         // Pass newly incoming frame to Client Ports
+    int  consume(v4l2_buffer &v4l2_buf);        // Pass newly incoming frame to Client Ports
     void redeem(TFlowBuf& buf, uint32_t mask);  // Called when CliPort returns buffers back to TFlow Buffer Server
 
-    // int get_free();                         // Gets next Called by Camera device upon new V4L2 buffer allocation
     char* sck_name;
     int sck_fd = -1;
     Flag sck_state_flag;
@@ -94,21 +89,9 @@ public:
 private:
     clock_t last_idle_check = 0;
 
-    //struct cli_port {
-    //    char* sck_name;
-    //    int sck_fd;
-    //    uint32_t subscriber_mask;
-    //    int consumed_cnt;
-    //    int redeemed_cnt;
-    //    struct timeval last_act;
-    //};
-
     std::array<TFlowBufCliPort*, 4> cli_ports{};
 
-    std::vector<TFlowBuf> bufs{};                       // Use external oject shared between V4L2_Device and TFlowBufSrv/CliPort
-//    std::deque<TFlowBuf*> free_usr_bufs = {};           // Buffers ready to be send to the Camera driver
-
-    //void onBuffShare(TFlowBuf& buf, uint32_t mask);            // Called when TFlow Buffer Server shares the buffer to a CliPort
+    std::vector<TFlowBuf> bufs{};                       // TODO: Q: ? Use external oject shared between V4L2_Device and TFlowBufSrv/CliPort ?
 
 };
 

@@ -43,8 +43,6 @@ void TFlowBufSrv::redeem(TFlowBuf &tflow_buf, uint32_t mask)
     if (tflow_buf.owners == 0) {
         tflow_buf.owners = 1;
         cam->ioctlQueueBuffer(tflow_buf.index);
-        
-//        free_usr_bufs.push_back(&buf);
     }
 }
 
@@ -128,24 +126,12 @@ TFlowBufSrv::TFlowBufSrv(GMainContext* app_context, int _buffs_num)
 
 }
 
-/*
-int TFlowBufSrv::get_free() {
-
-    if (free_usr_bufs.empty()) return -1;
-    auto& buf_p = free_usr_bufs.front();
-    free_usr_bufs.pop_front();
-    return buf_p->index;
-}
-*/
-
 void TFlowBufSrv::add_new(int index)
 {
     auto& tflow_buf = *(bufs.insert(bufs.begin() + index, TFlowBuf(index)));
 
     tflow_buf.owners = 1;
     cam->ioctlQueueBuffer(index);
-
-//    free_usr_bufs.push_back(&buf);
 }
 
 int TFlowBufSrv::consume(v4l2_buffer &v4l2_buf) 
