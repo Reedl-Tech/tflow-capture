@@ -16,7 +16,7 @@
 //#define BUFFERS_NUM  4   // Number of buffers
 //#define PLANES_NUM   1   // Number of planes
 
-// AV: TODO: HxW are part of of configuration!!!
+// AV: TODO: FMT@HxW are part of of configuration!!!
 #define IMAGEHEIGHT 240
 #define IMAGEWIDTH  320
 
@@ -36,8 +36,6 @@ public:
     int Init(const char* dev_name);
     void Deinit();
    
-    void* buffGet(int i);   // AV: not in use
-
     // Query device information
     int  ioctlQueryCapability();
     int  ioctlEnumFmt();
@@ -79,14 +77,17 @@ public:
                             // TODO: AV: Planes_num is used for ioctl only. 
                             //           Consider usage of the same v4l2_buffer for all operation (4 times).
                             //           This will reduce the code size slightly
+                            // 
+    // AV: TODO: Rework to get frame format params from enum
+    //           Q: ? use v4l2_format ?
+    uint32_t frame_width;
+    uint32_t frame_height;
+    uint32_t frame_format;       // 4c V4L2_PIX_FMT_GREY
 private:
-
 
     int  Open(const char* filename = "/dev/video0");
     void Close();
 
-
-  //  TFlowCapture* parent;
     GMainContext* context;  // Context for pending events
 
     const char* m_fname {nullptr};

@@ -10,9 +10,8 @@ using namespace json11;
 
 v4l2_buffer g_buf;
 
-TFlowBuf::TFlowBuf(int _index)
+TFlowBuf::TFlowBuf()
 {
-    index = _index;
 }
 
 int TFlowBuf::age() {
@@ -37,10 +36,9 @@ TFlowCapture::TFlowCapture() :
 
     ctrl.Init(); // Q: ? Should it be part of constructor ?
 
+    buf_srv = new TFlowBufSrv(context);
     {
         int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.u32;
-
-        buf_srv = new TFlowBufSrv(context, cfg_buffs_num);
         cam = new V4L2Device(context, cfg_buffs_num, 1);
     }
 
@@ -70,7 +68,7 @@ static gboolean tflow_capture_idle(gpointer data)
 
     app->OnIdle();
 
-    return true;
+    return G_SOURCE_CONTINUE;
 }
 
 void TFlowCapture::checkCamState(clock_t now)
@@ -117,7 +115,7 @@ void TFlowCapture::checkCamState(clock_t now)
             if (rc) break;
 
             cam_state_flag.v = Flag::SET;
-//            rc = cam->onBuff();          // Trigger initial buffer readout - aka kick ???
+            rc = cam->onBuff();          // Trigger initial buffer readout - aka kick ???
         }
         while (0);
         

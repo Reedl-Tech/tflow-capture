@@ -94,9 +94,18 @@ int V4L2Device::onBuff()
     while (1) {
         // ? reinit v4l2_buf ?
         rc = ioctlDequeueBuffer(v4l2_buf);
-        if (rc) return rc;
+        if (rc == 0) {
 
-        buf_srv->consume(v4l2_buf);
+            if (v4l2_buf.index == -1) {
+                return 0;       // No buffers - It is OK, everything read out. 
+            }
+            rc = buf_srv->buf_consume(v4l2_buf);
+        }
+
+        if (rc) {
+            // Q: ? Close camera ?
+            return rc;
+        }
     }
 
     return 0;
@@ -323,7 +332,8 @@ void V4L2Device::DeinitBuffers()
 int V4L2Device::InitBuffers()
 {
     int rc = 0;
-    v4l2_requestbuffers req;
+    v4l2_requestbuffers req{};
+    v4l2_requestbuffers req_delme;  // AV: TODO: check zero initialization
     CLEAR(req);
 
     /* 
@@ -337,6 +347,8 @@ int V4L2Device::InitBuffers()
         return -1;
     }
 
+    buf_srv->buf_create(buffs_num);
+#if 0
     /*
      * Map DMA memory to the user space
      * AV: not really needed because Capture don't care about buffers' content
@@ -366,8 +378,8 @@ int V4L2Device::InitBuffers()
             return -1;
         }
 
-        buf_srv->add_new(index);
     }
+#endif
 
     return rc;
 }
@@ -419,6 +431,10 @@ int V4L2Device::StreamOn(int fmt_idx)
     //       ioctlSetStreamFmt(fmt)
     rc |= ioctlSetStreamFmt(V4L2_PIX_FMT_GREY, IMAGEWIDTH, IMAGEHEIGHT);
 
+    frame_format = V4L2_PIX_FMT_GREY;
+    frame_width = IMAGEWIDTH;
+    frame_height = IMAGEHEIGHT;
+    
     if (rc) {
         return -1;
     }
@@ -438,6 +454,9 @@ int V4L2Device::StreamOn(int fmt_idx)
     // TODO: Preserve currently used format ?
 
     io_in_tag = g_source_add_unix_fd((GSource*)io_in_src, dev_fd, (GIOCondition)(G_IO_IN | G_IO_ERR));
+#if CODE_BROWSE
+    cam_io_in_dispatch();
+#endif
 
     return 0;
 }
@@ -454,11 +473,6 @@ void V4L2Device::ioctlSetStreamOff()
     m_isStreamOn = false;
 }
 
-
-void* V4L2Device::buffGet(int i)
-{
-    return m_buffers[i].start;
-}
 
 void V4L2Device::Deinit()
 {
