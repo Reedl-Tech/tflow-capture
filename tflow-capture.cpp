@@ -26,19 +26,17 @@ int TFlowBuf::age() {
     return (now_ms - proc_frame_ms);
 }
 
-TFlowCapture::TFlowCapture() : 
+TFlowCapture::TFlowCapture(GMainContext* _context) :
+    context(_context),
     ctrl(*this)
 {
-    context = g_main_context_new();
     g_main_context_push_thread_default(context);
     
     main_loop = g_main_loop_new(context, false);
 
-    ctrl.Init(); // Q: ? Should it be part of constructor ?
-
     buf_srv = new TFlowBufSrv(context);
     {
-        int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.u32;
+        int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
         cam = new V4L2Device(context, cfg_buffs_num, 1);
     }
 
@@ -148,13 +146,12 @@ void TFlowCapture::OnIdle()
 
     checkCamState(now);     // 
     buf_srv->onIdle(now);
+    ctrl.ctrl_srv.onIdle(now);
 
 }
 
 void TFlowCapture::AttachIdle()
 {
-    g_info("App Streamer Started");
-
     GSource* src_idle = g_idle_source_new();
     g_source_set_callback(src_idle, (GSourceFunc)tflow_capture_idle, this, nullptr);
     g_source_attach(src_idle, context);

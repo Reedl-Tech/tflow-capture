@@ -15,7 +15,6 @@ gboolean tflow_buf_cli_port_dispatch(GSource* g_source, GSourceFunc callback, gp
     int rc = cli_port->onMsg();
     if (rc) {
         TFlowBufSrv* srv = cli_port->srv;
-        g_warning("Client port [%s] need to be closed", cli_port->signature);
         srv->releaseCliPort(cli_port);
         cli_port = NULL;
         return G_SOURCE_REMOVE;
@@ -59,7 +58,9 @@ void TFlowBufSrv::releaseCliPort(TFlowBufCliPort* cli_port)
 {
     uint32_t mask = cli_port->cli_port_mask;
 
-    g_warning("---TFlowBufSrv: Cli Port release mask=%d", mask);
+    g_warning("TFlowBufSrv: Release port [%s] mask=%d",
+        cli_port->signature.c_str(), mask);
+
     for (auto& tflow_buf : bufs) {
         if (tflow_buf.owners & mask) {
             g_warning("------TFlowBufSrv: redeem idx=%d, owners=%d", tflow_buf.index, tflow_buf.owners);
@@ -76,22 +77,11 @@ void TFlowBufSrv::releaseCliPort(TFlowBufCliPort* cli_port)
 
 }
 
-TFlowBufSrv::~TFlowBufSrv()
-{
-    if (sck_src) {
-        if (sck_tag) {
-            g_source_remove_unix_fd((GSource*)sck_src, sck_tag);
-            sck_tag = nullptr;
-        }
-        g_source_destroy((GSource*)sck_src);
-        g_source_unref((GSource*)sck_src);
-        sck_src = nullptr;
-    }
-}
 TFlowBufCliPort::~TFlowBufCliPort()
 {
-    if (signature) {
-        free(signature);
+    if (sck_fd != -1) {
+        close(sck_fd);
+        sck_fd = -1;
     }
 
     if (sck_src) {
@@ -115,7 +105,6 @@ TFlowBufCliPort::TFlowBufCliPort(TFlowBufSrv* _srv, uint32_t mask, int fd)
     sck_tag = NULL;
     sck_src = NULL;
 
-    signature = NULL;
     CLEAR(sck_gsfuncs);
 
     cli_port_mask = mask;
@@ -129,6 +118,19 @@ TFlowBufCliPort::TFlowBufCliPort(TFlowBufSrv* _srv, uint32_t mask, int fd)
     sck_src->cli_port = this;
     g_source_attach((GSource*)sck_src, srv->context);
 
+}
+
+TFlowBufSrv::~TFlowBufSrv()
+{
+    if (sck_src) {
+        if (sck_tag) {
+            g_source_remove_unix_fd((GSource*)sck_src, sck_tag);
+            sck_tag = nullptr;
+        }
+        g_source_destroy((GSource*)sck_src);
+        g_source_unref((GSource*)sck_src);
+        sck_src = nullptr;
+    }
 }
 
 TFlowBufSrv::TFlowBufSrv(GMainContext* app_context)
@@ -235,6 +237,7 @@ int TFlowBufCliPort::SendConsume(TFlowBuf &tflow_buf)
     tflow_buf.owners |= this->cli_port_mask;
     this->request_cnt --;
 
+    return 0;
 }
 int TFlowBufCliPort::SendCamFD()
 {
@@ -317,9 +320,9 @@ int TFlowBufCliPort::onSign(struct TFlowBuf::pck_sign *pck_sign)
 {
     int rc;
 
-    this->signature = strdup(pck_sign->cli_name);
-    g_warning("TFlowBufCliPort: Signature for port %d (%d) - %s)",
-        this->cli_port_mask, this->sck_fd, this->signature);
+    this->signature = std::string(pck_sign->cli_name);
+    g_warning("TFlowBufCliPort: Signature for port %d - [%s]",
+        this->cli_port_mask, this->signature.c_str());
 
     rc = SendCamFD();
 
@@ -333,11 +336,13 @@ int TFlowBufCliPort::onMsg()
     int err = errno;
 
     if (res <= 0) {
-        if (err == ECONNRESET) {
-            g_warning("TFlowBufCliPort: Peer %s disconnected", this->signature);
+        if (err == ECONNRESET || err == EAGAIN) {
+            g_warning("TFlowBufCliPort: [%s] disconnected (%d) - closing",
+                this->signature.c_str(), errno);
         }
         else {
-            g_warning("TFlowBufCliPort: unexpected error (%d) - %s", errno, strerror(errno));
+            g_warning("TFlowBufCliPort: [%s] unexpected error (%d) - %s",
+                signature.c_str(), errno, strerror(errno));
         }
         return -1;
     }
@@ -371,11 +376,14 @@ void TFlowBufSrv::onConnect()
     }
 
     if (cli_port_empty_pp == NULL) {
-        g_warning("No more free TFlow Client Ports");
+        g_warning("No more free TFlow Buf Client Ports");
         return;
     }
 
-    cli_port_fd = accept(sck_fd, NULL, 0);
+    struct sockaddr_un peer_addr = { 0 };
+    socklen_t sock_len = sizeof(peer_addr);
+
+    cli_port_fd = accept(sck_fd, (struct sockaddr*)&peer_addr, &sock_len);
     if (cli_port_fd == -1) {
         g_warning("TFlowBufSrv: Can't connect a TFlow Buffer Client");
         return;
@@ -406,9 +414,6 @@ int TFlowBufSrv::StartListening()
         return -1;
     }
 
-    //int flags = fcntl(sck_fd, F_GETFL, 0);
-    //fcntl(sck_fd, F_SETFL, flags | O_NONBLOCK);
-
     // Set to listen mode
     // Initialize socket address
     memset(&sock_addr, 0, sizeof(struct sockaddr_un));
@@ -428,6 +433,7 @@ int TFlowBufSrv::StartListening()
     if (rc == -1) {
         g_warning("TFlowBufSrv: Can't bind (%d) - %s", errno, strerror(errno));
         close(sck_fd);
+        sck_fd = -1;
         return -1;
     }
 

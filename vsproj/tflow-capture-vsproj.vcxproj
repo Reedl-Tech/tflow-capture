@@ -41,6 +41,8 @@
     <ClCompile Include="..\tflow-buf-srv.cpp" />
     <ClCompile Include="..\tflow-capture.cpp" />
     <ClCompile Include="..\tflow-ctrl-capture.cpp" />
+    <ClCompile Include="..\tflow-ctrl-cli-port.cpp" />
+    <ClCompile Include="..\tflow-ctrl-srv.cpp" />
     <ClCompile Include="..\tflow-ctrl.cpp" />
     <ClCompile Include="..\v4l2Device.cpp" />
   </ItemGroup>
@@ -51,7 +53,10 @@
     <ClInclude Include="..\tflow-buf-srv.h" />
     <ClInclude Include="..\tflow-buf.h" />
     <ClInclude Include="..\tflow-capture.h" />
+    <ClInclude Include="..\tflow-common.h" />
     <ClInclude Include="..\tflow-ctrl-capture.h" />
+    <ClInclude Include="..\tflow-ctrl-cli-port.h" />
+    <ClInclude Include="..\tflow-ctrl-srv.h" />
     <ClInclude Include="..\tflow-ctrl.h" />
     <ClInclude Include="..\v4l2Device.h" />
   </ItemGroup>

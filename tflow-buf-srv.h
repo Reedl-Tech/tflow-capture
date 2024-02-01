@@ -21,9 +21,9 @@ public:
     GMainContext* context;      // AV: Q: ? is in use ? Use server context instead?
     clock_t last_idle_check = 0;
 
-    char* signature;
+    std::string signature;
 
-    TFlowBufSrv* srv;
+    TFlowBufSrv* srv;       // Is used to access the Camera device.
 
     int onMsg();
 

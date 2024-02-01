@@ -41,9 +41,11 @@ int main(int argc, char** argv)
 {
     Gio::init();
 
-    g_info("TFlow capture started");
+    g_info("TFlow Capture started");
 
-    gp_app = new TFlowCapture;
+    GMainContext* context = g_main_context_new();
+
+    gp_app = new TFlowCapture(context);
 
     setup_sig_handlers();
 
