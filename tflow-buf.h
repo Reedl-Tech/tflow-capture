@@ -17,8 +17,8 @@ public:
     /* Parameters passed from server */
     int index = -1;
     struct timeval ts = { 0 };
-    uint32_t sequence;
-
+    uint32_t sequence = { 0 };
+    
     /* Parameters obtained from Kernel*/
     uint8_t* start;
     size_t length;
@@ -26,6 +26,16 @@ public:
     uint32_t owners = 0;   // Bit mask of TFlowBufCli. Bit 0 - means buffer is in user space
 
     int age();
+
+    /* 
+     * Non camera related data 
+     * Server's owner may put auxiliary data here, from the onBuf callback
+     * This data will be sent to all TFlowBuf clients
+     * max data len defined by TFlowBuf::pck_consume.aux_data (256)
+     */
+
+    uint32_t aux_data_len;
+    const uint8_t* aux_data;
 
     /* Q: ? Should the CLI-SRV communication definition to be split from
      *      the buffer class ?
@@ -63,6 +73,8 @@ public:
         int buff_index;
         struct timeval ts;
         uint32_t seq;
+        uint32_t aux_data_len;
+        uint8_t aux_data[256];     // Att: Must be last! Actual data to be sent specified in aux_data_len
     };
 
     struct pck_redeem {

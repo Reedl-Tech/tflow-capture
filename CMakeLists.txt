@@ -32,6 +32,10 @@ add_executable (tflow-capture
     "tflow-ctrl-capture.h"
     "tflow-ctrl.h"
     "tflow-ctrl.cpp"
+    "tflow-ap-fixar.cpp"
+    "tflow-ap-fixar.h"
+    "tflow-ap.cpp"
+    "tflow-ap.h"
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

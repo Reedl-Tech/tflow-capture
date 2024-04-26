@@ -1,4 +1,3 @@
-// adsa
 #include <iostream>
 #include <giomm.h>
 #include <glib-unix.h>
@@ -26,6 +25,72 @@ int TFlowBuf::age() {
     return (now_ms - proc_frame_ms);
 }
 
+static int _onBuf(void* ctx, TFlowBuf &buf)
+{
+    TFlowCapture* m = (TFlowCapture*)ctx;
+    return m->onBuf(buf);
+}
+
+int TFlowCapture::onBuf(TFlowBuf& buf) 
+{
+
+#if CODE_BROWSE
+    // caled from 
+    TFlowBufSrv::buf_consume();
+#endif
+
+    // Frame time is normally ahead of AP time
+    struct timeval dt;
+
+    if (autopilot->last_cas_ts_obsolete.tv_usec == autopilot->last_cas_ts.tv_usec) {
+        static int presc = 0;
+        // CAS still not updated
+        if ((presc++ & 0xff) == 0) {
+            timersub(&buf.ts, &autopilot->last_cas_ts_obsolete, &dt);
+            g_warning("IMU isn't updated for %dsec",
+                dt.tv_sec);
+        }
+    }
+    else {
+        timersub(&buf.ts, &autopilot->last_cas_ts, &dt);
+        if ( dt.tv_sec > 0 || (dt.tv_sec == 0 && dt.tv_usec > (200 * 1000))) {
+            // IMU data is too old - do not add them 
+            buf.aux_data = nullptr;
+            buf.aux_data_len = 0;
+            g_warning("IMU too old - dt = %dsec %dusec",
+                dt.tv_sec, dt.tv_usec);
+            //g_warning("IMU too old - frame_t %dsec %dusec, cas_t %dsec %dusec",
+            //    buf.ts.tv_sec, buf.ts.tv_usec,
+            //    autopilot->last_cas_ts.tv_sec, autopilot->last_cas_ts.tv_usec);
+
+            autopilot->last_cas_ts_obsolete = autopilot->last_cas_ts;
+            return 0;
+        }
+        else if (autopilot->last_cas_ts_obsolete.tv_usec != -1) {
+            autopilot->last_cas_ts_obsolete.tv_usec = -1;
+            g_warning("IMU restored - dt = %dsec %dusec",
+                dt.tv_sec, dt.tv_usec);
+        }
+    }     
+
+    aux_imu_data.sign      = 0x30554D49;                        // IMU0
+    aux_imu_data.tv_sec    = autopilot->last_cas_ts.tv_sec;     // Local time
+    aux_imu_data.tv_usec    = autopilot->last_cas_ts.tv_usec;   // Local time
+    aux_imu_data.log_ts    = autopilot->last_cas.ts;            // AP time
+    aux_imu_data.roll      = autopilot->last_cas.CAS_board_att_roll;
+    aux_imu_data.pitch     = autopilot->last_cas.CAS_board_att_pitch;
+    aux_imu_data.yaw       = autopilot->last_cas.CAS_board_att_yaw;
+
+    aux_imu_data.altitude  = autopilot->last_pe.PE_baro_alt;
+    aux_imu_data.pos_x = autopilot->last_pe.PE_est_pos_x;
+    aux_imu_data.pos_y = autopilot->last_pe.PE_est_pos_y;
+    aux_imu_data.pos_z = autopilot->last_pe.PE_est_pos_z;
+
+    buf.aux_data = (uint8_t*)&aux_imu_data;
+    buf.aux_data_len = sizeof(aux_imu_data);
+    return 0;
+}
+
 TFlowCapture::TFlowCapture(GMainContext* _context) :
     context(_context),
     ctrl(*this)
@@ -35,6 +100,8 @@ TFlowCapture::TFlowCapture(GMainContext* _context) :
     main_loop = g_main_loop_new(context, false);
 
     buf_srv = new TFlowBufSrv(context);
+
+    // TODO: Create camera in Idle loop on open attempt like a serial port?
     {
         int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
         cam = new V4L2Device(context, cfg_buffs_num, 1);
@@ -43,8 +110,12 @@ TFlowCapture::TFlowCapture(GMainContext* _context) :
     /* Link Camera and TFlowBufferServer*/
     cam->buf_srv = buf_srv;
     buf_srv->cam = cam;
+    buf_srv->registerOnBuf(this, _onBuf);
 
-    last_cam_check = clock();
+    cam_last_check = clock();
+
+    autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
+
 }
 
 TFlowCapture::~TFlowCapture()
@@ -71,11 +142,11 @@ static gboolean tflow_capture_idle(gpointer data)
 
 void TFlowCapture::checkCamState(clock_t now)
 {
-    clock_t dt = now - last_cam_check;
+    clock_t dt = now - cam_last_check;
 
     /* Do not check to often*/
     if (dt < 3 * CLOCKS_PER_SEC ) return;
-    last_cam_check = now;
+    cam_last_check = now;
 
 #if 0
     std::cout << "kuku5" << std::endl;
@@ -144,7 +215,9 @@ void TFlowCapture::OnIdle()
 {
     clock_t now = clock();
 
-    checkCamState(now);     // 
+    checkCamState(now);
+
+    autopilot->onIdle(now);
     buf_srv->onIdle(now);
     ctrl.ctrl_srv.onIdle(now);
 

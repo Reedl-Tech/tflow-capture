@@ -14,15 +14,12 @@ using namespace json11;
 static const char *raw_cfg_default =  R"( 
     {
         "buffs_num"  : 4,
-        "dev_name" : "/dev/video0"
+        "dev_name" : "/dev/video0",
+        "serial_name" : "/dev/ttymxc0",
+        "serial_baud" : 921600
     } 
 )";
 
-/*
-static int _cmd_cb_sign      (TFlowCtrlCapture* obj, Json& json) { return obj->cmd_cb_sign(json); }
-static int _cmd_cb_config    (TFlowCtrlCapture* obj, Json& json) { return obj->cmd_cb_config(json); }
-static int _cmd_cb_set_as_def(TFlowCtrlCapture* obj, Json& json) { return obj->cmd_cb_set_as_def(json); }
-*/
 /*******************************************************************************/
 
 //TFlowCtrlPortCapture::TFlowCtrlPortCapture(TFlowCtrlSrvCapture& _srv, GMainContext* context, int fd) :
@@ -68,10 +65,6 @@ void TFlowCtrlSrvCapture::onCliPortError(int fd)
     return;
 }
 
-char* get_myServerName() 
-{ 
-    return  
-};
 void TFlowCtrlSrvCapture::onTFlowCtrlMsg(const std::string& cmd, const json11::Json& j_in_params, Json::object& j_out_params, int& err)
 {
     // Find command by name
@@ -146,18 +139,16 @@ void TFlowCtrlCapture::InitConfig()
     set_cmd_fields((tflow_cmd_field_t*)&cmd_flds_config, json_cfg);
 }
 
+int TFlowCtrlCapture::serial_name_is_valid()
+{
+    // check cmd_flds_config.dev_name.v.str;
+    return 1;
+}
+
 int TFlowCtrlCapture::dev_name_is_valid()
 { 
     // check cmd_flds_config.dev_name.v.str;
     return 1;
-}
-char* TFlowCtrlCapture::cam_name_get()
-{
-    return dev_name_is_valid() ? cmd_flds_config.dev_name.v.str : nullptr;
-}
-int TFlowCtrlCapture::cam_fmt_get()
-{
-    return cmd_flds_config.fmt_idx.v.num;
 }
 
 /*********************************/
@@ -216,6 +207,12 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
 
     if (rc != 0) return -1;
 
+    // TODO: Add changed flag or trivial (lambda?) callback function  into field definition
+    // Check something was changes
+    //  - Camera name
+    //  - Video fmt
+    //  - Serial port name 
+    //  - Serial baud rate
     return 0;
 }
 

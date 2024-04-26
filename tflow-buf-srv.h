@@ -88,6 +88,8 @@ public:
     void onConnect();
     void releaseCliPort(TFlowBufCliPort* cli_port);
 
+    int registerOnBuf(void* ctx, std::function<int(void* ctx, TFlowBuf& tflow_buf)> cb);
+
     GMainContext* context;
 
 private:
@@ -98,5 +100,8 @@ private:
     std::vector<TFlowBuf> bufs;     // Actual buffers will be created by Camera device upon successeful request from Kernel
                                     // TODO: Q: ? Use external oject shared between V4L2_Device and TFlowBufSrv/CliPort ?
 
+    void* onBuf_ctx;
+    size_t onBuf_aux_data_len;
+    std::function<int(void* ctx, TFlowBuf &tflow_buf)> onBuf_cb;
 };
 

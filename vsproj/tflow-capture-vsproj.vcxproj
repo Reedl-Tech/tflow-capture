@@ -38,6 +38,8 @@
     <ClCompile Include="..\main.cpp">
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</RemoteCopyFile>
     </ClCompile>
+    <ClCompile Include="..\tflow-ap-fixar.cpp" />
+    <ClCompile Include="..\tflow-ap.cpp" />
     <ClCompile Include="..\tflow-buf-srv.cpp" />
     <ClCompile Include="..\tflow-capture.cpp" />
     <ClCompile Include="..\tflow-ctrl-capture.cpp" />
@@ -50,6 +52,8 @@
     <Text Include="..\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\tflow-ap-fixar.h" />
+    <ClInclude Include="..\tflow-ap.h" />
     <ClInclude Include="..\tflow-buf-srv.h" />
     <ClInclude Include="..\tflow-buf.h" />
     <ClInclude Include="..\tflow-capture.h" />
@@ -61,7 +65,7 @@
     <ClInclude Include="..\v4l2Device.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{cf523d96-426a-4c8d-a815-48ac585e30fc}</ProjectGuid>
+    <ProjectGuid>{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}</ProjectGuid>
     <Keyword>Linux</Keyword>
     <RootNamespace>atic_streamer_vsproj</RootNamespace>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
@@ -111,7 +115,7 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <OutDir />
+    <OutDir>$(Configuration)\</OutDir>
     <RemoteDeployDir>
     </RemoteDeployDir>
     <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>

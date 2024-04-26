@@ -77,6 +77,14 @@ void TFlowBufSrv::releaseCliPort(TFlowBufCliPort* cli_port)
 
 }
 
+int TFlowBufSrv::registerOnBuf(void* ctx, std::function<int(void* ctx, TFlowBuf& tflow_buf)> cb) 
+{
+    onBuf_ctx = ctx;
+    onBuf_cb = cb;
+
+    return 0;
+}
+
 TFlowBufCliPort::~TFlowBufCliPort()
 {
     if (sck_fd != -1) {
@@ -184,6 +192,16 @@ int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf)
 
     tflow_buf.owners = 0;
     tflow_buf.ts = v4l2_buf.timestamp;
+    tflow_buf.sequence = v4l2_buf.sequence;
+
+    // call owner's callback to update aux_data
+    if (onBuf_cb) {
+        onBuf_cb(onBuf_ctx, tflow_buf);
+#if CODE_BROWSE
+        static int _onBuf();
+        TFlowCapture::onBuf(tflow_buf);
+#endif
+    }
 
     // loop over subscribers 
     for (auto &cli_port_p : cli_ports) {
@@ -218,7 +236,13 @@ int TFlowBufCliPort::SendConsume(TFlowBuf &tflow_buf)
     tflow_pck.consume.ts = tflow_buf.ts;
     tflow_pck.consume.seq = tflow_buf.sequence;
 
-    res = send(sck_fd, &tflow_pck, sizeof(struct TFlowBuf::pck_consume), 0);
+    assert(tflow_buf.aux_data_len <= sizeof(tflow_pck.consume.aux_data));
+    tflow_pck.consume.aux_data_len = tflow_buf.aux_data_len;
+    if (tflow_buf.aux_data_len) {
+        memcpy(tflow_pck.consume.aux_data, tflow_buf.aux_data, tflow_buf.aux_data_len);
+    }
+
+    res = send(sck_fd, &tflow_pck, offsetof(TFlowBuf::pck_consume, aux_data) + tflow_buf.aux_data_len, 0);
     int err = errno;
 
     if (res == -1) {
@@ -301,7 +325,7 @@ int TFlowBufCliPort::SendCamFD()
     return 0;
 
 }
-int TFlowBufCliPort::onRedeem(struct TFlowBuf::pck_redeem* pck_redeem)
+int TFlowBufCliPort::onRedeem(TFlowBuf::pck_redeem* pck_redeem)
 {
     int rc;
     
@@ -316,7 +340,7 @@ int TFlowBufCliPort::onRedeem(struct TFlowBuf::pck_redeem* pck_redeem)
     return rc;
 }
 
-int TFlowBufCliPort::onSign(struct TFlowBuf::pck_sign *pck_sign)
+int TFlowBufCliPort::onSign(TFlowBuf::pck_sign *pck_sign)
 {
     int rc;
 
@@ -349,9 +373,9 @@ int TFlowBufCliPort::onMsg()
 
     switch (in_msg.hdr.id) {
         case TFLOWBUF_MSG_SIGN_ID:  
-            return onSign((struct TFlowBuf::pck_sign*)&in_msg);
+            return onSign((TFlowBuf::pck_sign*)&in_msg);
         case TFLOWBUF_MSG_REDEEM:   
-            return onRedeem((struct TFlowBuf::pck_redeem*)&in_msg);
+            return onRedeem((TFlowBuf::pck_redeem*)&in_msg);
     default:
         g_warning("TFlowBufCliPort: unexpected message received (%d)", in_msg.hdr.id);
     }

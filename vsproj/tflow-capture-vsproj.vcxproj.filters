@@ -17,6 +17,8 @@
     <ClCompile Include="..\tflow-ctrl-cli-port.cpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClCompile>
+    <ClCompile Include="..\tflow-ap.cpp" />
+    <ClCompile Include="..\tflow-ap-fixar.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
@@ -39,6 +41,8 @@
     <ClInclude Include="..\tflow-ctrl-cli-port.h">
       <Filter>tlow-ctrl-lib</Filter>
     </ClInclude>
+    <ClInclude Include="..\tflow-ap.h" />
+    <ClInclude Include="..\tflow-ap-fixar.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">

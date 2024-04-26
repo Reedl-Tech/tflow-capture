@@ -20,10 +20,6 @@
 #define IMAGEHEIGHT 240
 #define IMAGEWIDTH  320
 
-gboolean g_cam_io_in_cb(gpointer user_data);
-//gboolean cam_io_in_dispatch(GSource* source, GSourceFunc callback, gpointer    user_data);
-//gboolean f_cam_io_in_dispatch(GSource* source, GSourceFunc callback, gpointer    user_data);
-
 class TFlowCapture;
 
 class V4L2Device {
@@ -33,7 +29,7 @@ public:
     V4L2Device(GMainContext* context, int buffs_num, int planes_num);
     ~V4L2Device();
 
-    int Init(const char* dev_name);
+    int Init(const char* serial_name);
     void Deinit();
    
     // Query device information
@@ -51,11 +47,12 @@ public:
 
     //Frame capture
     int  ioctlQueueBuffer(int index);
-    //int  ioctlDequeueBuffer(int* index, struct timeval* ts);    // not in use
-    int  ioctlDequeueBuffer(v4l2_buffer &v4l2_buf);    // not in use
+    int  ioctlDequeueBuffer(v4l2_buffer &v4l2_buf);
 
     int  StreamOn(int fmt_idx);
     void ioctlSetStreamOff();
+    
+    int onBuff();       // Called at new buffer available from the driver
 
     int dev_fd {-1};
 
@@ -63,13 +60,12 @@ public:
     GSource* f_in_src;
     gpointer f_in_tag;
 
-    int onBuff();       // Called at new buffer available from the driver
-    //int onBuffRet();    // Returns the buffer back to driver
 
     typedef struct {
         GSource g_source;
         V4L2Device* cam;
     } GSourceCam;
+
 
     TFlowBufSrv *buf_srv;   // Server to pass V4L2 buffers
     int buffs_num;          // Initialized on creation by callee 
@@ -83,21 +79,21 @@ public:
     uint32_t frame_width;
     uint32_t frame_height;
     uint32_t frame_format;       // 4c V4L2_PIX_FMT_GREY
+
 private:
 
+    // AV: TODO: There is observable scenarios when camera can be closed and 
+    //           then reopened without complete reinit of internal data.
+    //           Thus, it is worth to consider dev_name specifed upon creation
+    //           as a constructor parameter.
+    //           Also consider camera open/close from v4l2Device constructor/desctructor.
     int  Open(const char* filename = "/dev/video0");
     void Close();
 
     GMainContext* context;  // Context for pending events
 
     const char* m_fname {nullptr};
-    volatile bool m_isStreamOn {false};
-
-    struct Buffer {
-        void* start;
-        size_t length;
-    };
-    std::vector<struct Buffer> m_buffers {};     // AV: Memory content isn't used by Capture module, thus not in use
+    bool is_streaming {false};
 
     GSourceCam* io_in_src;
     gpointer io_in_tag;
@@ -105,5 +101,4 @@ private:
 
     v4l2_buffer v4l2_buf_template;
     std::vector<v4l2_plane> mplanes_template;
-
 };

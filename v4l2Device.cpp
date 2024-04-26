@@ -1,4 +1,3 @@
-// 1) How V4L2 Device is related with TFlowBufSrv and TFlowBuf[]
 // 2) Consider usage TFlowBuf[] inside of V4L2_Device
 #include <thread>
 #include <iostream>
@@ -24,13 +23,6 @@ gboolean cam_io_in_dispatch(GSource* g_source, GSourceFunc callback, gpointer us
     }
 
     return G_SOURCE_CONTINUE;
-}
-
-
-gboolean g_cam_io_in_cb(gpointer user_data)
-{
-    g_info("IO IN CB");
-    return 0;
 }
 
 V4L2Device::V4L2Device(GMainContext* _context, int _buffs_num, int _planes_num)
@@ -60,7 +52,6 @@ V4L2Device::V4L2Device(GMainContext* _context, int _buffs_num, int _planes_num)
     v4l2_buf_template.m.planes = mplanes_template.data();
     v4l2_buf_template.length = planes_num;
     v4l2_buf_template.index = 0;
-
 }
 
 V4L2Device::~V4L2Device()
@@ -75,7 +66,7 @@ V4L2Device::~V4L2Device()
         io_in_src = nullptr;
     }
 
-    if (m_isStreamOn) {
+    if (is_streaming) {
         ioctlSetStreamOff();
     }
 
@@ -99,6 +90,10 @@ int V4L2Device::onBuff()
             if (v4l2_buf.index == -1) {
                 return 0;       // No buffers - It is OK, everything read out. 
             }
+            // TODO: check is it possible to receive veeery old buffer
+            //       in case of buffer not enqueued back for a long time.
+            //       If yes, the obsolete buffers need to be dropped.
+
             rc = buf_srv->buf_consume(v4l2_buf);
         }
 
@@ -138,9 +133,7 @@ int V4L2Device::Open(const char* dev_fname)
 void V4L2Device::Close()
 {
     if (dev_fd != -1) {
-        if (close(dev_fd) == -1) {
-            std::cerr << m_fname << " close device failed" << std::endl;
-        }
+        close(dev_fd);
         dev_fd = -1;
     }
 }
@@ -301,16 +294,6 @@ void V4L2Device::DeinitBuffers()
     int rc;
     
     /*
-     * Unmap DMA memory
-     */
-    for (auto &buf : m_buffers) {
-        if (buf.start) {
-            munmap(buf.start, buf.length);
-            buf.start = NULL;
-        }
-    }
-
-    /*
      * Returns all memory buffers to the Kernel
      */
 
@@ -348,38 +331,6 @@ int V4L2Device::InitBuffers()
     }
 
     buf_srv->buf_create(buffs_num);
-#if 0
-    /*
-     * Map DMA memory to the user space
-     * AV: not really needed because Capture don't care about buffers' content
-     */
-
-    struct Buffer buf {};
-    m_buffers = std::vector<struct Buffer>(buffs_num, buf);
-    v4l2_buffer v4l2_buf = v4l2_buf_template;
-
-    for(int index = 0; index < buffs_num; index++) {
-        v4l2_buf.index = index;
-
-        // Query the information of the buffer with index=n into struct buf
-        if (-1 == ioctl(dev_fd, VIDIOC_QUERYBUF, &v4l2_buf)) {
-            g_warning("Can't VIDIOC_QUERYBUF (%d)", errno);
-            return -1;
-        }
-
-        /* AV: TODO: we don't care about buffer content. Remove this. */
-        // Record the length and mmap buffer to user space
-        m_buffers[index].length = v4l2_buf.m.planes[0].length;
-        m_buffers[index].start = mmap(NULL, v4l2_buf.m.planes[0].length,
-                PROT_READ | PROT_WRITE, MAP_SHARED, dev_fd, v4l2_buf.m.planes[0].m.mem_offset);
-
-        if (MAP_FAILED == m_buffers[index].start) {
-            g_warning("Can't MMAP (%d)", errno);
-            return -1;
-        }
-
-    }
-#endif
 
     return rc;
 }
@@ -421,7 +372,6 @@ int V4L2Device::ioctlDequeueBuffer(v4l2_buffer &v4l2_buf)
     return 0;
 }
 
-// Start stream
 int V4L2Device::StreamOn(int fmt_idx)
 {
     int rc = 0;
@@ -440,7 +390,7 @@ int V4L2Device::StreamOn(int fmt_idx)
     }
     rc |= InitBuffers();
 
-    if (m_isStreamOn) {
+    if (is_streaming) {
         return 0;
     }
     v4l2_buf_type type { V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE };
@@ -449,7 +399,7 @@ int V4L2Device::StreamOn(int fmt_idx)
         return -1;
     }
     
-    m_isStreamOn = true;
+    is_streaming = true;
 
     // TODO: Preserve currently used format ?
 
@@ -470,14 +420,13 @@ void V4L2Device::ioctlSetStreamOff()
         return;
     }
 
-    m_isStreamOn = false;
+    is_streaming = false;
 }
 
 
 void V4L2Device::Deinit()
 {
     DeinitBuffers();
-
     Close();
 }
 

@@ -12,20 +12,7 @@ using namespace json11;
 #include "tflow-ctrl-srv.h"
 
 class TFlowCtrlCapture;
-/*
-static int _cmd_cb_sign      (TFlowCtrlCapture* obj, Json& json);
-static int _cmd_cb_config    (TFlowCtrlCapture* obj, Json& json);
-static int _cmd_cb_set_as_def(TFlowCtrlCapture* obj, Json& json);
-*/
 class TFlowCapture;
-
-//class TFlowCtrlPortCapture : public TFlowCtrlCliPort {
-//public:
-//    TFlowCtrlSrvCapture& srv;
-//
-//    TFlowCtrlPortCapture(TFlowCtrlSrvCapture& _srv, GMainContext* context, int fd);
-//
-//};
 
 class TFlowCtrlSrvCapture : public TFlowCtrlSrv {
 public:
@@ -54,8 +41,12 @@ public:
     void InitServer();
 
     int dev_name_is_valid();
-    char* cam_name_get();
-    int cam_fmt_get();
+    char* cam_name_get() { return dev_name_is_valid() ? cmd_flds_config.dev_name.v.str : nullptr; }
+    int cam_fmt_get()    { return cmd_flds_config.fmt_idx.v.num; }
+
+    int serial_name_is_valid();
+    char* serial_name_get() { return serial_name_is_valid() ? cmd_flds_config.serial_name.v.str : nullptr; }
+    int serial_baud_get()   { return cmd_flds_config.serial_baud.v.num; }
 
     struct tflow_cmd_flds_sign {
         tflow_cmd_field_t   eomsg;
@@ -69,6 +60,8 @@ public:
         tflow_cmd_field_t   dev_name;
         tflow_cmd_field_t   fmt_enum;   // Enumeration of all camera supported formats. Obtained on camera opening
         tflow_cmd_field_t   fmt_idx;    // The index of the currently used format from the fmt_enum
+        tflow_cmd_field_t   serial_name;
+        tflow_cmd_field_t   serial_baud;
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
         .state     = { "state",      CFT_NUM, 0, {.num = 0} },
@@ -76,6 +69,9 @@ public:
         .dev_name  = { "dev_name",   CFT_STR, 0, {.num = 0} },
         .fmt_enum  = { "fmt_enum",   CFT_NUM, 0, {.num = 0} },
         .fmt_idx   = { "fmt_idx",    CFT_NUM, 0, {.num = 0} },
+        .serial_name = { "serial_name", CFT_STR, 0, {.num = 0} },
+        .serial_baud = { "serial_baud", CFT_NUM, 0, {.num = 0} },
+
         TFLOW_CMD_EOMSG
     };
 
@@ -98,8 +94,6 @@ public:
     typedef struct {
         const char* name;
         tflow_cmd_field_t* fields;
-        //int (*cb)(TFlowCtrlCapture* obj, Json& in_params);
-        //int (TFlowCtrlCapture::*cb)(Json& in_params);
         std::function<int(Json& json, Json::object& j_out_params)> cb;
     } tflow_cmd_t;
 
