@@ -11,6 +11,9 @@ v4l2_buffer g_buf;
 
 TFlowBuf::TFlowBuf()
 {
+    this->index = -1;
+    this->length = 0;
+    this->start = MAP_FAILED;
 }
 
 int TFlowBuf::age() {
@@ -75,7 +78,7 @@ int TFlowCapture::onBuf(TFlowBuf& buf)
 
     aux_imu_data.sign      = 0x30554D49;                        // IMU0
     aux_imu_data.tv_sec    = autopilot->last_cas_ts.tv_sec;     // Local time
-    aux_imu_data.tv_usec    = autopilot->last_cas_ts.tv_usec;   // Local time
+    aux_imu_data.tv_usec   = autopilot->last_cas_ts.tv_usec;    // Local time
     aux_imu_data.log_ts    = autopilot->last_cas.ts;            // AP time
     aux_imu_data.roll      = autopilot->last_cas.CAS_board_att_roll;
     aux_imu_data.pitch     = autopilot->last_cas.CAS_board_att_pitch;

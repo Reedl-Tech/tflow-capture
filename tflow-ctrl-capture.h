@@ -14,6 +14,8 @@ using namespace json11;
 class TFlowCtrlCapture;
 class TFlowCapture;
 
+#define THIS_M(_f) std::bind(&TFlowCtrlCapture::_f, this, std::placeholders::_1, std::placeholders::_2)
+
 class TFlowCtrlSrvCapture : public TFlowCtrlSrv {
 public:
     TFlowCtrlSrvCapture(TFlowCtrlCapture &_ctrl_capture, GMainContext* context);
@@ -35,7 +37,7 @@ public:
 
     TFlowCtrlCapture(TFlowCapture& app);
 
-    TFlowCapture& app;      // AV: For access to context 
+    TFlowCapture& app;      // AV: For access to context. Passed to CtrlServer
 
     void InitConfig();
     void InitServer();
@@ -64,14 +66,13 @@ public:
         tflow_cmd_field_t   serial_baud;
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
-        .state     = { "state",      CFT_NUM, 0, {.num = 0} },
-        .buffs_num = { "buffs_num",  CFT_NUM, 0, {.num = 0} },
-        .dev_name  = { "dev_name",   CFT_STR, 0, {.num = 0} },
-        .fmt_enum  = { "fmt_enum",   CFT_NUM, 0, {.num = 0} },
-        .fmt_idx   = { "fmt_idx",    CFT_NUM, 0, {.num = 0} },
+        .state       = { "state",       CFT_NUM, 0, {.num = 0} },
+        .buffs_num   = { "buffs_num",   CFT_NUM, 0, {.num = 0} },
+        .dev_name    = { "dev_name",    CFT_STR, 0, {.num = 0} },
+        .fmt_enum    = { "fmt_enum",    CFT_NUM, 0, {.num = 0} },
+        .fmt_idx     = { "fmt_idx",     CFT_NUM, 0, {.num = 0} },
         .serial_name = { "serial_name", CFT_STR, 0, {.num = 0} },
         .serial_baud = { "serial_baud", CFT_NUM, 0, {.num = 0} },
-
         TFLOW_CMD_EOMSG
     };
 
@@ -97,13 +98,10 @@ public:
         std::function<int(Json& json, Json::object& j_out_params)> cb;
     } tflow_cmd_t;
 
-    //#define THIS_M(_f) std::bind(&TFlowCtrlCapture::_f, this, std::placeholders::_1,)
-    #define THIS_M(_f) std::bind(&TFlowCtrlCapture::_f, this, std::placeholders::_1, std::placeholders::_2)
-
     tflow_cmd_t ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_LAST + 1] = {
-        [TFLOW_CAPTURE_RPC_CMD_VERSION   ] = { "version",    (tflow_cmd_field_t*)&cmd_flds_version    /*, _cmd_cb_sign      */ , THIS_M(cmd_cb_version)   },
-        [TFLOW_CAPTURE_RPC_CMD_CONFIG    ] = { "config",     (tflow_cmd_field_t*)&cmd_flds_config     /*, _cmd_cb_config    */ , THIS_M(cmd_cb_config)    },
-        [TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF] = { "set_as_def", (tflow_cmd_field_t*)&cmd_flds_set_as_def /*, _cmd_cb_set_as_def*/ , THIS_M(cmd_cb_set_as_def)},
+        [TFLOW_CAPTURE_RPC_CMD_VERSION   ] = { "version",    (tflow_cmd_field_t*)&cmd_flds_version   , THIS_M(cmd_cb_version)   },
+        [TFLOW_CAPTURE_RPC_CMD_CONFIG    ] = { "config",     (tflow_cmd_field_t*)&cmd_flds_config    , THIS_M(cmd_cb_config)    },
+        [TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF] = { "set_as_def", (tflow_cmd_field_t*)&cmd_flds_set_as_def, THIS_M(cmd_cb_set_as_def)},
         [TFLOW_CAPTURE_RPC_CMD_LAST] = { nullptr , nullptr, nullptr }
     };
     //tflow_cmd_t ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_LAST + 1] = {

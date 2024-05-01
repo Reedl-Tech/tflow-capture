@@ -90,8 +90,8 @@ int V4L2Device::onBuff()
             if (v4l2_buf.index == -1) {
                 return 0;       // No buffers - It is OK, everything read out. 
             }
-            // TODO: check is it possible to receive veeery old buffer
-            //       in case of buffer not enqueued back for a long time.
+            // TODO: check - is it possible to receive veeeery old buffer in
+            //       case of buffer not enqueued back for a long time?
             //       If yes, the obsolete buffers need to be dropped.
 
             rc = buf_srv->buf_consume(v4l2_buf);

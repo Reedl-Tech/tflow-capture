@@ -20,9 +20,8 @@ public:
     uint32_t sequence = { 0 };
     
     /* Parameters obtained from Kernel*/
-    uint8_t* start;
+    void* start;
     size_t length;
-
     uint32_t owners = 0;   // Bit mask of TFlowBufCli. Bit 0 - means buffer is in user space
 
     int age();
