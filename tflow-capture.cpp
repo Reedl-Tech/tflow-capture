@@ -9,6 +9,32 @@ using namespace json11;
 
 v4l2_buffer g_buf;
 
+#define IDLE_INTERVAL_MSEC 300
+
+static struct timespec diff_timespec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    assert(time1);
+    assert(time0);
+    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
+        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
+    if (diff.tv_nsec < 0) {
+        diff.tv_nsec += 1000000000; // nsec/sec
+        diff.tv_sec--;
+    }
+    return diff;
+}
+
+static double diff_timespec_msec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    struct timespec d_tp = diff_timespec(time1, time0);
+    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
+}
+
+
 TFlowBuf::TFlowBuf()
 {
     this->index = -1;
@@ -50,7 +76,7 @@ int TFlowCapture::onBuf(TFlowBuf& buf)
         // CAS still not updated
         if ((presc++ & 0xff) == 0) {
             timersub(&buf.ts, &autopilot->last_cas_ts_obsolete, &dt);
-            g_warning("IMU isn't updated for %dsec",
+            g_warning("IMU isn't updated for %ldsec",
                 dt.tv_sec);
         }
     }
@@ -60,18 +86,15 @@ int TFlowCapture::onBuf(TFlowBuf& buf)
             // IMU data is too old - do not add them 
             buf.aux_data = nullptr;
             buf.aux_data_len = 0;
-            g_warning("IMU too old - dt = %dsec %dusec",
+            g_warning("IMU too old - dt = %ldsec %ldusec",
                 dt.tv_sec, dt.tv_usec);
-            //g_warning("IMU too old - frame_t %dsec %dusec, cas_t %dsec %dusec",
-            //    buf.ts.tv_sec, buf.ts.tv_usec,
-            //    autopilot->last_cas_ts.tv_sec, autopilot->last_cas_ts.tv_usec);
 
             autopilot->last_cas_ts_obsolete = autopilot->last_cas_ts;
             return 0;
         }
         else if (autopilot->last_cas_ts_obsolete.tv_usec != -1) {
             autopilot->last_cas_ts_obsolete.tv_usec = -1;
-            g_warning("IMU restored - dt = %dsec %dusec",
+            g_warning("IMU restored - dt = %ldsec %ldusec",
                 dt.tv_sec, dt.tv_usec);
         }
     }     
@@ -115,8 +138,9 @@ TFlowCapture::TFlowCapture(GMainContext* _context) :
     buf_srv->cam = cam;
     buf_srv->registerOnBuf(this, _onBuf);
 
-    cam_last_check = clock();
-
+    cam_last_check_tp.tv_sec = 0;
+    cam_last_check_tp.tv_nsec = 0;
+    
     autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
 
 }
@@ -138,18 +162,13 @@ static gboolean tflow_capture_idle(gpointer data)
 {
     TFlowCapture* app = (TFlowCapture*)data;
 
-    app->OnIdle();
+    app->onIdle();
 
     return G_SOURCE_CONTINUE;
 }
 
-void TFlowCapture::checkCamState(clock_t now)
+void TFlowCapture::checkCamState(struct timespec *now_tp)
 {
-    clock_t dt = now - cam_last_check;
-
-    /* Do not check to often*/
-    if (dt < 3 * CLOCKS_PER_SEC ) return;
-    cam_last_check = now;
 
 #if 0
     std::cout << "kuku5" << std::endl;
@@ -164,8 +183,16 @@ void TFlowCapture::checkCamState(clock_t now)
     int err = errno;
 #endif
 
-    if (cam_state_flag.v == Flag::SET || cam_state_flag.v == Flag::CLR) {
+    if (cam_state_flag.v == Flag::SET) {
         return;
+    }
+
+    if (cam_state_flag.v == Flag::CLR) {
+        /* Don't try connect to camera to often */
+        if (diff_timespec_msec(now_tp, &cam_last_check_tp) > 1000) {
+            cam_last_check_tp = *now_tp;
+            cam_state_flag.v = Flag::RISE;
+        }
     }
     
     if (cam_state_flag.v == Flag::UNDEF || cam_state_flag.v == Flag::RISE) {
@@ -193,7 +220,7 @@ void TFlowCapture::checkCamState(clock_t now)
         
         if (rc) {
             // Can't open camera - try again later 
-            cam_state_flag.v = Flag::RISE;
+            cam_state_flag.v = Flag::CLR;
         }
         else {
             /* Camera is open. Now we can advertise video buffers */
@@ -214,21 +241,21 @@ void TFlowCapture::checkCamState(clock_t now)
 
 }
 
-void TFlowCapture::OnIdle()
+void TFlowCapture::onIdle()
 {
-    clock_t now = clock();
+    struct timespec now_tp;
+    clock_gettime(CLOCK_MONOTONIC, &now_tp);
 
-    checkCamState(now);
+    checkCamState(&now_tp);
 
-    autopilot->onIdle(now);
-    buf_srv->onIdle(now);
-    ctrl.ctrl_srv.onIdle(now);
-
+    autopilot->onIdle(&now_tp);
+    buf_srv->onIdle(&now_tp);
+    ctrl.ctrl_srv.onIdle(&now_tp);
 }
 
 void TFlowCapture::AttachIdle()
 {
-    GSource* src_idle = g_idle_source_new();
+    GSource* src_idle = g_timeout_source_new(IDLE_INTERVAL_MSEC);
     g_source_set_callback(src_idle, (GSourceFunc)tflow_capture_idle, this, nullptr);
     g_source_attach(src_idle, context);
     g_source_unref(src_idle);

@@ -1,15 +1,13 @@
 #include <sys/stat.h>
-#include <functional>
 
 #include <glib-unix.h>
-//#include <glib/gmem.h>
 
 #include <json11.hpp>
 
 #include "tflow-capture.h"
-#include "tflow-ctrl-capture.h"
 
 using namespace json11;
+using namespace std;
 
 static const char *raw_cfg_default =  R"( 
     {
@@ -22,15 +20,11 @@ static const char *raw_cfg_default =  R"(
 
 /*******************************************************************************/
 
-//TFlowCtrlPortCapture::TFlowCtrlPortCapture(TFlowCtrlSrvCapture& _srv, GMainContext* context, int fd) :
-//    TFlowCtrlCliPort(context, _srv, fd),
-//    srv(_srv)
-//{
-//
-//}
-
 TFlowCtrlSrvCapture::TFlowCtrlSrvCapture(TFlowCtrlCapture& _ctrl_capture, GMainContext* context) :
-    TFlowCtrlSrv("Capture", context),
+    TFlowCtrlSrv(
+        string("Capture"),
+        string("_com.reedl.tflow.ctrl-server-capture"),
+        context),
     ctrl_capture(_ctrl_capture)
 {
 }
@@ -53,7 +47,7 @@ void TFlowCtrlSrvCapture::onCliPortError(int fd)
 
     TFlowCtrlCliPort& cli_port = ctrl_cli_it->second;
     
-    g_warning("TFlowCtrlSrvCaptue: Release port [%s] (%d)",
+    g_warning("TFlowCtrlSrvCapture: Release port [%s] (%d)",
         cli_port.signature.c_str(), fd);
 
     ctrl_clis.erase(fd);
@@ -76,14 +70,15 @@ void TFlowCtrlSrvCapture::onTFlowCtrlMsg(const std::string& cmd, const json11::J
 void TFlowCtrlSrvCapture::onSignature(Json::object& j_out_params, int& err)
 {
     err = 0;
-    return ctrl_capture.getSignResponse(j_out_params);
+    ctrl_capture.getSignResponse(&ctrl_capture.ctrl_capture_rpc_cmds[0], j_out_params);
+    return;
 }
 
 
 /*******************************************************************************/
 TFlowCtrlCapture::TFlowCtrlCapture(TFlowCapture& _app) :
     app(_app),
-    ctrl_srv(TFlowCtrlSrvCapture(*this, _app.context))
+    ctrl_srv(TFlowCtrlSrvCapture(*this, _app.context))  // ??? pass Ctrl Commands to the server?
 {
     InitConfig();
     InitServer();
@@ -154,40 +149,6 @@ int TFlowCtrlCapture::dev_name_is_valid()
 /*********************************/
 /*** Application specific part ***/
 /*********************************/
-
-void TFlowCtrlCapture::getCmdInfo(tflow_cmd_t* cmd, Json::object& j_cmd_info)
-{
-    const tflow_cmd_field_t* field = cmd->fields;
-    while (field->name) {
-        switch(field->type) {
-            case CFT_NUM: 
-                j_cmd_info.emplace(field->name, field->v.num);
-                break;
-            case CFT_DBL:
-                j_cmd_info.emplace(field->name, field->v.dbl);
-                break;
-            case CFT_STR:
-                j_cmd_info.emplace(field->name, field->v.str);
-                break;
-        }
-        field++;
-    }
-
-}
-
-void TFlowCtrlCapture::getSignResponse(Json::object &j_params)
-{
-    tflow_cmd_t* cmd_p = ctrl_capture_rpc_cmds;
-
-    while (cmd_p->name) {
-        Json::object j_cmd_fields;
-        getCmdInfo(cmd_p, j_cmd_fields);
-        j_params.emplace(cmd_p->name, j_cmd_fields);
-        cmd_p++;
-    }
-
-    return;
-}
 
 int TFlowCtrlCapture::cmd_cb_version(const json11::Json& j_in_params, Json::object& j_out_params)
 {

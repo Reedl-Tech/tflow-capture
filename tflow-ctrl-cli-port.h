@@ -5,7 +5,6 @@
 #include <glib-unix.h>
 #include <json11.hpp>
 
-#include "tflow-ctrl-cli-port.h"
 class TFlowCtrlSrv;
 class TFlowCtrlCliPort {
 

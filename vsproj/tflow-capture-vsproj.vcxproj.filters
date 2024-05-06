@@ -7,7 +7,6 @@
     <ClCompile Include="..\v4l2Device.cpp">
       <Filter>V4L2Device</Filter>
     </ClCompile>
-    <ClCompile Include="..\tflow-buf-srv.cpp" />
     <ClCompile Include="..\tflow-ctrl.cpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClCompile>
@@ -19,6 +18,9 @@
     </ClCompile>
     <ClCompile Include="..\tflow-ap.cpp" />
     <ClCompile Include="..\tflow-ap-fixar.cpp" />
+    <ClCompile Include="..\tflow-buf-srv.cpp">
+      <Filter>tflow-buf</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
@@ -29,8 +31,6 @@
     <ClInclude Include="..\v4l2Device.h">
       <Filter>V4L2Device</Filter>
     </ClInclude>
-    <ClInclude Include="..\tflow-buf-srv.h" />
-    <ClInclude Include="..\tflow-buf.h" />
     <ClInclude Include="..\tflow-common.h" />
     <ClInclude Include="..\tflow-ctrl.h">
       <Filter>tlow-ctrl-lib</Filter>
@@ -43,6 +43,12 @@
     </ClInclude>
     <ClInclude Include="..\tflow-ap.h" />
     <ClInclude Include="..\tflow-ap-fixar.h" />
+    <ClInclude Include="..\tflow-buf.h">
+      <Filter>tflow-buf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tflow-buf-srv.h">
+      <Filter>tflow-buf</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">
@@ -50,6 +56,9 @@
     </Filter>
     <Filter Include="tlow-ctrl-lib">
       <UniqueIdentifier>{69421ea1-62d3-410d-b1d7-f910c76e6731}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tflow-buf">
+      <UniqueIdentifier>{d398b6a2-97a6-40ca-a146-61c8cf020ddd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

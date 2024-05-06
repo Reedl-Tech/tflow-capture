@@ -28,8 +28,8 @@ public:
     GSourceAP* serial_sck_src;
     gpointer serial_sck_tag;
     GSourceFuncs serial_sck_gsfuncs;
-
-    void onIdle(clock_t now);
+    
+    void onIdle(struct timespec* now_tp);
     void onConfigUpdate();
     int onSerialData();
 
@@ -42,7 +42,8 @@ public:
 
 private:
 
-    clock_t last_idle_check = 0;
+    struct timespec last_serial_check_tp;
+
     Flag serial_state_flag;
     int serial_sck_fd = -1;
 

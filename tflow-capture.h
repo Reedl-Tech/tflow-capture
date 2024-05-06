@@ -19,7 +19,7 @@ public:
     GMainLoop *main_loop;
     
     void AttachIdle();
-    void OnIdle();
+    void onIdle();
     int onBuf(TFlowBuf& buf);
 
     TFlowBufSrv *buf_srv;
@@ -28,6 +28,7 @@ public:
      * Data shared between TFlowCapture and TFlowBufSrv. It will be copied to
      * TFlowBuf on each frame and sent to all TFlowBuf clients.
      */
+    // Is it part of TFlowNav?
 #pragma pack(push, 1)
     struct imu_data {
         uint32_t sign;
@@ -46,14 +47,15 @@ public:
 
 private:
 
-    void checkCamState(clock_t now);
+    void checkCamState(struct timespec *now_tp);
 
     TFlowCtrlCapture ctrl;
 
     V4L2Device *cam;
 
     Flag   cam_state_flag;     // FL_SET -> camera opened; FL_CLR -> camera closed
-    clock_t cam_last_check;
+
+    struct timespec cam_last_check_tp;
 
     TFlowAutopilot *autopilot;
 

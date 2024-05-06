@@ -7,6 +7,29 @@
 #include "tflow-buf.h"
 #include "tflow-capture.h"
 
+static struct timespec diff_timespec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    assert(time1);
+    assert(time0);
+    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
+        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
+    if (diff.tv_nsec < 0) {
+        diff.tv_nsec += 1000000000; // nsec/sec
+        diff.tv_sec--;
+    }
+    return diff;
+}
+
+static double diff_timespec_msec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    struct timespec d_tp = diff_timespec(time1, time0);
+    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
+}
+
 gboolean tflow_buf_cli_port_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
 {
     TFlowBufCliPort::GSourceCliPort* source = (TFlowBufCliPort::GSourceCliPort*)g_source;
@@ -472,15 +495,9 @@ int TFlowBufSrv::StartListening()
 }
 
 // AV: Is TFlowCapture funtionality ??? Similarly as with Camera (V4L2Device)
-void TFlowBufSrv::onIdle(clock_t now)
+void TFlowBufSrv::onIdle(struct timespec *now_tp)
 {
-    clock_t dt = now - last_idle_check;
-
-    /* Do not check to often*/
-    if (dt < 3 * CLOCKS_PER_SEC) return;
-    last_idle_check = now;
-
-    if (sck_state_flag.v == Flag::SET || sck_state_flag.v == Flag::CLR) {
+    if (sck_state_flag.v == Flag::SET) {
         // Normal operation. Check buffer are occupied for too long
         // ...
         for (auto &tflow_buf : bufs) {
@@ -492,6 +509,13 @@ void TFlowBufSrv::onIdle(clock_t now)
         }
 
         return;
+    }
+
+    if (sck_state_flag.v == Flag::CLR) {
+        if (diff_timespec_msec(now_tp, &last_idle_check_tp) > 1000) {
+            last_idle_check_tp = *now_tp;
+            sck_state_flag.v = Flag::RISE;
+        }
     }
 
     if (sck_state_flag.v == Flag::RISE) {
@@ -508,7 +532,7 @@ void TFlowBufSrv::onIdle(clock_t now)
         if (rc) {
             // Can't open local UNIX socket - try again later. 
             // It won't help, but anyway ...
-            sck_state_flag.v = Flag::RISE;
+            sck_state_flag.v = Flag::CLR;
         }
         else {
             sck_state_flag.v = Flag::SET;

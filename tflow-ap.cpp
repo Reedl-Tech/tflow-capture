@@ -4,16 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <assert.h>
-#include <stdio.h>
 #include <errno.h>
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
 
-#include <arpa/inet.h>
 #include <sys/ioctl.h>
 
 #include <giomm.h>
@@ -25,6 +22,29 @@ using namespace std;
 #include "tflow-capture.h"
 #include "tflow-ap-fixar.h"
 #include "tflow-ap.h"
+
+static struct timespec diff_timespec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    assert(time1);
+    assert(time0);
+    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
+        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
+    if (diff.tv_nsec < 0) {
+        diff.tv_nsec += 1000000000; // nsec/sec
+        diff.tv_sec--;
+    }
+    return diff;
+}
+
+static double diff_timespec_msec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    struct timespec d_tp = diff_timespec(time1, time0);
+    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
+}
 
 static speed_t get_baud(int baud)
 {
@@ -87,42 +107,40 @@ void TFlowAutopilot::onConfigUpdate()
     // with the new configuration.
     serial_state_flag.v = Flag::FALL;
 }
-void TFlowAutopilot::onIdle(clock_t now)
+void TFlowAutopilot::onIdle(struct timespec* now_tp)
 {
-    clock_t dt = now - last_idle_check;
-
-    /* Do not check to often*/
-    if (dt < 3 * CLOCKS_PER_SEC) return;
-    last_idle_check = now;
-
-    if (serial_state_flag.v == Flag::SET || serial_state_flag.v == Flag::CLR) {
+    if (serial_state_flag.v == Flag::SET) {
         return;
+    }
+
+    if (serial_state_flag.v == Flag::CLR) {
+        if (serial_name.empty()) return;
+
+        if (diff_timespec_msec(now_tp, &last_serial_check_tp) > 1000) {
+            last_serial_check_tp = *now_tp;
+            serial_state_flag.v = Flag::RISE;
+        }
     }
 
     if (serial_state_flag.v == Flag::UNDEF || serial_state_flag.v == Flag::RISE) {
         int rc;
 
-        // Check camera device name
         if (serial_name.empty()) return;
 
-        do {
-            rc = open_dev();
-            if (rc) break;
-
+        rc = open_dev();
+        if (0 == rc) {
             serial_state_flag.v = Flag::SET;
-        } while (0);
-
-        if (rc) {
+        } else {
             // Can't open serial port - try again later 
-            serial_state_flag.v = Flag::RISE;
+            serial_state_flag.v = Flag::CLR;
         }
         return;
     }
 
     if (serial_state_flag.v == Flag::FALL) {
-        // close the camera
+        // close the serial port
         close_dev();
-        serial_state_flag.v = Flag::RISE;
+        serial_state_flag.v = Flag::CLR;
     }
 
 }
@@ -138,6 +156,9 @@ TFlowAutopilot::TFlowAutopilot(GMainContext* app_context, const char* _serial_na
 
     serial_name = std::string(_serial_name);
     baud_rate = _baud_rate;
+
+    last_serial_check_tp.tv_sec = 0;
+    last_serial_check_tp.tv_nsec = 0;
 
     /* Assign g_source on the socket */
     serial_sck_gsfuncs.dispatch = tflow_ap_serial_dispatch;

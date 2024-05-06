@@ -1,7 +1,41 @@
 #include "tflow-ctrl.h"
 
+using namespace json11;
+using namespace std;
+
 TFlowCtrl::TFlowCtrl()
 {
+}
+
+void TFlowCtrl::getSignResponse(const tflow_cmd_t* cmd_p, Json::object& j_params)
+{
+    while (cmd_p->name) {
+        Json::object j_cmd_fields;
+        getCmdInfo(cmd_p, j_cmd_fields);
+        j_params.emplace(cmd_p->name, j_cmd_fields);
+        cmd_p++;
+    }
+
+    return;
+}
+
+void TFlowCtrl::getCmdInfo(const tflow_cmd_t* cmd, Json::object& j_cmd_info)
+{
+    const tflow_cmd_field_t* field = cmd->fields;
+    while (field->name) {
+        switch (field->type) {
+        case CFT_NUM:
+            j_cmd_info.emplace(field->name, field->v.num);
+            break;
+        case CFT_DBL:
+            j_cmd_info.emplace(field->name, field->v.dbl);
+            break;
+        case CFT_STR:
+            j_cmd_info.emplace(field->name, field->v.str);
+            break;
+        }
+        field++;
+    }
 }
 
 int TFlowCtrl::set_cmd_fields(tflow_cmd_field_t* in_cmd_fields, const Json& in_params)

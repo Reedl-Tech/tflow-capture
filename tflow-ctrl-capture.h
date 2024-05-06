@@ -1,12 +1,7 @@
 #pragma once 
-
 #include <stdint.h>
 #include <vector>
 #include <unordered_map>
-#include <functional>
-
-#include <json11.hpp>
-using namespace json11;
 
 #include "tflow-ctrl.h"
 #include "tflow-ctrl-srv.h"
@@ -14,16 +9,14 @@ using namespace json11;
 class TFlowCtrlCapture;
 class TFlowCapture;
 
-#define THIS_M(_f) std::bind(&TFlowCtrlCapture::_f, this, std::placeholders::_1, std::placeholders::_2)
-
 class TFlowCtrlSrvCapture : public TFlowCtrlSrv {
 public:
     TFlowCtrlSrvCapture(TFlowCtrlCapture &_ctrl_capture, GMainContext* context);
     int onCliPortConnect(int fd) override;
     void onCliPortError(int fd) override;
 
-    void onSignature(Json::object& j_out_params, int &err) override;
-    void onTFlowCtrlMsg(const std::string& cmd, const json11::Json& j_in_params, Json::object& j_out_params, int &err) override;
+    void onSignature(json11::Json::object& j_out_params, int &err) override;
+    void onTFlowCtrlMsg(const std::string& cmd, const json11::Json& j_in_params, json11::Json::object& j_out_params, int &err) override;
 
 private:
     TFlowCtrlCapture &ctrl_capture;
@@ -83,43 +76,28 @@ public:
     };
 
     //TFlowCtrlOnCmd cmd_cb_version;
-    int cmd_cb_version   (const json11::Json& j_in_params, Json::object& j_out_params);
-    int cmd_cb_config    (const json11::Json& j_in_params, Json::object& j_out_params);
-    int cmd_cb_set_as_def(const json11::Json& j_in_params, Json::object& j_out_params);
+    int cmd_cb_version   (const json11::Json& j_in_params, json11::Json::object& j_out_params);
+    int cmd_cb_config    (const json11::Json& j_in_params, json11::Json::object& j_out_params);
+    int cmd_cb_set_as_def(const json11::Json& j_in_params, json11::Json::object& j_out_params);
 
 #define TFLOW_CAPTURE_RPC_CMD_VERSION    0
 #define TFLOW_CAPTURE_RPC_CMD_CONFIG     1
 #define TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF 2
 #define TFLOW_CAPTURE_RPC_CMD_LAST       3
 
-    typedef struct {
-        const char* name;
-        tflow_cmd_field_t* fields;
-        std::function<int(Json& json, Json::object& j_out_params)> cb;
-    } tflow_cmd_t;
-
     tflow_cmd_t ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_LAST + 1] = {
-        [TFLOW_CAPTURE_RPC_CMD_VERSION   ] = { "version",    (tflow_cmd_field_t*)&cmd_flds_version   , THIS_M(cmd_cb_version)   },
-        [TFLOW_CAPTURE_RPC_CMD_CONFIG    ] = { "config",     (tflow_cmd_field_t*)&cmd_flds_config    , THIS_M(cmd_cb_config)    },
-        [TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF] = { "set_as_def", (tflow_cmd_field_t*)&cmd_flds_set_as_def, THIS_M(cmd_cb_set_as_def)},
+        [TFLOW_CAPTURE_RPC_CMD_VERSION   ] = { "version",    (tflow_cmd_field_t*)&cmd_flds_version   , THIS_M(&TFlowCtrlCapture::cmd_cb_version)   },
+        [TFLOW_CAPTURE_RPC_CMD_CONFIG    ] = { "config",     (tflow_cmd_field_t*)&cmd_flds_config    , THIS_M(&TFlowCtrlCapture::cmd_cb_config)    },
+        [TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF] = { "set_as_def", (tflow_cmd_field_t*)&cmd_flds_set_as_def, THIS_M(&TFlowCtrlCapture::cmd_cb_set_as_def)},
         [TFLOW_CAPTURE_RPC_CMD_LAST] = { nullptr , nullptr, nullptr }
     };
-    //tflow_cmd_t ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_LAST + 1] = {
-    //    [TFLOW_CAPTURE_RPC_CMD_SIGN] = { "sign",        (tflow_cmd_field_t*)&cmd_flds_sign       , _cmd_cb_sign       },
-    //    [TFLOW_CAPTURE_RPC_CMD_CONFIG] = { "config",      (tflow_cmd_field_t*)&cmd_flds_config     , _cmd_cb_config     },
-    //    [TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF] = { "set_as_def",  (tflow_cmd_field_t*)&cmd_flds_set_as_def , _cmd_cb_set_as_def },
-    //    [TFLOW_CAPTURE_RPC_CMD_LAST] = { nullptr , nullptr, nullptr }
-    //};
-
-    void getSignResponse(Json::object& j_cmd_obj);
 
     TFlowCtrlSrvCapture ctrl_srv;
+
+    static void getSignResponse(const tflow_cmd_t* cmd_p, json11::Json::object& j_params) { TFlowCtrl::getSignResponse(cmd_p, j_params); }
+
 private:
 
-
     const char* cfg_fname = "tflow-capture-config.json";
-
-    void getCmdInfo(tflow_cmd_t* cmd, Json::object& j_cmd_info);
-
 };
 

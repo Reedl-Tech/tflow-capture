@@ -19,7 +19,6 @@ public:
     ~TFlowBufCliPort();
 
     GMainContext* context;      // AV: Q: ? is in use ? Use server context instead?
-    clock_t last_idle_check = 0;
 
     std::string signature;
 
@@ -42,6 +41,8 @@ public:
     int SendConsume(TFlowBuf& tflow_buf);
 
 private:
+    struct timespec last_idle_check_tp = { 0 };
+
     int onRedeem(struct TFlowBuf::pck_redeem* pck_redeem);
     int onSign(struct TFlowBuf::pck_sign *pck_sign);
     int SendCamFD();
@@ -61,8 +62,8 @@ public:
     TFlowBufSrv(GMainContext* context);
     ~TFlowBufSrv();
     int StartListening();
-    void onIdle(clock_t now);
-    
+    void onIdle(struct timespec* now_tp);
+
     void buf_create(int buff_num);                  // Called by Camera device upon new V4L2 buffers allocation
     void buf_redeem(int index, uint32_t mask);
     void buf_redeem(TFlowBuf& buf, uint32_t mask);  // Called when CliPort returns buffers back to TFlow Buffer Server
@@ -93,7 +94,7 @@ public:
     GMainContext* context;
 
 private:
-    clock_t last_idle_check = 0;
+    struct timespec last_idle_check_tp = { 0 };
 
     std::array<TFlowBufCliPort*, 4> cli_ports{};
 

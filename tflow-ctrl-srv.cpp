@@ -7,7 +7,28 @@ using namespace json11;
 #include "tflow-common.h"
 #include "tflow-ctrl-srv.h"
 
-#define TFLOWCTRLSRV_SOCKET_NAME      "_com.reedl.tflow.ctrl-server-capture"    // leading '_' will be replaced in real socket name
+static struct timespec diff_timespec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    assert(time1);
+    assert(time0);
+    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
+        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
+    if (diff.tv_nsec < 0) {
+        diff.tv_nsec += 1000000000; // nsec/sec
+        diff.tv_sec--;
+    }
+    return diff;
+}
+
+static double diff_timespec_msec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    struct timespec d_tp = diff_timespec(time1, time0);
+    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
+}
 
 gboolean TFlowCtrlSrv::tflow_ctrl_srv_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
 {
@@ -34,7 +55,7 @@ TFlowCtrlSrv::~TFlowCtrlSrv()
     }
 }
 
-TFlowCtrlSrv::TFlowCtrlSrv(const char *_my_name, GMainContext* app_context)
+TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_sck_name, GMainContext* app_context)
 {
     context = app_context;
 
@@ -42,8 +63,9 @@ TFlowCtrlSrv::TFlowCtrlSrv(const char *_my_name, GMainContext* app_context)
     sck_tag = NULL;
     sck_src = NULL;
     CLEAR(sck_gsfuncs);
-
-    my_name = std::string(_my_name);
+    
+    my_name = _my_name;
+    ctrl_srv_name = _srv_sck_name;
 }
 
 
@@ -90,7 +112,7 @@ int TFlowCtrlSrv::StartListening()
     memset(&sock_addr, 0, sizeof(struct sockaddr_un));
     sock_addr.sun_family = AF_UNIX;
 
-    std::string sock_name = std::string(TFLOWCTRLSRV_SOCKET_NAME);
+    std::string sock_name = ctrl_srv_name;
     size_t sock_name_len = sock_name.length();
     memcpy(sock_addr.sun_path, sock_name.c_str(), sock_name_len);  // NULL termination excluded
     sock_addr.sun_path[0] = 0;
@@ -122,16 +144,17 @@ int TFlowCtrlSrv::StartListening()
     return 0;
 }
 
-void TFlowCtrlSrv::onIdle(clock_t now)
+void TFlowCtrlSrv::onIdle(struct timespec* now_tp)
 {
-    clock_t dt = now - last_idle_check;
+    if (sck_state_flag.v == Flag::SET) {
+        return;
+    }
 
-    /* Do not check to often*/
-    if (dt < 3 * CLOCKS_PER_SEC) return;
-    last_idle_check = now;
-
-    if (sck_state_flag.v == Flag::SET || sck_state_flag.v == Flag::CLR) {
-
+    if (sck_state_flag.v == Flag::CLR) {
+        if (diff_timespec_msec(now_tp, &last_idle_check_tp) > 1000) {
+            last_idle_check_tp = *now_tp;
+            sck_state_flag.v = Flag::RISE;
+        }
         return;
     }
 
@@ -142,7 +165,7 @@ void TFlowCtrlSrv::onIdle(clock_t now)
         if (rc) {
             // Can't open local UNIX socket - try again later. 
             // It won't help, but anyway ...
-            sck_state_flag.v = Flag::RISE;
+            sck_state_flag.v = Flag::CLR;
         }
         else {
             sck_state_flag.v = Flag::SET;
@@ -152,7 +175,6 @@ void TFlowCtrlSrv::onIdle(clock_t now)
 
     if (sck_state_flag.v == Flag::FALL) {
         // ??? how it may happens ???
-
         sck_state_flag.v = Flag::CLR;
     }
 

@@ -2,7 +2,9 @@
 #include <sys/un.h>
 
 #include "tflow-ctrl-srv.h"
-#include "tflow-capture.h"
+
+using namespace json11;
+using namespace std;
 
 gboolean TFlowCtrlCliPort::tflow_ctrl_cli_port_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
 {
@@ -51,23 +53,23 @@ TFlowCtrlCliPort::TFlowCtrlCliPort(GMainContext* _context, TFlowCtrlSrv &_srv, i
     sck_src->cli_port = this;
     g_source_attach((GSource*)sck_src, _context);
 }
-//    int TFlowCtrlCli::sendMsg(const char* cmd, json11::Json::object j_params)
-int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const json11::Json::object& j_resp_params)
+//    int TFlowCtrlCli::sendMsg(const char* cmd, Json::object j_params)
+int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object& j_resp_params)
 {
     ssize_t res;
 //    if (sck_state_flag.v != Flag::SET) return 0;
 
-    json11::Json j_resp;
+    Json j_resp;
 
     if (resp_err) {
-        j_resp = json11::Json::object{
+        j_resp = Json::object{
             { "cmd"    , cmd           },
             { "dir"    , "response"    },        // For better log readability only
             { "err"    , resp_err      }
         };
     }
     else {
-        j_resp = json11::Json::object{
+        j_resp = Json::object{
             { "cmd"    , cmd           },
             { "dir"    , "response"    },        // For better log readability only
             { "params" , j_resp_params }
@@ -98,7 +100,7 @@ int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const json11::Json
 }
 
 
-int TFlowCtrlCliPort::onMsgSign(const json11::Json& j_params)
+int TFlowCtrlCliPort::onMsgSign(const Json& j_params)
 {
     int rc;
 
@@ -130,7 +132,7 @@ int TFlowCtrlCliPort::onMsg()
     in_msg[res] = 0;
 
     std::string j_err;
-    const json11::Json j_in_msg = json11::Json::parse(in_msg, j_err);
+    const Json j_in_msg = Json::parse(in_msg, j_err);
 
     if (j_in_msg.is_null()) {
         g_warning("TFlowCtrlCliPort: [%s] Can't parse input message - %s",
@@ -138,7 +140,7 @@ int TFlowCtrlCliPort::onMsg()
     }
 
     const std::string in_cmd = j_in_msg["cmd"].string_value();
-    const json11::Json j_in_params = j_in_msg["params"];
+    const Json j_in_params = j_in_msg["params"];
 
     /* Check Client specific commands first */
     int resp_err;
