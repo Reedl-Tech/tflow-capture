@@ -57,10 +57,6 @@ private:
     int set_baudrate();
     int write_dev(const void *src, size_t len);
 
-    struct imu_pck {
-        int a;
-    };
-
     AP_FIXAR ap_fixar;
 
     void onFixarMsg(AP_FIXAR::ap_fixar_msg& msg);

@@ -15,14 +15,15 @@ public:
     const char* sign = "TFlowBuf";
 
     /* Parameters passed from server */
-    int index = -1;
-    struct timeval ts = { 0 };
-    uint32_t sequence = { 0 };
+    int index;
+    struct timeval ts;
+    uint32_t sequence;
     
     /* Parameters obtained from Kernel*/
-    void* start;
-    size_t length;
-    uint32_t owners = 0;   // Bit mask of TFlowBufCli. Bit 0 - means buffer is in user space
+    void* start;            // Not used on Server side
+    size_t length;          // Not used on Server side
+
+    uint32_t owners;        // Bit mask of TFlowBufCli. Bit 0 - means buffer is in user space
 
     int age();
 

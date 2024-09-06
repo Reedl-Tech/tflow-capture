@@ -55,6 +55,7 @@ private:
 };
 
 class V4L2Device;
+class TFlowPlayer;
 
 class TFlowBufSrv  {
 public:
@@ -73,7 +74,12 @@ public:
     int sck_fd = -1;
     Flag sck_state_flag;
 
+    // TODO: Rework to a generic source with overloaded functions get_fd, redeem
+    // Uses only 2 functions - 
+    //     xxx->dev_fd and 
+    //     xxx->ioctlQueueBuffer    // Redeem buffer back to owner
     V4L2Device *cam;
+    TFlowPlayer *player;
 
     typedef struct
     {
@@ -85,7 +91,6 @@ public:
     gpointer sck_tag;
     GSourceFuncs sck_gsfuncs;
 
-    //int SendCamFD(TFlowBufCliPort *cli_port);
     void onConnect();
     void releaseCliPort(TFlowBufCliPort* cli_port);
 

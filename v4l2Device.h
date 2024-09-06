@@ -20,16 +20,13 @@
 #define IMAGEHEIGHT 240
 #define IMAGEWIDTH  320
 
-class TFlowCapture;
-
 class V4L2Device {
 public:
-//    V4L2Device(TFlowCapture *parent);
 
     V4L2Device(GMainContext* context, int buffs_num, int planes_num);
     ~V4L2Device();
 
-    int Init(const char* serial_name);
+    int Init(const char* dev_name);
     void Deinit();
    
     // Query device information
@@ -87,12 +84,12 @@ private:
     //           Thus, it is worth to consider dev_name specifed upon creation
     //           as a constructor parameter.
     //           Also consider camera open/close from v4l2Device constructor/desctructor.
-    int  Open(const char* filename = "/dev/video0");
+    int  Open(const char* filename);
     void Close();
 
-    GMainContext* context;  // Context for pending events
+    GMainContext* context;          // Context for pending events
 
-    const char* m_fname {nullptr};
+    const char* m_fname {nullptr};  // Just a local copy of the current device name
     bool is_streaming {false};
 
     GSourceCam* io_in_src;

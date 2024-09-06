@@ -73,7 +73,8 @@ void TFlowBufSrv::buf_redeem(TFlowBuf &tflow_buf, uint32_t mask)
     tflow_buf.owners &= ~mask;
     if (tflow_buf.owners == 0) {
         tflow_buf.owners = 1;
-        cam->ioctlQueueBuffer(tflow_buf.index);
+        if (cam) cam->ioctlQueueBuffer(tflow_buf.index);
+        else if (player) player->shmQueueBuffer(tflow_buf.index);
     }
 }
 
@@ -172,7 +173,6 @@ TFlowBufSrv::TFlowBufSrv(GMainContext* app_context)
     sck_tag = NULL;
     sck_src = NULL;
     CLEAR(sck_gsfuncs);
-
 }
 
 void TFlowBufSrv::buf_create(int buf_num)
@@ -185,11 +185,16 @@ void TFlowBufSrv::buf_create(int buf_num)
 
         // Pass all newly created buffers to the Kernel
         tflow_buf.owners = 1;
-        cam->ioctlQueueBuffer(i);
+        if (cam) cam->ioctlQueueBuffer(i);
+        else if (player) player->shmQueueBuffer(i);
     }
 
 }
 
+/*
+ * TODO: Q: ? Make innput buffer agnostic as we need only buffer index, 
+ *           v4l2_buf.timestamp and v4l2_buf.sequence ?
+ */
 int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf) 
 {
     int rc = 0;
@@ -221,8 +226,9 @@ int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf)
     if (onBuf_cb) {
         onBuf_cb(onBuf_ctx, tflow_buf);
 #if CODE_BROWSE
-        static int _onBuf();
-        TFlowCapture::onBuf(tflow_buf);
+        static int _onBufAP();
+        TFlowCapture::onBufAP(tflow_buf);
+        TFlowCapture::onBufPlayer(tflow_buf);
 #endif
     }
 
@@ -238,7 +244,9 @@ int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf)
         // filled-up or no subscribers at all, then return the buffer back to 
         // the Camera driver (Kernel)
         tflow_buf.owners = 1;
-        rc = cam->ioctlQueueBuffer(tflow_buf.index);
+
+        if (cam) rc = cam->ioctlQueueBuffer(tflow_buf.index);
+        else if (player) rc = player->shmQueueBuffer(tflow_buf.index);
     }
     return 0;
 }
@@ -296,21 +304,36 @@ int TFlowBufCliPort::SendCamFD()
 
     tflow_pck.hdr.id = TFLOWBUF_MSG_CAM_FD;
     tflow_pck.hdr.seq = msg_seq_num++;
-    tflow_pck.cam_fd.buffs_num = srv->cam->buffs_num;
-    tflow_pck.cam_fd.planes_num = srv->cam->planes_num;
-    tflow_pck.cam_fd.width  = srv->cam->frame_width;
-    tflow_pck.cam_fd.height = srv->cam->frame_height;
-    tflow_pck.cam_fd.format = srv->cam->frame_format;
+
+    if (srv->cam) {
+        tflow_pck.cam_fd.planes_num = srv->cam->planes_num;
+        tflow_pck.cam_fd.buffs_num  = srv->cam->buffs_num;
+        tflow_pck.cam_fd.width      = srv->cam->frame_width;
+        tflow_pck.cam_fd.height     = srv->cam->frame_height;
+        tflow_pck.cam_fd.format     = srv->cam->frame_format;
+    } else if (srv->player) {
+        tflow_pck.cam_fd.planes_num = 0;
+        tflow_pck.cam_fd.buffs_num  = srv->player->buffs_num;
+        tflow_pck.cam_fd.width      = srv->player->frame_width;
+        tflow_pck.cam_fd.height     = srv->player->frame_height;
+        tflow_pck.cam_fd.format     = srv->player->frame_format;
+    }
+    else {
+        assert(0);
+    }
 
 #if CODE_BROWSE
     V4L2_PIX_FMT_GREY
 #endif
 
     char buf[CMSG_SPACE(sizeof(int))];  /* ancillary data buffer */
-    int* fdptr;
 
-    if (srv->cam->dev_fd == -1) {
-        g_warning("TFlowBufCliPort: Ooops - camera fd is not valid");
+    int dev_fd =
+        srv->cam ? srv->cam->dev_fd :
+        srv->player ? srv->player->shm_fd : -1;
+
+    if (dev_fd == -1) {
+        g_warning("TFlowBufCliPort: Ooops - fd is not valid");
     }
 
     msg.msg_name = NULL;
@@ -323,7 +346,7 @@ int TFlowBufCliPort::SendCamFD()
     cmsg->cmsg_level = SOL_SOCKET;
     cmsg->cmsg_type = SCM_RIGHTS;
     cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-    *(int*)CMSG_DATA(cmsg) = srv->cam->dev_fd;
+    *(int*)CMSG_DATA(cmsg) = dev_fd;
     msg.msg_controllen = cmsg->cmsg_len;
 
     iov[0].iov_base = (void*)&tflow_pck;
@@ -375,6 +398,7 @@ int TFlowBufCliPort::onSign(TFlowBuf::pck_sign *pck_sign)
 
     return rc;
 }
+
 int TFlowBufCliPort::onMsg()
 {
     TFlowBuf::pck_t in_msg;
@@ -494,7 +518,6 @@ int TFlowBufSrv::StartListening()
     return 0;
 }
 
-// AV: Is TFlowCapture funtionality ??? Similarly as with Camera (V4L2Device)
 void TFlowBufSrv::onIdle(struct timespec *now_tp)
 {
     if (sck_state_flag.v == Flag::SET) {
@@ -522,8 +545,12 @@ void TFlowBufSrv::onIdle(struct timespec *now_tp)
         int rc;
 
         // Sanity check;
-        if (cam->dev_fd == -1) {
-            g_warning("TFlowBufSrv: Ooops - listening  at no camera");
+        int dev_fd =
+            cam ? cam->dev_fd :
+            player ? player->shm_fd : -1;
+
+        if (dev_fd == -1) {
+            g_warning("TFlowBufSrv: Ooops - listening at no source");
             sck_state_flag.v = Flag::CLR;
             return;
         }

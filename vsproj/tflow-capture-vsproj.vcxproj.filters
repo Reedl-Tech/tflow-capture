@@ -21,6 +21,7 @@
     <ClCompile Include="..\tflow-buf-srv.cpp">
       <Filter>tflow-buf</Filter>
     </ClCompile>
+    <ClCompile Include="..\tflow-player.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
@@ -49,6 +50,7 @@
     <ClInclude Include="..\tflow-buf-srv.h">
       <Filter>tflow-buf</Filter>
     </ClInclude>
+    <ClInclude Include="..\tflow-player.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">

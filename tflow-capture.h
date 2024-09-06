@@ -8,6 +8,7 @@
 #include "tflow-ctrl-capture.h"
 #include "tflow-buf-srv.h"
 #include "tflow-ap.h"
+#include "tflow-player.h"
 #include "v4l2Device.h"
 
 class TFlowCapture {
@@ -20,7 +21,10 @@ public:
     
     void AttachIdle();
     void onIdle();
-    int onBuf(TFlowBuf& buf);
+
+    // Functions that fill aux_imu_data from the proper source - AP or media file
+    int onBufAP(TFlowBuf& buf);
+    int onBufPlayer(TFlowBuf& buf);
 
     TFlowBufSrv *buf_srv;
 
@@ -42,20 +46,23 @@ public:
         int32_t pos_x;
         int32_t pos_y;
         int32_t pos_z;
-    } aux_imu_data;
+    } aux_imu_data; // Temporary local copy of IMU data 
 #pragma pack(pop)
 
 private:
 
     void checkCamState(struct timespec *now_tp);
+    void checkPlayerState(struct timespec* now_tp);
 
     TFlowCtrlCapture ctrl;
 
     V4L2Device *cam;
-
     Flag   cam_state_flag;     // FL_SET -> camera opened; FL_CLR -> camera closed
-
     struct timespec cam_last_check_tp;
+
+    TFlowPlayer* player;
+    Flag   player_state_flag;     // FL_SET -> player active; FL_CLR -> player disabled
+    struct timespec player_last_check_tp;
 
     TFlowAutopilot *autopilot;
 

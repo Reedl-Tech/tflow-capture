@@ -12,6 +12,7 @@ using namespace std;
 static const char *raw_cfg_default =  R"( 
     {
         "buffs_num"  : 4,
+        "player_fname" : "/home/root/4",
         "dev_name" : "/dev/video0",
         "serial_name" : "/dev/ttymxc0",
         "serial_baud" : 921600
@@ -78,7 +79,7 @@ void TFlowCtrlSrvCapture::onSignature(Json::object& j_out_params, int& err)
 /*******************************************************************************/
 TFlowCtrlCapture::TFlowCtrlCapture(TFlowCapture& _app) :
     app(_app),
-    ctrl_srv(TFlowCtrlSrvCapture(*this, _app.context))  // ??? pass Ctrl Commands to the server?
+    ctrl_srv(*this, _app.context)  // ??? pass Ctrl Commands to the server?
 {
     InitConfig();
     InitServer();
@@ -143,6 +144,13 @@ int TFlowCtrlCapture::serial_name_is_valid()
 int TFlowCtrlCapture::dev_name_is_valid()
 { 
     // check cmd_flds_config.dev_name.v.str;
+    return 0;
+}
+
+
+int TFlowCtrlCapture::player_fname_is_valid()
+{
+    // check cmd_flds_config.player_fname.v.str;
     return 1;
 }
 

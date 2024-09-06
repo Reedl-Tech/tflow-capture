@@ -30,7 +30,6 @@ public:
 private:
     std::string ctrl_srv_name;
 
-
     char* sck_name;
     int sck_fd = -1;
     Flag sck_state_flag;

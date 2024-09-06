@@ -46,6 +46,7 @@
     <ClCompile Include="..\tflow-ctrl-cli-port.cpp" />
     <ClCompile Include="..\tflow-ctrl-srv.cpp" />
     <ClCompile Include="..\tflow-ctrl.cpp" />
+    <ClCompile Include="..\tflow-player.cpp" />
     <ClCompile Include="..\v4l2Device.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -62,6 +63,7 @@
     <ClInclude Include="..\tflow-ctrl-cli-port.h" />
     <ClInclude Include="..\tflow-ctrl-srv.h" />
     <ClInclude Include="..\tflow-ctrl.h" />
+    <ClInclude Include="..\tflow-player.h" />
     <ClInclude Include="..\v4l2Device.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

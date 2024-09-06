@@ -35,6 +35,10 @@ public:
     void InitConfig();
     void InitServer();
 
+    int player_fname_is_valid();
+    char* player_fname_get() { return player_fname_is_valid() ? cmd_flds_config.player_fname.v.str : nullptr; }
+    int player_fmt_get() { return 0; }  // Must be obtained from a input file
+
     int dev_name_is_valid();
     char* cam_name_get() { return dev_name_is_valid() ? cmd_flds_config.dev_name.v.str : nullptr; }
     int cam_fmt_get()    { return cmd_flds_config.fmt_idx.v.num; }
@@ -52,20 +56,22 @@ public:
     struct tflow_cmd_flds_config {
         tflow_cmd_field_t   state;
         tflow_cmd_field_t   buffs_num;
-        tflow_cmd_field_t   dev_name;
-        tflow_cmd_field_t   fmt_enum;   // Enumeration of all camera supported formats. Obtained on camera opening
-        tflow_cmd_field_t   fmt_idx;    // The index of the currently used format from the fmt_enum
+        tflow_cmd_field_t   player_fname;   // File name of media file then in player mode
+        tflow_cmd_field_t   dev_name;       // Camera device name 
+        tflow_cmd_field_t   fmt_enum;       // Enumeration of all camera supported formats. Obtained on camera opening
+        tflow_cmd_field_t   fmt_idx;        // The index of the currently used format from the fmt_enum
         tflow_cmd_field_t   serial_name;
         tflow_cmd_field_t   serial_baud;
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
-        .state       = { "state",       CFT_NUM, 0, {.num = 0} },
-        .buffs_num   = { "buffs_num",   CFT_NUM, 0, {.num = 0} },
-        .dev_name    = { "dev_name",    CFT_STR, 0, {.num = 0} },
-        .fmt_enum    = { "fmt_enum",    CFT_NUM, 0, {.num = 0} },
-        .fmt_idx     = { "fmt_idx",     CFT_NUM, 0, {.num = 0} },
-        .serial_name = { "serial_name", CFT_STR, 0, {.num = 0} },
-        .serial_baud = { "serial_baud", CFT_NUM, 0, {.num = 0} },
+        .state        = { "state",        CFT_NUM, 0, {.num = 0} },
+        .buffs_num    = { "buffs_num",    CFT_NUM, 0, {.num = 0} },
+        .player_fname = { "player_fname", CFT_STR, 0, {.num = 0} },
+        .dev_name     = { "dev_name",     CFT_STR, 0, {.num = 0} },
+        .fmt_enum     = { "fmt_enum",     CFT_NUM, 0, {.num = 0} },
+        .fmt_idx      = { "fmt_idx",      CFT_NUM, 0, {.num = 0} },
+        .serial_name  = { "serial_name",  CFT_STR, 0, {.num = 0} },
+        .serial_baud  = { "serial_baud",  CFT_NUM, 0, {.num = 0} },
         TFLOW_CMD_EOMSG
     };
 
@@ -75,7 +81,6 @@ public:
         TFLOW_CMD_EOMSG
     };
 
-    //TFlowCtrlOnCmd cmd_cb_version;
     int cmd_cb_version   (const json11::Json& j_in_params, json11::Json::object& j_out_params);
     int cmd_cb_config    (const json11::Json& j_in_params, json11::Json::object& j_out_params);
     int cmd_cb_set_as_def(const json11::Json& j_in_params, json11::Json::object& j_out_params);

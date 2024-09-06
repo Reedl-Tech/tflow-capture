@@ -19,6 +19,7 @@ add_executable (tflow-capture
     "v4l2Device.cpp"
     "v4l2Device.h"
     "main.cpp"
+    "tflow-common.h"
     "tflow-capture.cpp"
     "tflow-capture.h"
     "tflow-buf.h"
@@ -36,14 +37,17 @@ add_executable (tflow-capture
     "tflow-ap-fixar.h"
     "tflow-ap.cpp"
     "tflow-ap.h"
+    "tflow-player.cpp"
+    "tflow-player.h"
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET tflow-capture PROPERTY CXX_STANDARD 20)
 endif()
 
-pkg_check_modules(JSON11 REQUIRED IMPORTED_TARGET
+pkg_check_modules(OTHERS REQUIRED IMPORTED_TARGET
     json11
+    libjpeg
 )
 
 pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET 
@@ -60,13 +64,13 @@ pkg_check_modules(GLIBMM REQUIRED IMPORTED_TARGET
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0") # Add debug information
 
-target_include_directories(tflow-capture PRIVATE ${JSON11_INCLUDE_DIRS})
 target_include_directories(tflow-capture PRIVATE ${GLIB_INCLUDE_DIRS})
 target_include_directories(tflow-capture PRIVATE ${GLIBMM_INCLUDE_DIRS})
+target_include_directories(tflow-capture PRIVATE ${OTHERS_INCLUDE_DIRS})
  
-target_link_libraries(tflow-capture PkgConfig::JSON11)
 target_link_libraries(tflow-capture PkgConfig::GLIB)
 target_link_libraries(tflow-capture PkgConfig::GLIBMM)
+target_link_libraries(tflow-capture PkgConfig::OTHERS)
 
 target_link_libraries(tflow-capture -lrt)
 
