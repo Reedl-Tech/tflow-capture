@@ -66,6 +66,9 @@ TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_
     
     my_name = _my_name;
     ctrl_srv_name = _srv_sck_name;
+
+    last_idle_check_ts.tv_nsec = 0;
+    last_idle_check_ts.tv_sec = 0;
 }
 
 
@@ -144,15 +147,15 @@ int TFlowCtrlSrv::StartListening()
     return 0;
 }
 
-void TFlowCtrlSrv::onIdle(struct timespec* now_tp)
+void TFlowCtrlSrv::onIdle(struct timespec* now_ts)
 {
     if (sck_state_flag.v == Flag::SET) {
         return;
     }
 
     if (sck_state_flag.v == Flag::CLR) {
-        if (diff_timespec_msec(now_tp, &last_idle_check_tp) > 1000) {
-            last_idle_check_tp = *now_tp;
+        if (diff_timespec_msec(now_ts, &last_idle_check_ts) > 1000) {
+            last_idle_check_ts = *now_ts;
             sck_state_flag.v = Flag::RISE;
         }
         return;

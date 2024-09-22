@@ -29,14 +29,20 @@ public:
     gpointer serial_sck_tag;
     GSourceFuncs serial_sck_gsfuncs;
     
-    void onIdle(struct timespec* now_tp);
+    void onIdle(struct timespec* now_ts);
     void onConfigUpdate();
     int onSerialData();
 
     struct AP_FIXAR::ap_fixar_pe last_pe;
     struct timeval last_pe_ts;
 
-    struct AP_FIXAR::ap_fixar_cas last_cas;        // Cuurrent Axis State
+    struct AP_FIXAR::ap_fixar_status last_status;   // Sensors healf, flight mode, etc.
+    struct timeval last_status_ts;
+
+    struct AP_FIXAR::ap_fixar_sensors last_sensors; // Sensors values (IMU, VN100, rangefinder, etc)
+    struct timeval last_sensors_ts;
+
+    struct AP_FIXAR::ap_fixar_cas last_cas;        // Current Axis State
     struct timeval last_cas_ts;
     struct timeval last_cas_ts_obsolete;
 

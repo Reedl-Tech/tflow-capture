@@ -144,7 +144,7 @@ int TFlowCtrlCapture::serial_name_is_valid()
 int TFlowCtrlCapture::dev_name_is_valid()
 { 
     // check cmd_flds_config.dev_name.v.str;
-    return 0;
+    return 1;
 }
 
 

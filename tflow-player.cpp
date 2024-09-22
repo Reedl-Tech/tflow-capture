@@ -51,13 +51,13 @@ int MJPEGCapture::rewind(int frame_num)
     return 0;
 }
 
-void MJPEGCapture::getIMU(MJPEGCapture::imu_data *imu)
+void MJPEGCapture::getIMU(MJPEGCapture::ap_data *aux_data)
 {
-    memset(imu, 0, sizeof(MJPEGCapture::imu_data));
-    memcpy(imu, &frame_info.imu, sizeof(MJPEGCapture::imu_data));
+    memset(aux_data, 0, sizeof(MJPEGCapture::ap_data));
+    memcpy(aux_data, &frame_info.aux_data, sizeof(MJPEGCapture::ap_data));
 }
 
-int MJPEGCapture::decompressNext(int buff_idx, MJPEGCapture::imu_data *imu)
+int MJPEGCapture::decompressNext(int buff_idx, MJPEGCapture::ap_data *aux_data)
 {
     size_t res;
     res = fread(&frame_info, sizeof(frame_info), 1, f);
@@ -72,10 +72,12 @@ int MJPEGCapture::decompressNext(int buff_idx, MJPEGCapture::imu_data *imu)
             return -1;
         }
     }
-    if (*(uint32_t*)&frame_info.sign != 0x302E5452) {        // RT.0
+
+    if (*(uint32_t*)&frame_info.sign != 0x312E5452) {        // RT.1
         g_warning("File %s corrupted (bad sign)\r\n", fname.c_str());
         assert(0);
     }
+
 
     res = fread(in_buff, 1, frame_info.jpeg_sz, f);
 
@@ -95,7 +97,7 @@ int MJPEGCapture::decompressNext(int buff_idx, MJPEGCapture::imu_data *imu)
         return -1;
     }
 
-    getIMU(imu);
+    getIMU(aux_data);
 
     jpeg_mem_src(&cinfo, in_buff, (unsigned long)frame_info.jpeg_sz);
     jpeg_save_markers(&cinfo, JPEG_COM, 1024);
@@ -216,7 +218,7 @@ int MJPEGCapture::open(const std::string& fname, int _offset_frame)
         }
 
         // check sign
-        if (*(uint32_t*)&frame.sign != 0x302E5452) {        // RT.0
+        if (*(uint32_t*)&frame.sign != 0x312E5452) {        // RT.1
             g_warning("File %s corrupted (bad sign)\r\n", fname.c_str());
             return -1;
         }
@@ -306,7 +308,7 @@ int TFlowPlayer::getNextFrame(int buff_idx)
 {
     int res;
 
-    res = mjpegCapture.decompressNext(buff_idx, shm_tbl[buff_idx].imu);
+    res = mjpegCapture.decompressNext(buff_idx, shm_tbl[buff_idx].aux_data);
     if (res != 1) {
         return res;
     }
@@ -375,13 +377,13 @@ int TFlowPlayer::shmQuery()
      *      gap1       0xCAFE0001
      *      frame      w x h x pixel_size
      *      gap2       0xCAFE0002
-     *      imu        fixed structure
+     *      aux_data        fixed structure
      *      gap3       0xCAFE0003
      * 
      *      gap1       0xCAFE0011
      *      frame      w x h x pixel_size
      *      gap2       0xCAFE0012
-     *      imu        fixed structure
+     *      aux_data        fixed structure
      *      gap3       0xCAFE0013
      *         ....
      *   gap       0xCAFEFFFF
@@ -393,7 +395,7 @@ int TFlowPlayer::shmQuery()
     long total_mem = 0;
     total_mem += frame_size;
     total_mem += 3 * sizeof(uint32_t);  // 3x GAPs per frame
-    total_mem += sizeof(MJPEGCapture::imu_data);
+    total_mem += sizeof(MJPEGCapture::ap_data);
     total_mem *= buffs_num;
     total_mem += 2 * sizeof(uint32_t);  // 2x GAPs for leading and trailing gap
     shm_size = total_mem;
@@ -413,7 +415,7 @@ int TFlowPlayer::shmQuery()
         *(uint32_t*)shm_wr_ptr = 0xCAFE0001 + i * 0x10; shm_wr_ptr += sizeof(uint32_t);
         shm_tbl[i].data = shm_wr_ptr; shm_wr_ptr += frame_size;
         *(uint32_t*)shm_wr_ptr = 0xCAFE0002 + i * 0x10; shm_wr_ptr += sizeof(uint32_t);
-        shm_tbl[i].imu = (MJPEGCapture::imu_data *)shm_wr_ptr; shm_wr_ptr += sizeof(MJPEGCapture::imu_data);
+        shm_tbl[i].aux_data = (MJPEGCapture::ap_data *)shm_wr_ptr; shm_wr_ptr += sizeof(MJPEGCapture::ap_data);
         shm_tbl[i].owner_player = 1;
         *(uint32_t*)shm_wr_ptr = 0xCAFE0003 + i * 0x10; shm_wr_ptr += sizeof(uint32_t);
     }

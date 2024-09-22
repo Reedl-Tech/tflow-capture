@@ -34,17 +34,18 @@ public:
         TFlowBufCliPort* cli_port;
     } GSourceCliPort;
 
-    int                 sck_fd;
+    int sck_fd;
 
     int request_cnt;
 
     int SendConsume(TFlowBuf& tflow_buf);
 
 private:
-    struct timespec last_idle_check_tp = { 0 };
+    struct timespec last_idle_check_ts;
 
     int onRedeem(struct TFlowBuf::pck_redeem* pck_redeem);
     int onSign(struct TFlowBuf::pck_sign *pck_sign);
+    int onPing(struct TFlowBuf::pck_ping *pck_ping);
     int SendCamFD();
 
     GSourceCliPort*     sck_src;
@@ -63,7 +64,7 @@ public:
     TFlowBufSrv(GMainContext* context);
     ~TFlowBufSrv();
     int StartListening();
-    void onIdle(struct timespec* now_tp);
+    void onIdle(struct timespec* now_ts);
 
     void buf_create(int buff_num);                  // Called by Camera device upon new V4L2 buffers allocation
     void buf_redeem(int index, uint32_t mask);
@@ -99,7 +100,7 @@ public:
     GMainContext* context;
 
 private:
-    struct timespec last_idle_check_tp = { 0 };
+    struct timespec last_idle_check_ts;
 
     std::array<TFlowBufCliPort*, 4> cli_ports{};
 

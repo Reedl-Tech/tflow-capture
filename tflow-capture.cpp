@@ -86,24 +86,30 @@ int TFlowCapture::onBufPlayer(TFlowBuf& buf)
     TFlowBufSrv::buf_consume();
 #endif
 
-    //  MJPEGCapture::imu_data and   TFlowCapture::imu_data are matched one-to-one
-    MJPEGCapture::imu_data* player_imu = player->shm_tbl[buf.index].imu;
+    //  MJPEGCapture::ap_data and   TFlowCapture::ap_data are matched one-to-one
+    MJPEGCapture::ap_data* player_imu = player->shm_tbl[buf.index].aux_data;
 
-    aux_imu_data.sign      = player_imu->sign;
-    aux_imu_data.tv_sec    = player_imu->tv_sec;
-    aux_imu_data.tv_usec   = player_imu->tv_usec;
-    aux_imu_data.log_ts    = player_imu->log_ts;
-    aux_imu_data.roll      = player_imu->roll;
-    aux_imu_data.pitch     = player_imu->pitch;
-    aux_imu_data.yaw       = player_imu->yaw;
+    aux_ap_data.sign      = player_imu->sign;
+    aux_ap_data.tv_sec    = player_imu->tv_sec;
+    aux_ap_data.tv_usec   = player_imu->tv_usec;
+    aux_ap_data.log_ts    = player_imu->log_ts;
+    aux_ap_data.roll      = player_imu->roll;
+    aux_ap_data.pitch     = player_imu->pitch;
+    aux_ap_data.yaw       = player_imu->yaw;
 
-    aux_imu_data.altitude  = player_imu->altitude;
-    aux_imu_data.pos_x     = player_imu->pos_x;
-    aux_imu_data.pos_y     = player_imu->pos_y;
-    aux_imu_data.pos_z     = player_imu->pos_z;
+    aux_ap_data.altitude  = player_imu->altitude;
+    aux_ap_data.pos_x     = player_imu->pos_x;
+    aux_ap_data.pos_y     = player_imu->pos_y;
+    aux_ap_data.pos_z     = player_imu->pos_z;
 
-    buf.aux_data = (uint8_t*)&aux_imu_data;
-    buf.aux_data_len = sizeof(aux_imu_data);
+    aux_ap_data.flightModeFlags = player_imu->flightModeFlags; 
+    aux_ap_data.stateFlags      = player_imu->stateFlags;
+    aux_ap_data.hwHealthSatus   = player_imu->hwHealthSatus;
+    aux_ap_data.failsafePhase   = player_imu->failsafePhase;
+    aux_ap_data.receiver_status = player_imu->receiver_status;
+
+    buf.aux_data = (uint8_t*)&aux_ap_data;
+    buf.aux_data_len = sizeof(aux_ap_data);
     return 0;
 }
 
@@ -146,21 +152,38 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
         }
     }     
 
-    aux_imu_data.sign      = 0x30554D49;                        // IMU0
-    aux_imu_data.tv_sec    = autopilot->last_cas_ts.tv_sec;     // Local time
-    aux_imu_data.tv_usec   = autopilot->last_cas_ts.tv_usec;    // Local time
-    aux_imu_data.log_ts    = autopilot->last_cas.ts;            // AP time
-    aux_imu_data.roll      = autopilot->last_cas.CAS_board_att_roll;
-    aux_imu_data.pitch     = autopilot->last_cas.CAS_board_att_pitch;
-    aux_imu_data.yaw       = autopilot->last_cas.CAS_board_att_yaw;
+    aux_ap_data.sign      = 0x31554D49;                        // "IMU1" -> IMU v.1
+    aux_ap_data.tv_sec    = autopilot->last_cas_ts.tv_sec;     // Local time
+    aux_ap_data.tv_usec   = autopilot->last_cas_ts.tv_usec;    // Local time
+    aux_ap_data.log_ts    = autopilot->last_cas.ts;            // AP time
+    aux_ap_data.roll      = autopilot->last_cas.CAS_board_att_roll;
+    aux_ap_data.pitch     = autopilot->last_cas.CAS_board_att_pitch;
+    aux_ap_data.yaw       = autopilot->last_cas.CAS_board_att_yaw;
 
-    aux_imu_data.altitude  = autopilot->last_pe.PE_baro_alt;
-    aux_imu_data.pos_x     = autopilot->last_pe.PE_est_pos_x;
-    aux_imu_data.pos_y     = autopilot->last_pe.PE_est_pos_y;
-    aux_imu_data.pos_z     = autopilot->last_pe.PE_est_pos_z;
+    aux_ap_data.altitude  = autopilot->last_pe.PE_baro_alt;
+    aux_ap_data.pos_x     = autopilot->last_pe.PE_est_pos_x;
+    aux_ap_data.pos_y     = autopilot->last_pe.PE_est_pos_y;
+    aux_ap_data.pos_z     = autopilot->last_pe.PE_est_pos_z;
+    aux_ap_data.gps_pos_x = autopilot->last_pe.PE_gps_pos_x;
+    aux_ap_data.gps_pos_y = autopilot->last_pe.PE_gps_pos_y;
+    aux_ap_data.gps_pos_z = autopilot->last_pe.PE_gps_pos_z;
 
-    buf.aux_data = (uint8_t*)&aux_imu_data;
-    buf.aux_data_len = sizeof(aux_imu_data);
+    aux_ap_data.stateFlags      = autopilot->last_status.stateFlags;
+    aux_ap_data.hwHealthSatus   = autopilot->last_status.hwHealthSatus;
+    aux_ap_data.flightModeFlags = autopilot->last_status.flightModeFlags;
+    aux_ap_data.failsafePhase   = autopilot->last_status.failsafePhase;
+    aux_ap_data.receiver_status = autopilot->last_status.receiver_status;
+
+    aux_ap_data.sensors_MPU_roll       = autopilot->last_sensors.MPU_roll;
+    aux_ap_data.sensors_MPU_yaw        = autopilot->last_sensors.MPU_yaw;
+    aux_ap_data.sensors_MPU_pitch      = autopilot->last_sensors.MPU_pitch;
+    aux_ap_data.sensors_rangefinderRaw = autopilot->last_sensors.rangefinderRaw;
+    aux_ap_data.sensors_rf_meas_x      = autopilot->last_sensors.rf_meas_x;
+    aux_ap_data.sensors_rf_meas_y      = autopilot->last_sensors.rf_meas_y;
+    aux_ap_data.sensors_rf_meas_z      = autopilot->last_sensors.rf_meas_z;
+
+    buf.aux_data = (uint8_t*)&aux_ap_data;
+    buf.aux_data_len = sizeof(aux_ap_data);
     return 0;
 }
 
@@ -175,12 +198,12 @@ TFlowCapture::TFlowCapture(GMainContext* _context) :
     buf_srv = new TFlowBufSrv(context);
 
     cam = nullptr;
-    cam_last_check_tp.tv_sec = 0;
-    cam_last_check_tp.tv_nsec = 0;
+    cam_last_check_ts.tv_sec = 0;
+    cam_last_check_ts.tv_nsec = 0;
     
     player = nullptr;
-    player_last_check_tp.tv_sec = 0;
-    player_last_check_tp.tv_nsec = 0;
+    player_last_check_ts.tv_sec = 0;
+    player_last_check_ts.tv_nsec = 0;
 
     autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
 }
@@ -207,7 +230,7 @@ static gboolean tflow_capture_idle(gpointer data)
     return G_SOURCE_CONTINUE;
 }
 
-void TFlowCapture::checkPlayerState(struct timespec *now_tp)
+void TFlowCapture::checkPlayerState(struct timespec *now_ts)
 {
     if (player_state_flag.v == Flag::SET) {
         return;
@@ -221,8 +244,8 @@ void TFlowCapture::checkPlayerState(struct timespec *now_tp)
         /* Don't try open the file to often 
          * TODO: Should we try only once?
          */
-        if (diff_timespec_msec(now_tp, &player_last_check_tp) > 1000) {
-            player_last_check_tp = *now_tp;
+        if (diff_timespec_msec(now_ts, &player_last_check_ts) > 1000) {
+            player_last_check_ts = *now_ts;
             player_state_flag.v = Flag::RISE;
         }
     }
@@ -282,7 +305,7 @@ void TFlowCapture::checkPlayerState(struct timespec *now_tp)
 
 }
 
-void TFlowCapture::checkCamState(struct timespec* now_tp)
+void TFlowCapture::checkCamState(struct timespec* now_ts)
 {
     if (cam_state_flag.v == Flag::SET) {
         return;
@@ -294,8 +317,8 @@ void TFlowCapture::checkCamState(struct timespec* now_tp)
         if (!ctrl.dev_name_is_valid()) return;
 
         /* Don't try connect to camera to often */
-        if (diff_timespec_msec(now_tp, &cam_last_check_tp) > 1000) {
-            cam_last_check_tp = *now_tp;
+        if (diff_timespec_msec(now_ts, &cam_last_check_ts) > 1000) {
+            cam_last_check_ts = *now_ts;
             cam_state_flag.v = Flag::RISE;
         }
     }
@@ -359,22 +382,22 @@ void TFlowCapture::checkCamState(struct timespec* now_tp)
 
 void TFlowCapture::onIdle()
 {
-    struct timespec now_tp;
-    clock_gettime(CLOCK_MONOTONIC, &now_tp);
+    struct timespec now_ts;
+    clock_gettime(CLOCK_MONOTONIC, &now_ts);
 
     // TODO: Check configuration player or live
     //       Q: Should it be checked inside checkStateXxx() ?
     if (1) {
-        checkCamState(&now_tp);
+        checkCamState(&now_ts);
     }
     else {
         // Draft - not tested
-        checkPlayerState(&now_tp);
+        checkPlayerState(&now_ts);
     }
 
-    autopilot->onIdle(&now_tp);
-    buf_srv->onIdle(&now_tp);
-    ctrl.ctrl_srv.onIdle(&now_tp);
+    autopilot->onIdle(&now_ts);
+    buf_srv->onIdle(&now_ts);
+    ctrl.ctrl_srv.onIdle(&now_ts);
 }
 
 void TFlowCapture::AttachIdle()

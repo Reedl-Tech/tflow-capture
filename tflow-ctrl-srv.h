@@ -15,7 +15,7 @@ public:
     TFlowCtrlSrv(const std::string &my_name, const std::string & srv_sck_name, GMainContext* context);
     ~TFlowCtrlSrv();
     int StartListening();
-    void onIdle(struct timespec* now_tp);
+    void onIdle(struct timespec* now_ts);
 
     virtual int onCliPortConnect(int fd) { return 0; };
     virtual void onCliPortError(int fd) {};
@@ -25,7 +25,7 @@ public:
     
     GMainContext* context;
     std::string my_name;
-    struct timespec last_idle_check_tp = { 0 };
+    struct timespec last_idle_check_ts;
 
 private:
     std::string ctrl_srv_name;

@@ -18,8 +18,8 @@ private:
 
     TFlowCtrlSrv &srv;      // is used to report socket error to the Server
 
-    clock_t last_idle_check = 0;
-    clock_t last_send_ts = 0;
+    struct timespec last_idle_check_ts;
+    struct timespec last_send_ts;
 
     int pid;
 

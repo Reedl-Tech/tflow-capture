@@ -46,6 +46,11 @@ TFlowCtrlCliPort::TFlowCtrlCliPort(GMainContext* _context, TFlowCtrlSrv &_srv, i
 
     CLEAR(sck_gsfuncs);
 
+    last_idle_check_ts.tv_nsec = 0;
+    last_idle_check_ts.tv_nsec = 0;
+
+    clock_gettime(CLOCK_MONOTONIC, &last_send_ts);
+
     /* Assign g_source on the socket */
     sck_gsfuncs.dispatch = tflow_ctrl_cli_port_dispatch;
     sck_src = (GSourceCliPort*)g_source_new(&sck_gsfuncs, sizeof(GSourceCliPort));
@@ -95,7 +100,8 @@ int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object
         srv.my_name.c_str(),
         signature.c_str(), cmd);
 
-    last_send_ts = clock();
+    clock_gettime(CLOCK_MONOTONIC, &last_send_ts);
+
     return 0;
 }
 

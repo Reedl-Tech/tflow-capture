@@ -107,7 +107,7 @@ void TFlowAutopilot::onConfigUpdate()
     // with the new configuration.
     serial_state_flag.v = Flag::FALL;
 }
-void TFlowAutopilot::onIdle(struct timespec* now_tp)
+void TFlowAutopilot::onIdle(struct timespec* now_ts)
 {
     if (serial_state_flag.v == Flag::SET) {
         return;
@@ -116,8 +116,8 @@ void TFlowAutopilot::onIdle(struct timespec* now_tp)
     if (serial_state_flag.v == Flag::CLR) {
         if (serial_name.empty()) return;
 
-        if (diff_timespec_msec(now_tp, &last_serial_check_tp) > 1000) {
-            last_serial_check_tp = *now_tp;
+        if (diff_timespec_msec(now_ts, &last_serial_check_tp) > 1000) {
+            last_serial_check_tp = *now_ts;
             serial_state_flag.v = Flag::RISE;
         }
     }
@@ -201,6 +201,15 @@ void TFlowAutopilot::onFixarMsg(AP_FIXAR::ap_fixar_msg &msg)
         last_cas = AP_FIXAR::ap_fixar_cas(msg.cas);
         last_cas_ts = now_ts;
         break;
+    case AP_FIXAR_MSG_ID_STATUS:
+        last_status = AP_FIXAR::ap_fixar_status(msg.status);
+        last_status_ts = now_ts;
+        break;
+    case AP_FIXAR_MSG_ID_SENSORS:
+        last_sensors = AP_FIXAR::ap_fixar_sensors(msg.sensors);
+        last_sensors_ts = now_ts;
+        break;
+        
     default:
         return;
     }

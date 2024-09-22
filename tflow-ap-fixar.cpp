@@ -3,16 +3,15 @@
 
 int AP_FIXAR::get_btr_dst(uint8_t** dst)
 {
+    *dst = ((uint8_t*)&in_bb_msg.raw) + wr_idx;
 
     if (wr_idx < sizeof(struct ap_fixar_hdr)) {
-        *dst = ((uint8_t*)&in_bb_msg.raw) + wr_idx;
         // waiting for header
         return sizeof(struct ap_fixar_hdr) - wr_idx;
     }
     else {
         // header received - waiting for body + checksum
         size_t msg_len_full = sizeof(struct ap_fixar_hdr) + in_bb_msg.hdr.len16 * 16 + 2;   // +2 for chck sum
-        *dst = ((uint8_t*)&in_bb_msg.raw) + wr_idx;
         return msg_len_full - wr_idx;
     }
 }
@@ -28,7 +27,7 @@ int AP_FIXAR::data_in(ssize_t bytes_read)
     }
 
     if (wr_idx == sizeof(struct ap_fixar_hdr)) {
-        // Check header's mark. If uot of sync, then shift header by one byte and check again
+        // Check header's mark. If out of sync, then shift header by one byte and check again
         while (in_bb_msg.hdr.mark != 'g' && wr_idx){
             in_bb_msg.hdr_raw = in_bb_msg.hdr_raw >> 8;
             wr_idx--;

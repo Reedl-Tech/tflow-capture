@@ -3,6 +3,7 @@
 #include <glib-unix.h>
 
 #define TFLOWBUF_MSG_SIGN_ID 0x11
+#define TFLOWBUF_MSG_PING    0x12
 #define TFLOWBUF_MSG_CAM_FD  0x21
 #define TFLOWBUF_MSG_CONSUME 0x31
 #define TFLOWBUF_MSG_REDEEM  0x32
@@ -31,7 +32,7 @@ public:
      * Non camera related data 
      * Server's owner may put auxiliary data here, from the onBuf callback
      * This data will be sent to all TFlowBuf clients
-     * max data len defined by TFlowBuf::pck_consume.aux_data (256)
+     * max data len defined by TFlowBuf::pck_consume.aux_data (512)
      */
 
     uint32_t aux_data_len;
@@ -49,6 +50,12 @@ public:
         struct pck_hdr hdr;
         char cli_name[32];
         int  cli_pid;
+    };
+
+    struct pck_ping {
+        struct pck_hdr hdr;
+        char cli_name[32];
+        int  cnt;
     };
 
     struct pck_buff_info {
@@ -74,7 +81,7 @@ public:
         struct timeval ts;
         uint32_t seq;
         uint32_t aux_data_len;
-        uint8_t aux_data[256];     // Att: Must be last! Actual data to be sent specified in aux_data_len
+        uint8_t aux_data[512];     // Att: Must be last! Actual data to be sent specified in aux_data_len
     };
 
     struct pck_redeem {

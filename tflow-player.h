@@ -25,7 +25,7 @@ public:
     ~MJPEGCapture();
 
 #pragma pack(push, 1)
-    struct imu_data {
+    struct ap_data {
         uint32_t sign;
         uint32_t tv_sec;      // Local timestamp (struct timeval)
         uint32_t tv_usec;     // Local timestamp
@@ -37,7 +37,14 @@ public:
         int32_t pos_x;
         int32_t pos_y;
         int32_t pos_z;
+
+        uint32_t flightModeFlags;
+        uint32_t stateFlags;
+        uint32_t hwHealthSatus;
+        uint8_t  failsafePhase;
+        uint8_t  receiver_status;
     };
+
 #pragma pack(pop)
 
     std::string fname;
@@ -52,7 +59,7 @@ public:
 
     int open(const std::string& fname, int offset);
     int setupJPEGLib(int buffs_num);
-    int decompressNext(int buff_idx, MJPEGCapture::imu_data *imu);
+    int decompressNext(int buff_idx, MJPEGCapture::ap_data *aux_data);
     void setupRowPointers(int idx, uint8_t *buf);
     int rewind(int frame_num);
 
@@ -66,7 +73,7 @@ private:
         uint32_t height;
         uint32_t format;
         struct timeval ts;
-        struct imu_data imu;
+        struct ap_data aux_data;
         uint32_t jpeg_sz;
     };
 #pragma pack(pop)
@@ -86,7 +93,7 @@ private:
 
     void cleanJPEGLib();
 
-    void getIMU(MJPEGCapture::imu_data *imu);
+    void getIMU(MJPEGCapture::ap_data *aux_data);
 
 };
 
@@ -126,7 +133,7 @@ public:
     // Filled by MJPEGCapture, used by TFlowCapture on TFlowBuf preparation
     struct shm_entry {
         uint8_t* data;
-        MJPEGCapture::imu_data *imu;
+        MJPEGCapture::ap_data *aux_data;
         int owner_player;
     };
 

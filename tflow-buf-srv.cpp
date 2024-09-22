@@ -150,6 +150,8 @@ TFlowBufCliPort::TFlowBufCliPort(TFlowBufSrv* _srv, uint32_t mask, int fd)
     sck_src->cli_port = this;
     g_source_attach((GSource*)sck_src, srv->context);
 
+    last_idle_check_ts.tv_nsec = 0;
+    last_idle_check_ts.tv_sec = 0;
 }
 
 TFlowBufSrv::~TFlowBufSrv()
@@ -173,6 +175,9 @@ TFlowBufSrv::TFlowBufSrv(GMainContext* app_context)
     sck_tag = NULL;
     sck_src = NULL;
     CLEAR(sck_gsfuncs);
+
+    last_idle_check_ts.tv_nsec = 0;
+    last_idle_check_ts.tv_sec = 0;
 }
 
 void TFlowBufSrv::buf_create(int buf_num)
@@ -192,7 +197,7 @@ void TFlowBufSrv::buf_create(int buf_num)
 }
 
 /*
- * TODO: Q: ? Make innput buffer agnostic as we need only buffer index, 
+ * TODO: Q: ? Make input buffer agnostic as we need only buffer index, 
  *           v4l2_buf.timestamp and v4l2_buf.sequence ?
  */
 int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf) 
@@ -222,7 +227,7 @@ int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf)
     tflow_buf.ts = v4l2_buf.timestamp;
     tflow_buf.sequence = v4l2_buf.sequence;
 
-    // call owner's callback to update aux_data
+    // call owner's callback to update buffer's aux_data
     if (onBuf_cb) {
         onBuf_cb(onBuf_ctx, tflow_buf);
 #if CODE_BROWSE
@@ -386,6 +391,19 @@ int TFlowBufCliPort::onRedeem(TFlowBuf::pck_redeem* pck_redeem)
     return rc;
 }
 
+int TFlowBufCliPort::onPing(TFlowBuf::pck_ping* pck_ping)
+{
+    int rc;
+
+    std::string ping_from = std::string(pck_ping->cli_name);
+    g_warning("TFlowBufCliPort: Ping on port %d from [%s]",
+        this->cli_port_mask, ping_from.c_str());
+
+//    rc = SendPong();
+
+    return rc;
+}
+
 int TFlowBufCliPort::onSign(TFlowBuf::pck_sign *pck_sign)
 {
     int rc;
@@ -421,7 +439,9 @@ int TFlowBufCliPort::onMsg()
     switch (in_msg.hdr.id) {
         case TFLOWBUF_MSG_SIGN_ID:  
             return onSign((TFlowBuf::pck_sign*)&in_msg);
-        case TFLOWBUF_MSG_REDEEM:   
+        case TFLOWBUF_MSG_PING:
+            return onPing((TFlowBuf::pck_ping*)&in_msg);
+        case TFLOWBUF_MSG_REDEEM:
             return onRedeem((TFlowBuf::pck_redeem*)&in_msg);
     default:
         g_warning("TFlowBufCliPort: unexpected message received (%d)", in_msg.hdr.id);
@@ -518,7 +538,7 @@ int TFlowBufSrv::StartListening()
     return 0;
 }
 
-void TFlowBufSrv::onIdle(struct timespec *now_tp)
+void TFlowBufSrv::onIdle(struct timespec *now_ts)
 {
     if (sck_state_flag.v == Flag::SET) {
         // Normal operation. Check buffer are occupied for too long
@@ -535,8 +555,8 @@ void TFlowBufSrv::onIdle(struct timespec *now_tp)
     }
 
     if (sck_state_flag.v == Flag::CLR) {
-        if (diff_timespec_msec(now_tp, &last_idle_check_tp) > 1000) {
-            last_idle_check_tp = *now_tp;
+        if (diff_timespec_msec(now_ts, &last_idle_check_ts) > 1000) {
+            last_idle_check_ts = *now_ts;
             sck_state_flag.v = Flag::RISE;
         }
     }
