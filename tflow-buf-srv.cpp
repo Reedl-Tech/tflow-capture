@@ -544,7 +544,7 @@ void TFlowBufSrv::onIdle(struct timespec *now_ts)
         // Normal operation. Check buffer are occupied for too long
         // ...
         for (auto &tflow_buf : bufs) {
-            if (tflow_buf.age() > 3000) {
+            if (tflow_buf.age() > 3000 && (tflow_buf.owners & ~1)) {
                 g_warning("TFlowBuf client(s) stall: 0x%02X", 
                     tflow_buf.owners);
                 // Disqualify the client, close connection or ???

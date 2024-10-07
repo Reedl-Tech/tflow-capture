@@ -402,7 +402,7 @@ int TFlowPlayer::shmQuery()
 
     int rc = ftruncate(shm_fd, shm_size);
     if (rc != 0) {
-        g_warning("Can't rwsize shm - %s (%d)\r\n", strerror(errno), errno);
+        g_warning("Can't resize shm - %s (%d)\r\n", strerror(errno), errno);
         return -1;
     }
 

@@ -104,7 +104,7 @@ int TFlowCapture::onBufPlayer(TFlowBuf& buf)
 
     aux_ap_data.flightModeFlags = player_imu->flightModeFlags; 
     aux_ap_data.stateFlags      = player_imu->stateFlags;
-    aux_ap_data.hwHealthSatus   = player_imu->hwHealthSatus;
+    aux_ap_data.hwHealthStatus  = player_imu->hwHealthStatus;
     aux_ap_data.failsafePhase   = player_imu->failsafePhase;
     aux_ap_data.receiver_status = player_imu->receiver_status;
 
@@ -162,14 +162,14 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
 
     aux_ap_data.altitude  = autopilot->last_pe.PE_baro_alt;
     aux_ap_data.pos_x     = autopilot->last_pe.PE_est_pos_x;
-    aux_ap_data.pos_y     = autopilot->last_pe.PE_est_pos_y;
+    aux_ap_data.pos_y     = autopilot->last_pe.PE_est_pos_y;   //Can be uses as altitude
     aux_ap_data.pos_z     = autopilot->last_pe.PE_est_pos_z;
     aux_ap_data.gps_pos_x = autopilot->last_pe.PE_gps_pos_x;
     aux_ap_data.gps_pos_y = autopilot->last_pe.PE_gps_pos_y;
     aux_ap_data.gps_pos_z = autopilot->last_pe.PE_gps_pos_z;
 
     aux_ap_data.stateFlags      = autopilot->last_status.stateFlags;
-    aux_ap_data.hwHealthSatus   = autopilot->last_status.hwHealthSatus;
+    aux_ap_data.hwHealthStatus  = autopilot->last_status.hwHealthStatus;
     aux_ap_data.flightModeFlags = autopilot->last_status.flightModeFlags;
     aux_ap_data.failsafePhase   = autopilot->last_status.failsafePhase;
     aux_ap_data.receiver_status = autopilot->last_status.receiver_status;

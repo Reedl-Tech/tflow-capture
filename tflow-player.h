@@ -40,7 +40,7 @@ public:
 
         uint32_t flightModeFlags;
         uint32_t stateFlags;
-        uint32_t hwHealthSatus;
+        uint32_t hwHealthStatus;
         uint8_t  failsafePhase;
         uint8_t  receiver_status;
     };

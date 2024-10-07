@@ -10,6 +10,7 @@
 
 #define TFLOWBUFSRV_SOCKET_NAME "com.reedl.tflow.buf-server"
 
+
 class TFlowBufSrv;
 
 class TFlowBufCliPort {
@@ -99,7 +100,12 @@ public:
 
     GMainContext* context;
 
+    std::string my_name;
+
 private:
+
+    std::string srv_name;
+
     struct timespec last_idle_check_ts;
 
     std::array<TFlowBufCliPort*, 4> cli_ports{};

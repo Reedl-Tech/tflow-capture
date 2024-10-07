@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <RemoteTarget>-1734117059;192.168.1.100 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteTarget>-1029354980;192.168.1.101 (username=, port=22, authentication=Password)</RemoteTarget>
     <RemoteDebuggerCommand>/home/root/tflow-capture</RemoteDebuggerCommand>
     <RemoteDebuggerWorkingDirectory>/home/root/</RemoteDebuggerWorkingDirectory>
     <RemoteDebuggingMode>gdbserver</RemoteDebuggingMode>
     <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
-    <RemoteDebuggingTarget>-787906927;192.168.2.3 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteDebuggingTarget>1871530032;192.168.2.5 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
   </PropertyGroup>
 </Project>

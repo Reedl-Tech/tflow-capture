@@ -13,7 +13,7 @@ static const char *raw_cfg_default =  R"(
     {
         "buffs_num"  : 4,
         "player_fname" : "/home/root/4",
-        "dev_name" : "/dev/video0",
+        "dev_name" : "/dev/video2",
         "serial_name" : "/dev/ttymxc0",
         "serial_baud" : 921600
     } 
