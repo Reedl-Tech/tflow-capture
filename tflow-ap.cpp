@@ -89,18 +89,17 @@ static speed_t get_baud(int baud)
         return -1;
     }
 }
-gboolean tflow_ap_serial_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
-{
-    TFlowAutopilot::GSourceAP* source = (TFlowAutopilot::GSourceAP*)g_source;
-    TFlowAutopilot* ap = source->ap;
 
-    int rc = ap->onSerialData();
+int TFlowAutopilot::onSerialData(Glib::IOCondition io_cond)
+{
+    int rc = onSerialDataRcv();
     if (rc) {
-        // Close the port ?
+        // Close / Reopen the port ?
         return G_SOURCE_REMOVE;
     }
     return G_SOURCE_CONTINUE;
 }
+
 void TFlowAutopilot::onConfigUpdate()
 {
     // Upon falling flag the port will be closed and reopened 
@@ -145,14 +144,12 @@ void TFlowAutopilot::onIdle(struct timespec* now_ts)
 
 }
 
-TFlowAutopilot::TFlowAutopilot(GMainContext* app_context, const char* _serial_name, int _baud_rate)
+TFlowAutopilot::TFlowAutopilot(MainContextPtr app_context, const char* _serial_name, int _baud_rate)
 {
+    struct timespec now;
     context = app_context;
 
     serial_sck_fd = -1;
-    serial_sck_tag = NULL;
-    serial_sck_src = NULL;
-    CLEAR(serial_sck_gsfuncs);
 
     serial_name = std::string(_serial_name);
     baud_rate = _baud_rate;
@@ -160,19 +157,28 @@ TFlowAutopilot::TFlowAutopilot(GMainContext* app_context, const char* _serial_na
     last_serial_check_tp.tv_sec = 0;
     last_serial_check_tp.tv_nsec = 0;
 
-    /* Assign g_source on the socket */
-    serial_sck_gsfuncs.dispatch = tflow_ap_serial_dispatch;
-    serial_sck_src = (GSourceAP*)g_source_new(&serial_sck_gsfuncs, sizeof(GSourceAP));
-    serial_sck_src->ap = this;
-    g_source_attach((GSource*)serial_sck_src, context);
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    last_sensors_ts.tv_sec = now.tv_sec;
+    last_sensors_ts.tv_usec = now.tv_nsec / 1000;
+
+    last_sensors_ts_obsolete = last_sensors_ts;
+
+    last_sensor_cnt = 0;
 }
 
 TFlowAutopilot::~TFlowAutopilot()
 {
     close_dev();
+
+    if (serial_sck_src) {
+        serial_sck_src->destroy();
+        serial_sck_src.reset();
+    }
+
 }
 
-void TFlowAutopilot::onFixarMsg(AP_FIXAR::ap_fixar_msg &msg)
+void TFlowAutopilot::onTFlowAPMsg(TFLOW_AP::in_msg &msg)
 {
     struct timespec tp;
     struct timeval  now_ts;
@@ -184,38 +190,63 @@ void TFlowAutopilot::onFixarMsg(AP_FIXAR::ap_fixar_msg &msg)
 
     // Keep Position Estimation and Current Axis State messages only
     switch (msg.common.msg_id) {
-    case AP_FIXAR_MSG_ID_PE: 
-        last_pe = AP_FIXAR::ap_fixar_pe(msg.pe);
-        last_pe_ts = now_ts;
-        break;
-    case AP_FIXAR_MSG_ID_CAS:
-        //AP_FIXAR::ap_fixar_cas_betoh(last_cas, msg.cas);
-        //{
-        //    static int presc = 0;
-        //    if ((presc++ & 0x1f) == 0) {
-        //        g_warning("--- Pitch: 0x%08X  ROLL: 0x%08X", 
-        //            *(uint32_t*)&msg.cas.CAS_board_att_pitch,
-        //            *(uint32_t*)&msg.cas.CAS_board_att_roll);
-        //    }
-        //}
-        last_cas = AP_FIXAR::ap_fixar_cas(msg.cas);
-        last_cas_ts = now_ts;
-        break;
-    case AP_FIXAR_MSG_ID_STATUS:
-        last_status = AP_FIXAR::ap_fixar_status(msg.status);
-        last_status_ts = now_ts;
-        break;
-    case AP_FIXAR_MSG_ID_SENSORS:
-        last_sensors = AP_FIXAR::ap_fixar_sensors(msg.sensors);
+    case TFLOW_AP_MSG_ID_SENSORS: 
+        last_sensors = TFLOW_AP::sensors(msg.sensors);
         last_sensors_ts = now_ts;
+        last_sensor_cnt++;
         break;
-        
+    
     default:
         return;
     }
 
 }
-int TFlowAutopilot::onSerialData()
+int TFlowAutopilot::serialDataSend(TFLOW_AP::out_msg &out_msg)
+{
+    uint8_t *raw_data_out = (uint8_t*)&out_msg;
+    
+    TFLOW_AP::chcksum_set(out_msg);
+
+    if (serial_sck_fd == -1) {
+        // Serial port not ready yet or was intentionally closed.
+        // Not an error
+        return 0;
+    }
+
+    size_t bytes_to_wr = sizeof(TFLOW_AP::hdr) + out_msg.hdr.len + 2;
+    ssize_t bytes_written = write(serial_sck_fd, raw_data_out, bytes_to_wr);
+
+    {
+        static char out_str[512] = { 0 };
+        char *out_str_p = &out_str[0];
+        for (int i = 0; i < bytes_to_wr; i++) {
+            int n = snprintf(out_str_p, sizeof(out_str) - 1, " %02X", raw_data_out[i]);
+            out_str_p += n;
+        }
+        *out_str_p = 0;
+        g_warning(" POSITIONING: %s", out_str);
+    }
+
+    if (bytes_written <= 0) {
+        g_warning("TFlowAutopilot: Can't write to serial (%s): %s", 
+            serial_name.c_str(), strerror(errno));
+        //close_dev();
+        // serial_state_flag.v = Flag::FALL;
+        return -1;
+    }
+
+    if (bytes_written != bytes_to_wr) {
+        g_warning("TFlowAutopilot: Can't write whole packet to (%s): %s", 
+            serial_name.c_str(), strerror(errno));
+        // AV: What to do next? Flash tx buffer?
+        // serial_state_flag.v = Flag::FALL; ??
+        return -1;
+    }
+
+    return 0;
+}
+
+int TFlowAutopilot::onSerialDataRcv()
 {
     uint8_t *raw_data_in;
 
@@ -228,11 +259,11 @@ int TFlowAutopilot::onSerialData()
 
         // Check error codes on USB serial converter conn/disc
         if (err == EAGAIN) {
-            g_warning("TFlowAP: ???");
+            g_warning("TFlowAutopilot: ???");
             return 0;
         }
         else {
-            g_warning("TFlowAP: unexpected error (%d) - %s",
+            g_warning("TFlowAutopilot: unexpected error (%d) - %s",
                 errno, strerror(errno));
             serial_state_flag.v = Flag::FALL;
             return -1;
@@ -242,7 +273,7 @@ int TFlowAutopilot::onSerialData()
     int res = ap_fixar.data_in(bytes_read);
 
     if (res) {
-        onFixarMsg(ap_fixar.in_bb_msg);
+        onTFlowAPMsg(ap_fixar.ap_in_msg);
     }
 
     return 0;
@@ -294,30 +325,6 @@ void TFlowAutopilot::close_dev()
     }
 }
 
-int TFlowAutopilot::write_dev(const void *src, size_t len)
-{
-    int rc;
-    
-    if (serial_sck_fd == -1) return 0;
-
-    rc = write(serial_sck_fd, src, len);
-    if (rc == -1) {
-        g_warning("Can't write to serial (%s): %s", 
-            serial_name.c_str(), strerror(errno));
-        close_dev();
-        return -1;
-    }
-    if (rc != len) {
-        g_warning("Can't write whole packet to (%s): %s", 
-            serial_name.c_str(), strerror(errno));
-        // AV: What to do next? Flash tx buffer?
-        // ...
-        return -1;
-    }
-
-    return 0;
-}
-
 int TFlowAutopilot::open_dev()
 {
     int rc;
@@ -342,8 +349,9 @@ int TFlowAutopilot::open_dev()
         goto on_error;
     }
 
-    serial_sck_tag = g_source_add_unix_fd((GSource*)serial_sck_src, serial_sck_fd,
-        (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    serial_sck_src = Glib::IOSource::create(serial_sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    serial_sck_src->connect(sigc::mem_fun(*this, &TFlowAutopilot::onSerialData));
+    serial_sck_src->attach(context);
 
     return 0;
 

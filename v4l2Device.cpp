@@ -11,36 +11,16 @@
 
 #define CAM_DESCR 1
 
-gboolean cam_io_in_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
-{
-    V4L2Device::GSourceCam* source = (V4L2Device::GSourceCam*)g_source;
-    V4L2Device* cam = source->cam;
-
-    int rc = cam->onBuff();
-    if (rc) {
-        // Close camera???
-        // return G_SOURCE_REMOVE;
-    }
-
-    return G_SOURCE_CONTINUE;
-}
-
-V4L2Device::V4L2Device(GMainContext* _context, int _buffs_num, int _planes_num)
+V4L2Device::V4L2Device(MainContextPtr _context, 
+    int _buffs_num, int _planes_num,
+    const TFlowCtrlCapture::cfg_v4l2_ctrls* _cfg)
 {
     context = _context;
     buffs_num = _buffs_num;
     planes_num = _planes_num;
+    cfg = _cfg;
 
     buf_srv = NULL;
-
-    io_in_tag = NULL;
-    io_in_src = NULL;
-    CLEAR(gsource_funcs);
-
-    gsource_funcs.dispatch = cam_io_in_dispatch;
-    io_in_src = (GSourceCam*)g_source_new(&gsource_funcs, sizeof(GSourceCam));
-    io_in_src->cam = this;
-    g_source_attach((GSource*)io_in_src, _context);
 
     CLEAR(v4l2_buf_template);
     
@@ -56,16 +36,6 @@ V4L2Device::V4L2Device(GMainContext* _context, int _buffs_num, int _planes_num)
 
 V4L2Device::~V4L2Device()
 {
-    if (io_in_src) {
-        if (io_in_tag) {
-            g_source_remove_unix_fd((GSource*)io_in_src, io_in_tag);
-            io_in_tag = nullptr;
-        }
-        g_source_destroy((GSource*)io_in_src);
-        g_source_unref((GSource*)io_in_src);
-        io_in_src = nullptr;
-    }
-
     if (is_streaming) {
         ioctlSetStreamOff();
     }
@@ -76,19 +46,20 @@ V4L2Device::~V4L2Device()
 /*
  * The function is a calback called on async VIDIOC_DQBUF completion
  */
-int V4L2Device::onBuff()
+int V4L2Device::onBuff(Glib::IOCondition G_IO_IN)
 {
-    int rc;
 
+    // TODO: Check camera state 
+    // ... 
+   
     //Dequeue all buffers
     v4l2_buffer v4l2_buf = v4l2_buf_template; // TODO: Q: can it be reused without reinitialization?
     while (1) {
-        // ? reinit v4l2_buf ?
-        rc = ioctlDequeueBuffer(v4l2_buf);
+        int rc = ioctlDequeueBuffer(v4l2_buf);
         if (rc == 0) {
 
             if (v4l2_buf.index == -1) {
-                return 0;       // No buffers - It is OK, everything read out. 
+                return G_SOURCE_CONTINUE;       // No buffers - It is OK, everything read out. 
             }
             // TODO: check - is it possible to receive veeeery old buffer in
             //       case of buffer not enqueued back for a long time?
@@ -103,7 +74,7 @@ int V4L2Device::onBuff()
         }
     }
 
-    return 0;
+    return G_SOURCE_CONTINUE;
 
 }
 // Open video device
@@ -135,6 +106,11 @@ void V4L2Device::Close()
     if (dev_fd != -1) {
         close(dev_fd);
         dev_fd = -1;
+    }
+
+    if (io_in_src) {
+        io_in_src->destroy();
+        io_in_src.reset();
     }
 }
 
@@ -375,7 +351,7 @@ int V4L2Device::ioctlDequeueBuffer(v4l2_buffer &v4l2_buf)
 int V4L2Device::StreamOn(int fmt_idx)
 {
     int rc = 0;
-
+    
     // TODO: get format by index
     //       v4l2_format fmt = fmt_enum[fmt_idx]
     //       ioctlSetStreamFmt(fmt)
@@ -402,11 +378,10 @@ int V4L2Device::StreamOn(int fmt_idx)
     is_streaming = true;
 
     // TODO: Preserve currently used format ?
-
-    io_in_tag = g_source_add_unix_fd((GSource*)io_in_src, dev_fd, (GIOCondition)(G_IO_IN | G_IO_ERR));
-#if CODE_BROWSE
-    cam_io_in_dispatch();
-#endif
+    // 
+    io_in_src = Glib::IOSource::create(dev_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR));
+    io_in_src->connect(sigc::mem_fun(*this, &V4L2Device::onBuff));
+    io_in_src->attach(context);
 
     return 0;
 }
@@ -430,6 +405,73 @@ void V4L2Device::Deinit()
     Close();
 }
 
+int V4L2Device::ioctlSetControls()
+{
+    // Get controls from config or compose by the camera type?
+    return ioctlSetControls_ISI();
+}
+
+int V4L2Device::ioctlSetControls_ISI()
+{
+    int rc;
+
+#define ISI_CTRL_HFLIP 0
+#define ISI_CTRL_VFLIP 1
+#define ISI_CTRL_NUMS  2
+    
+    struct v4l2_ext_control isi_ctrls[ISI_CTRL_NUMS] = {
+        [ISI_CTRL_HFLIP] = {.id = V4L2_CID_HFLIP,  .size = 0,   .value64 = 0 },
+        [ISI_CTRL_VFLIP] = {.id = V4L2_CID_VFLIP,  .size = 0,   .value64 = 0 },
+    };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL,
+        .count = ISI_CTRL_NUMS,
+        .error_idx = 0,
+        .request_fd = dev_fd,
+        .controls = isi_ctrls
+    };
+
+
+    rc = ioctl(dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+#if 0
+    else {
+        g_warning(
+            "ISI Ctrls: \r\n"\
+            "\t VFLIP = %d\r\n"\
+            "\t HFLIP = %d\r\n",
+        isi_ctrls[ISI_CTRL_VFLIP].value, 
+        isi_ctrls[ISI_CTRL_HFLIP].value);
+    }
+#endif
+
+    // Modify Controls according to config
+    isi_ctrls[ISI_CTRL_VFLIP].value = cfg->vflip.v.num;
+    isi_ctrls[ISI_CTRL_HFLIP].value = cfg->hflip.v.num;
+
+    rc = ioctl(dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting external controls");
+        return -1;
+    }
+    else {
+        g_warning(
+            "ISI Ctrls: \r\n"\
+            "\t VFLIP = %d\r\n"\
+            "\t HFLIP = %d\r\n",
+        isi_ctrls[ISI_CTRL_VFLIP].value, 
+        isi_ctrls[ISI_CTRL_HFLIP].value);
+    }
+
+    return 0;
+}
+
 int V4L2Device::Init(const char *dev_name)
 {
     int rc;
@@ -447,6 +489,8 @@ int V4L2Device::Init(const char *dev_name)
     //       What if differs? compare enum at particular index?
     //       Update Ctrl with formats enumerated from the device
     //       ? Ctrl must send this enum to the UI ?
+
+    ioctlSetControls();
 
     return 0;
 }

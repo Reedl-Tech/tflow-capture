@@ -30,39 +30,23 @@ static double diff_timespec_msec(
     return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
 }
 
-gboolean TFlowCtrlSrv::tflow_ctrl_srv_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
-{
-    TFlowCtrlSrv::GSourceSrv* source = (TFlowCtrlSrv::GSourceSrv*)g_source;
-    TFlowCtrlSrv* srv = source->srv;
-
-    g_info("TFlowCtrl: Incoming connection");
-
-    srv->onConnect();
-
-    return G_SOURCE_CONTINUE;
-}
-
 TFlowCtrlSrv::~TFlowCtrlSrv()
 {
+    if (sck_fd > 0) {
+        close(sck_fd);
+    }
+
     if (sck_src) {
-        if (sck_tag) {
-            g_source_remove_unix_fd((GSource*)sck_src, sck_tag);
-            sck_tag = nullptr;
-        }
-        g_source_destroy((GSource*)sck_src);
-        g_source_unref((GSource*)sck_src);
-        sck_src = nullptr;
+        sck_src->destroy();
+        sck_src.reset();
     }
 }
 
-TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_sck_name, GMainContext* app_context)
+TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_sck_name, MainContextPtr app_context)
 {
     context = app_context;
 
     sck_fd = -1;
-    sck_tag = NULL;
-    sck_src = NULL;
-    CLEAR(sck_gsfuncs);
     
     my_name = _my_name;
     ctrl_srv_name = _srv_sck_name;
@@ -71,8 +55,7 @@ TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_
     last_idle_check_ts.tv_sec = 0;
 }
 
-
-void TFlowCtrlSrv::onConnect()
+gboolean TFlowCtrlSrv::onConnect(Glib::IOCondition io_cond)
 {
     int cli_port_fd;
     int rc;
@@ -80,21 +63,23 @@ void TFlowCtrlSrv::onConnect()
     struct sockaddr_un peer_addr = { 0 };
     socklen_t sock_len = sizeof(peer_addr);
 
+    g_info("TFlowCtrl: Incoming connection (cond=%d)", (int)io_cond);
+
     cli_port_fd = accept(sck_fd, (struct sockaddr*)&peer_addr, &sock_len);
     if (cli_port_fd == -1) {
         g_warning("TFlowCtrlSrv: Can't connect a TFlow Ctrl Client");
-        return;
+        return G_SOURCE_CONTINUE;
     }
 
     rc = onCliPortConnect(cli_port_fd);
     if (rc) {
         close(cli_port_fd);
-        return;
+        return G_SOURCE_CONTINUE;
     }
     g_warning("TFlowCtrlSrv: TFlow Control Client [%s] (%d) is connected",
         peer_addr.sun_path, cli_port_fd);
 
-    return;
+    return G_SOURCE_CONTINUE;
 }
 
 int TFlowCtrlSrv::StartListening()
@@ -137,12 +122,9 @@ int TFlowCtrlSrv::StartListening()
         return -1;
     }
 
-    /* Assign g_source on the socket */
-    sck_gsfuncs.dispatch = tflow_ctrl_srv_dispatch;
-    sck_src = (GSourceSrv*)g_source_new(&sck_gsfuncs, sizeof(GSourceSrv));
-    sck_tag = g_source_add_unix_fd((GSource*)sck_src, sck_fd, (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
-    sck_src->srv = this;
-    g_source_attach((GSource*)sck_src, context);
+    sck_src = Glib::IOSource::create(sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    sck_src->connect(sigc::mem_fun(*this, &TFlowCtrlSrv::onConnect));
+    sck_src->attach(context);
 
     return 0;
 }

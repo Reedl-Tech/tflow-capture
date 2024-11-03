@@ -51,6 +51,7 @@
       <Filter>tflow-buf</Filter>
     </ClInclude>
     <ClInclude Include="..\tflow-player.h" />
+    <ClInclude Include="..\tflow-glib.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">

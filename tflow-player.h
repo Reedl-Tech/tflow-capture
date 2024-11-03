@@ -100,7 +100,7 @@ private:
 class TFlowPlayer {
 public:
 
-    TFlowPlayer(GMainContext* context, int buffs_num, float fps);
+    TFlowPlayer(MainContextPtr context, int buffs_num, float fps);
     ~TFlowPlayer();
 
     int Init(const char* media_file_name);
@@ -110,18 +110,6 @@ public:
     int onTick();
 
     int media_file_fd { -1 };
-
-    //int      f_in_fd;
-    //GSource* f_in_src;
-    //gpointer f_in_tag;
-
-
-    //typedef struct {
-    //    GSource g_source;
-    //    TFlowPlayer* player;
-    //} GSourcePlayer;
-
-    GSource* fps_timer_src;
 
     TFlowBufSrv* buf_srv;   // Server to pass V4L2 buffers
     int buffs_num;          // Initialized on creation by callee 
@@ -151,7 +139,7 @@ private:
     int  Open(const char* media_filename);
     void Close();
 
-    GMainContext* context;  // Context for pending events
+    MainContextPtr context;  // Context for pending events
 
     int frames_count;
     const char* m_fname{ nullptr };

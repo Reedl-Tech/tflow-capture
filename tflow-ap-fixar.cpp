@@ -1,63 +1,63 @@
 #include <string.h>
 #include "tflow-ap-fixar.h"
 
-int AP_FIXAR::get_btr_dst(uint8_t** dst)
+int TFLOW_AP::get_btr_dst(uint8_t** dst)
 {
-    *dst = ((uint8_t*)&in_bb_msg.raw) + wr_idx;
+    *dst = ((uint8_t*)&ap_in_msg.raw) + wr_idx;
 
-    if (wr_idx < sizeof(struct ap_fixar_hdr)) {
+    if (wr_idx < sizeof(struct hdr)) {
         // waiting for header
-        return sizeof(struct ap_fixar_hdr) - wr_idx;
+        return sizeof(struct hdr) - wr_idx;
     }
     else {
         // header received - waiting for body + checksum
-        size_t msg_len_full = sizeof(struct ap_fixar_hdr) + in_bb_msg.hdr.len16 * 16 + 2;   // +2 for chck sum
+        size_t msg_len_full = sizeof(struct hdr) + ap_in_msg.hdr.len + 2;   // +2 for chck sum
         return msg_len_full - wr_idx;
     }
 }
 
-int AP_FIXAR::data_in(ssize_t bytes_read)
+int TFLOW_AP::data_in(ssize_t bytes_read)
 {
     // TODO: ? implement sync and check sum error statistics counters ? 
 
     wr_idx += bytes_read;
 
-    if (wr_idx < sizeof(struct ap_fixar_hdr)) {
+    if (wr_idx < sizeof(struct hdr)) {
         return 0; // Keep waiting for header (aka syncing)
     }
 
-    if (wr_idx == sizeof(struct ap_fixar_hdr)) {
+    if (wr_idx == sizeof(struct hdr)) {
         // Check header's mark. If out of sync, then shift header by one byte and check again
-        while (in_bb_msg.hdr.mark != 'g' && wr_idx){
-            in_bb_msg.hdr_raw = in_bb_msg.hdr_raw >> 8;
+        while (ap_in_msg.hdr.mark != 'T' && wr_idx){        // 'T'  0x54, d84d
+            ap_in_msg.hdr_raw = ap_in_msg.hdr_raw >> 8;
             wr_idx--;
         }
 
-        if (wr_idx < sizeof(struct ap_fixar_hdr)) return 0;   // Header is not fully received yet
+        if (wr_idx < sizeof(struct hdr)) return 0;   // Header is not fully received yet
 
-        if (in_bb_msg.hdr.crypter != 'A') wr_idx = 0;         // Bad crypto, restart header reception
+        if (ap_in_msg.hdr.src != 1) wr_idx = 0;         // Bad header - we expect data from AP only (src = 1)
         return 0;
     }
 
     // Header received - check length and chcksum
-    size_t msg_len_full = sizeof(struct ap_fixar_hdr) + in_bb_msg.hdr.len16 * 16 + 2;   // +2 for chck sum
+    size_t msg_len_full = sizeof(struct hdr) + ap_in_msg.hdr.len + 2;   // +2 for chck sum
     if (wr_idx < msg_len_full) return 0; // Keep waiting for body
 
     wr_idx = 0;
     
     // Full message received - calculate checksum
-    if (!chcksum_ok()) return 0;
+    if (!chcksum_chk(ap_in_msg)) return 0;
 
     return 1;
 }
 
-int AP_FIXAR::chcksum_ok()
+int TFLOW_AP::chcksum_chk(in_msg &msg)
 {
     uint8_t ck_1 = 0;
     uint8_t ck_2 = 0;
-    size_t msg_len = sizeof(struct ap_fixar_hdr) + in_bb_msg.hdr.len16 * 16;
+    size_t msg_len = sizeof(struct hdr) + msg.hdr.len;
 
-    uint8_t* p = (uint8_t*)&in_bb_msg;
+    uint8_t* p = (uint8_t*)&msg;
     for (int i = 0; i < msg_len; i++) {
         ck_1 = ck_1 + *p++;
         ck_2 = ck_2 + ck_1;
@@ -66,6 +66,22 @@ int AP_FIXAR::chcksum_ok()
     if (ck_1 != p[0] || ck_2 != p[1]) return false;
 
     return true;
+}
+
+void TFLOW_AP::chcksum_set(out_msg &msg)
+{
+    uint8_t ck_1 = 0;
+    uint8_t ck_2 = 0;
+    size_t msg_len = sizeof(struct hdr) + msg.hdr.len;
+
+    uint8_t* p = (uint8_t*)&msg;
+    for (int i = 0; i < msg_len; i++) {
+        ck_1 = ck_1 + *p++;
+        ck_2 = ck_2 + ck_1;
+    }
+
+    p[0] = ck_1;
+    p[1] = ck_2;
 }
 
 #if 0

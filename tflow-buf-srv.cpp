@@ -30,30 +30,13 @@ static double diff_timespec_msec(
     return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
 }
 
-gboolean tflow_buf_cli_port_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
+gboolean TFlowBufCliPort::onMsg(Glib::IOCondition io_cond)
 {
-    TFlowBufCliPort::GSourceCliPort* source = (TFlowBufCliPort::GSourceCliPort*)g_source;
-    TFlowBufCliPort* cli_port = source->cli_port;
-
-    int rc = cli_port->onMsg();
+    int rc = onMsgRcv();
     if (rc) {
-        TFlowBufSrv* srv = cli_port->srv;
-        srv->releaseCliPort(cli_port);
-        cli_port = NULL;
+        srv->releaseCliPort(this);
         return G_SOURCE_REMOVE;
     }
-    return G_SOURCE_CONTINUE;
-}
-
-gboolean tflow_buf_srv_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
-{
-    TFlowBufSrv::GSourceSrv* source = (TFlowBufSrv::GSourceSrv*)g_source;
-    TFlowBufSrv* srv = source->srv;
-
-    g_info("TFlowBuf: Incoming connection");
-
-    srv->onConnect();
-    
     return G_SOURCE_CONTINUE;
 }
 
@@ -95,6 +78,7 @@ void TFlowBufSrv::releaseCliPort(TFlowBufCliPort* cli_port)
     for (auto& cli_port_p : cli_ports) {
         if (cli_port_p == cli_port) {
             cli_port_p = NULL;
+            break;
         }
     }
     delete cli_port;
@@ -109,6 +93,14 @@ int TFlowBufSrv::registerOnBuf(void* ctx, std::function<int(void* ctx, TFlowBuf&
     return 0;
 }
 
+int TFlowBufSrv::registerOnCustomMsg(void* ctx, std::function<int(void* ctx, const TFlowBuf::pck_t &in_msg)> cb)
+{
+    onCustomMsg_ctx = ctx;
+    onCustomMsg_cb = cb;
+
+    return 0;
+}
+
 TFlowBufCliPort::~TFlowBufCliPort()
 {
     if (sck_fd != -1) {
@@ -117,15 +109,9 @@ TFlowBufCliPort::~TFlowBufCliPort()
     }
 
     if (sck_src) {
-        if (sck_tag) {
-            g_source_remove_unix_fd((GSource*)sck_src, sck_tag);
-            sck_tag = nullptr;
-        }
-        g_source_destroy((GSource*)sck_src);
-        g_source_unref((GSource*)sck_src);
-        sck_src = nullptr;
+        sck_src->destroy();
+        sck_src.reset();
     }
-
 }
 
 TFlowBufCliPort::TFlowBufCliPort(TFlowBufSrv* _srv, uint32_t mask, int fd)
@@ -134,21 +120,14 @@ TFlowBufCliPort::TFlowBufCliPort(TFlowBufSrv* _srv, uint32_t mask, int fd)
     srv = _srv;
 
     sck_fd = fd;
-    sck_tag = NULL;
-    sck_src = NULL;
-
-    CLEAR(sck_gsfuncs);
 
     cli_port_mask = mask;
     msg_seq_num = 0;
     request_cnt = 0;
 
-    /* Assign g_source on the socket */
-    sck_gsfuncs.dispatch = tflow_buf_cli_port_dispatch;
-    sck_src = (GSourceCliPort*)g_source_new(&sck_gsfuncs, sizeof(GSourceCliPort));
-    sck_tag = g_source_add_unix_fd((GSource*)sck_src, sck_fd, (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
-    sck_src->cli_port = this;
-    g_source_attach((GSource*)sck_src, srv->context);
+    sck_src = Glib::IOSource::create(sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    sck_src->connect(sigc::mem_fun(*this, &TFlowBufCliPort::onMsg));
+    sck_src->attach(context);
 
     last_idle_check_ts.tv_nsec = 0;
     last_idle_check_ts.tv_sec = 0;
@@ -156,25 +135,19 @@ TFlowBufCliPort::TFlowBufCliPort(TFlowBufSrv* _srv, uint32_t mask, int fd)
 
 TFlowBufSrv::~TFlowBufSrv()
 {
+    if (sck_fd > 0) {
+        close(sck_fd);
+    }
+
     if (sck_src) {
-        if (sck_tag) {
-            g_source_remove_unix_fd((GSource*)sck_src, sck_tag);
-            sck_tag = nullptr;
-        }
-        g_source_destroy((GSource*)sck_src);
-        g_source_unref((GSource*)sck_src);
-        sck_src = nullptr;
+        sck_src->destroy();
+        sck_src.reset();
     }
 }
 
-TFlowBufSrv::TFlowBufSrv(GMainContext* app_context)
+TFlowBufSrv::TFlowBufSrv(MainContextPtr app_context)
 {
     context = app_context;
-
-    sck_fd = -1;
-    sck_tag = NULL;
-    sck_src = NULL;
-    CLEAR(sck_gsfuncs);
 
     last_idle_check_ts.tv_nsec = 0;
     last_idle_check_ts.tv_sec = 0;
@@ -378,8 +351,6 @@ int TFlowBufCliPort::SendCamFD()
 }
 int TFlowBufCliPort::onRedeem(TFlowBuf::pck_redeem* pck_redeem)
 {
-    int rc;
-    
     if (pck_redeem->buff_index != -1) {
         srv->buf_redeem(pck_redeem->buff_index, cli_port_mask);
     }
@@ -388,12 +359,12 @@ int TFlowBufCliPort::onRedeem(TFlowBuf::pck_redeem* pck_redeem)
         request_cnt++;
     }
 
-    return rc;
+    return 0;
 }
 
 int TFlowBufCliPort::onPing(TFlowBuf::pck_ping* pck_ping)
 {
-    int rc;
+    int rc = 0;
 
     std::string ping_from = std::string(pck_ping->cli_name);
     g_warning("TFlowBufCliPort: Ping on port %d from [%s]",
@@ -417,14 +388,14 @@ int TFlowBufCliPort::onSign(TFlowBuf::pck_sign *pck_sign)
     return rc;
 }
 
-int TFlowBufCliPort::onMsg()
+int TFlowBufCliPort::onMsgRcv()
 {
     TFlowBuf::pck_t in_msg;
 
     int res = recv(sck_fd, &in_msg, sizeof(in_msg), 0); //MSG_DONTWAIT 
-    int err = errno;
 
     if (res <= 0) {
+        int err = errno;
         if (err == ECONNRESET || err == EAGAIN) {
             g_warning("TFlowBufCliPort: [%s] disconnected (%d) - closing",
                 this->signature.c_str(), errno);
@@ -443,18 +414,29 @@ int TFlowBufCliPort::onMsg()
             return onPing((TFlowBuf::pck_ping*)&in_msg);
         case TFLOWBUF_MSG_REDEEM:
             return onRedeem((TFlowBuf::pck_redeem*)&in_msg);
-    default:
-        g_warning("TFlowBufCliPort: unexpected message received (%d)", in_msg.hdr.id);
+        default:
+            if ((in_msg.hdr.id > TFLOWBUF_MSG_CUSTOM_) && srv->onCustomMsg_cb) {
+                return srv->onCustomMsg_cb(srv->onCustomMsg_ctx, in_msg);
+#if CODE_BROWSE
+    static int _onCustomMsg(void* ctx, const TFlowBuf::pck_t & in_msg);
+    int TFlowCapture::onCustomMsg(const TFlowBuf::pck_t & in_msg);
+    int TFlowCapture::onCustomMsgNavigator(const struct pck_navigator& in_msg_nav);
+#endif
+            }
+            else {
+                g_warning("TFlowBufCliPort: unexpected message received (%d)", in_msg.hdr.id);
+            }
     }
 
     return 0;
 }
 
-void TFlowBufSrv::onConnect()
+gboolean TFlowBufSrv::onConnect(Glib::IOCondition io_cond)
 {
     int cli_port_fd;
-    int rc;
     
+    g_info("TFlowBuf: Incoming connection (cond %d)", (int)io_cond);
+
     /* Get new empty Client port */
     uint32_t mask = 2;
     TFlowBufCliPort** cli_port_empty_pp = NULL;
@@ -468,7 +450,7 @@ void TFlowBufSrv::onConnect()
 
     if (cli_port_empty_pp == NULL) {
         g_warning("No more free TFlow Buf Client Ports");
-        return;
+        return G_SOURCE_CONTINUE;
     }
 
     struct sockaddr_un peer_addr = { 0 };
@@ -477,7 +459,7 @@ void TFlowBufSrv::onConnect()
     cli_port_fd = accept(sck_fd, (struct sockaddr*)&peer_addr, &sock_len);
     if (cli_port_fd == -1) {
         g_warning("TFlowBufSrv: Can't connect a TFlow Buffer Client");
-        return;
+        return G_SOURCE_CONTINUE;
     }
 
     //int flags = fcntl(cli_port_fd, F_GETFL, 0);
@@ -489,7 +471,7 @@ void TFlowBufSrv::onConnect()
     g_warning("TFlowBufSrv: TFlow Buffer Client %d (%d) is connected",
         cli_port->cli_port_mask, cli_port->sck_fd);
 
-    return;
+    return G_SOURCE_CONTINUE;
 }
 
 int TFlowBufSrv::StartListening()
@@ -528,12 +510,9 @@ int TFlowBufSrv::StartListening()
         return -1;
     }
 
-    /* Assign g_source on the socket */
-    sck_gsfuncs.dispatch = tflow_buf_srv_dispatch;
-    sck_src = (GSourceSrv*)g_source_new(&sck_gsfuncs, sizeof(GSourceSrv));
-    sck_tag = g_source_add_unix_fd((GSource*)sck_src, sck_fd, (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
-    sck_src->srv = this;
-    g_source_attach((GSource*)sck_src, context);
+    sck_src = Glib::IOSource::create(sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    sck_src->connect(sigc::mem_fun(*this, &TFlowBufSrv::onConnect));
+    sck_src->attach(context);
 
     return 0;
 }
@@ -598,3 +577,18 @@ void TFlowBufSrv::onIdle(struct timespec *now_ts)
     }
 
 }
+
+#if 0
+struct v4l2_ext_control ctrl;
+CLEAR(ctrl);
+CLEAR(ctrls);
+ctrls.controls = &ctrl;
+ctrls.count = 1;
+ctrls.which = V4L2_CTRL_WHICH_CUR_VAL;
+
+ctrl.id = TEGRA_CAMERA_CID_EXPOSURE;
+ctrl.value = ;
+if (xioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls) == -1) {
+     fprintf(stderr, "Error VIDIOC_S_EXT_CTRLS %s\n",strerror(errno));
+ }
+#endif

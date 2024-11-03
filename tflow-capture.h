@@ -11,20 +11,40 @@
 #include "tflow-player.h"
 #include "v4l2Device.h"
 
+#define TFLOWBUF_MSG_CUSTOM_NAVIGATOR (TFLOWBUF_MSG_CUSTOM_ + 1)    // 0x80 + 1
+struct pck_navigator {
+    TFlowBuf::pck_hdr hdr;
+    int32_t	    position_x;	        // Drone position relative to takeoff point	In meters			
+    int32_t		position_y;	        // 
+    int32_t	    north_azimuth;	    // Azimuth angle to North	In degrees
+    uint32_t	sync_time;	        // Last position synchronization time, type of synchronization is in sync_mode	In ms
+    uint8_t	    position_quality;	// Position confidence coefficient, accuracy	0 - position can’t be used, 255 - position max accuracy
+    uint8_t	    video_quality;	    // Video quality	0 - bad quality … 255 - best quality
+    uint8_t	    sync_mode;	        // TFlowNavigator synchronization mode	0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
+};
+
+
 class TFlowCapture {
 public:
-    TFlowCapture(GMainContext* context);
+    TFlowCapture(MainContextPtr context);
     ~TFlowCapture();
 
-    GMainContext* context;
-    GMainLoop *main_loop;
+    MainContextPtr context;
+    MainLoopPtr main_loop;
     
     void AttachIdle();
-    void onIdle();
+    int onIdle();
 
     // Functions that fill aux_ap_data from the proper source - AP or media file
     int onBufAP(TFlowBuf& buf);
     int onBufPlayer(TFlowBuf& buf);
+
+
+    // Custom messages handler from buffer server's clients.
+    // For instance, the tflow-process->navigator returns result of algorithm 
+    // processing to send it back to the Auto Pilot.
+    int onCustomMsg(const TFlowBuf::pck_t &in_msg);
+    int onCustomMsgNavigator(const struct pck_navigator& in_msg);
 
     TFlowBufSrv *buf_srv;
 
@@ -40,34 +60,24 @@ public:
         uint32_t sign;
         uint32_t tv_sec;      // Local timestamp
         uint32_t tv_usec;     // Local timestamp
-        uint32_t log_ts;      // Timestamp received from AP
-        int32_t roll;
-        int32_t pitch;
-        int32_t yaw;
-        int32_t altitude;
-        int32_t pos_x;
-        int32_t pos_y;
-        int32_t pos_z;
-        int32_t gps_pos_x;
-        int32_t gps_pos_y;
-        int32_t gps_pos_z;
-
-
-        uint32_t flightModeFlags;
-        uint32_t stateFlags;
         uint32_t hwHealthStatus;
-        uint8_t  failsafePhase;
-        uint8_t  receiver_status;
+        int16_t  rangefinder_val_cm;
+        uint8_t  rangefinder_type;
+        uint8_t  stabilization_mode;
+        int32_t  board_attitude_roll;
+        int32_t  board_attitude_yaw;
+        int32_t  board_attitude_pitch;
+        int32_t  uav_attitude_roll;
+        int32_t  uav_attitude_yaw;
+        int32_t  uav_attitude_pitch;
+        int32_t  pe_baro_alt;
+        int32_t  curr_pos_height;
+        int32_t  position_x;
+        int32_t  position_y;
+        int32_t  position_z;
+        int32_t  raw_yaw;
 
-        float    sensors_MPU_roll;             // Off:  79, IMU Stable Roll,     deg,
-        float    sensors_MPU_yaw;              // Off:  83, IMU Stable Yaw,      deg,
-        float    sensors_MPU_pitch;            // Off:  87, IMU Stable Pitch,    deg,
-        int16_t  sensors_rangefinderRaw;       // Off:  91, Range Raw,           cm,
-        float    sensors_rf_meas_x;            // Off: 112, rangefinder x,       m,
-        float    sensors_rf_meas_y;            // Off: 116, rangefinder y,       m,
-        float    sensors_rf_meas_z;            // Off: 120, rangefinder z,       m,
-
-    } aux_ap_data; // Temporary local copy of IMU data 
+    } aux_ap_data; // Temporary local copy
 #pragma pack(pop)
 
 private:

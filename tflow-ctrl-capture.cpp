@@ -9,19 +9,25 @@
 using namespace json11;
 using namespace std;
 
-static const char *raw_cfg_default =  R"( 
-    {
-        "buffs_num"  : 4,
+static const std::string capture_raw_cfg_default{ R"( 
+{
+    "config" : {
+        "buffs_num"    : 4,
         "player_fname" : "/home/root/4",
-        "dev_name" : "/dev/video2",
-        "serial_name" : "/dev/ttymxc0",
-        "serial_baud" : 921600
+        "dev_name"     : "/dev/video2",
+        "serial_name"  : "/dev/ttymxc0",
+        "serial_baud"  : 921600,
+        "v4l2_ctrls" : {
+            "vflip" : 1,
+            "hflip" : 1
+        }
     } 
-)";
+}
+)" };
 
 /*******************************************************************************/
 
-TFlowCtrlSrvCapture::TFlowCtrlSrvCapture(TFlowCtrlCapture& _ctrl_capture, GMainContext* context) :
+TFlowCtrlSrvCapture::TFlowCtrlSrvCapture(TFlowCtrlCapture& _ctrl_capture, MainContextPtr context) :
     TFlowCtrlSrv(
         string("Capture"),
         string("_com.reedl.tflow.ctrl-server-capture"),
@@ -81,28 +87,29 @@ TFlowCtrlCapture::TFlowCtrlCapture(TFlowCapture& _app) :
     app(_app),
     ctrl_srv(*this, _app.context)  // ??? pass Ctrl Commands to the server?
 {
-    InitConfig();
+    parseConfig(ctrl_capture_rpc_cmds, cfg_fname, capture_raw_cfg_default);
     InitServer();
 }
 
 void TFlowCtrlCapture::InitServer()
 {
 }
-void TFlowCtrlCapture::InitConfig()
+int TFlowCtrlCapture::parseConfig(
+    tflow_cmd_t* config_cmd, const std::string& _cfg_fname, const std::string& raw_cfg_default)
 {
     struct stat sb;
     int cfg_fd = -1;
     bool use_default_cfg = 0;
     Json json_cfg;
     
-    cfg_fd = open(cfg_fname, O_RDWR);
+    cfg_fd = open(cfg_fname.c_str(), O_RDWR);
 
     if (fstat(cfg_fd, &sb) < 0) {
-        g_warning("Can't open configuration file %s", cfg_fname);
+        g_warning("Can't open configuration file %s", cfg_fname.c_str());
         use_default_cfg = true;
     }
     else if (!S_ISREG(sb.st_mode)) {
-        g_warning("Config name isn't a file %s", cfg_fname);
+        g_warning("Config name isn't a file %s", cfg_fname.c_str());
         use_default_cfg = true;
     }
 
@@ -110,7 +117,7 @@ void TFlowCtrlCapture::InitConfig()
         char* raw_cfg = (char*)g_malloc(sb.st_size);
         int bytes_read = read(cfg_fd, raw_cfg, sb.st_size);
         if (bytes_read != sb.st_size) {
-            g_warning("Can't read config file %s", cfg_fname);
+            g_warning("Can't read config file %s", cfg_fname.c_str());
             use_default_cfg = true;
         }
 
@@ -128,11 +135,27 @@ void TFlowCtrlCapture::InitConfig()
 
     if (use_default_cfg) {
         std::string err;
-        json_cfg = Json::parse(raw_cfg_default, err);
+        json_cfg = Json::parse(raw_cfg_default.c_str(), err);
+        if (!err.empty()) {
+            g_error("Can't parse default config");
+            return -1;  // won't hit because of g_error
+        }
     }
 
+    //std::string xz = json_cfg.dump();
+    //g_warning("CFG DUMP : %s", xz.c_str());
 
-    set_cmd_fields((tflow_cmd_field_t*)&cmd_flds_config, json_cfg);
+    // Top level processing 
+    while (config_cmd->fields) {
+        const Json& in_params = json_cfg[config_cmd->name];
+        if (!in_params.is_null() && in_params.is_object()) {
+            int rc = setCmdFields(config_cmd->fields, in_params);
+            if (rc) return -1;
+        }
+        config_cmd++;
+    }
+    return 0;
+
 }
 
 int TFlowCtrlCapture::serial_name_is_valid()
@@ -172,7 +195,7 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
 {
     g_info("Config command\n    params:\t");
 
-    int rc = set_cmd_fields((tflow_cmd_field_t*)&cmd_flds_config, j_in_params);
+    int rc = setCmdFields((tflow_cmd_field_t*)&cmd_flds_config, j_in_params);
 
     if (rc != 0) return -1;
 
@@ -182,6 +205,9 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
     //  - Video fmt
     //  - Serial port name 
     //  - Serial baud rate
+
+    if (rc != 0) return -1;
+
     return 0;
 }
 

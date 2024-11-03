@@ -8,60 +8,60 @@
 
 static_assert (sizeof(float) == sizeof(uint32_t));
 
-class AP_FIXAR {
+class TFLOW_AP {
 public:
-#define AP_FIXAR_MSG_ID_PE      0x6D
-#define AP_FIXAR_MSG_ID_CAS     0x6E
-#define AP_FIXAR_MSG_ID_SENSORS 0x64
-#define AP_FIXAR_MSG_ID_STATUS  0x30
+    
+#define TFLOW_AP_MSG_ID_SENSORS   0x11
 
 #pragma pack(push, 1)
-    struct ap_fixar_hdr {
-        uint8_t mark;       // 'g' 0x67
-        uint8_t crypter;    // 'A' 0x41
-        uint8_t dir;
-        uint8_t len16;      // len in 16byte blocks
+    struct hdr {
+        uint8_t mark;       // 'T' 0x54
+        uint8_t src;        //  0 -> TFlow -> AP; 1 -> AP -> TFlow
+        uint8_t len;        // len in bytes blocks
     };
-    // Serial parser assumes that header is always 4 bytes long (uint32_t)
-    static_assert (sizeof(struct ap_fixar_hdr) == sizeof(uint32_t), "bad ap header");
+    // Serial parser assumes that header is always less than 4 bytes (uint32_t)
+    static_assert (sizeof(struct hdr) < sizeof(uint32_t), "bad ap header");
 
-    struct ap_fixar_generic {
-        struct ap_fixar_hdr hdr;
+
+    struct common {
+        struct hdr hdr;
         uint8_t msg_id;
-        uint32_t ts;
+    };
+    
+    struct sensors {
+        struct hdr hdr;
+        uint8_t msg_id;             // 0x11
+        uint32_t hwHealthStatus;
+        int16_t  rangefinder_val_cm;
+        uint8_t  rangefinder_type;
+        uint8_t  stabilization_mode;
+        int32_t  board_attitude_roll;
+        int32_t  board_attitude_yaw;
+        int32_t  board_attitude_pitch;
+        int32_t  uav_attitude_roll;
+        int32_t  uav_attitude_yaw;
+        int32_t  uav_attitude_pitch;
+        int32_t  pe_baro_alt;
+        int32_t  curr_pos_height;
+        int32_t  position_x;
+        int32_t  position_y;
+        int32_t  position_z;
+        int32_t  raw_yaw;
     };
 
-    struct ap_fixar_pe {
-        struct ap_fixar_hdr hdr;
-        uint8_t msg_id;
-        uint32_t ts;
-        int32_t PE_est_pos_x;
-        int32_t PE_est_pos_y;
-        int32_t PE_est_pos_z;
-        int32_t PE_est_vel_x;
-        int32_t PE_est_vel_y;
-        int32_t PE_est_vel_z;
-        int32_t PE_est_eph;
-        int32_t PE_est_epv;
-        int32_t PE_imu_accNEU_x;
-        int32_t PE_imu_accNEU_y;
-        int32_t PE_imu_accNEU_z;
-        int32_t PE_baro_alt;
-        int32_t PE_gps_pos_x;
-        int32_t PE_gps_pos_y;
-        int32_t PE_gps_pos_z;
-        int32_t PE_gps_vel_x;
-        int32_t PE_gps_vel_y;
-        int32_t PE_gps_vel_z;
-        int32_t PE_gps_eph;
-        int32_t PE_gps_epv;
-        int32_t PE_surf_alt;
-        int32_t PE_surf_rel;
-        int32_t PE_est_AGL_alt;
-        int32_t PE_est_AGL_vel;
-        uint8_t PE_est_AGL_qual;
+    struct positioning {
+        struct hdr hdr;
+        uint8_t msg_id;             // 0x01
+        int32_t	    position_x;	        // Drone position relative to takeoff point	In meters			
+        int32_t		position_y;	        // 
+        int32_t	    north_azimuth;	    // Azimuth angle to North	In degrees
+        uint32_t	sync_time;	        // Last position synchronization time, type of synchronization is in sync_mode	In ms
+        uint8_t	    position_quality;	// Position confidence coefficient, accuracy	0 - position can’t be used, 255 - position max accuracy
+        uint8_t	    video_quality;	    // Video quality	0 - bad quality … 255 - best quality
+        uint8_t	    sync_mode;	        // TFlowNavigator synchronization mode	0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
     };
 
+#if 0
     struct ap_fixar_cas {
         struct ap_fixar_hdr hdr;
         uint8_t msg_id;
@@ -146,31 +146,33 @@ public:
         float             VN100_gy;             // Off: 152, VN100 gyroY,         m/s²,
         float             VN100_gz;             // Off: 156, VN100 gyroZ,         m/s²,
     };
+#endif
 
 #pragma pack(pop)
 
-    union ap_fixar_msg {
-        uint32_t hdr_raw;               // Just to avoid casting
-        struct ap_fixar_hdr hdr;        // Header only up to lenght
-        struct ap_fixar_generic common; // Header + fields common for all messages (id, timestamp)
-        
-        struct ap_fixar_pe     pe;      // Position Estimation
-        struct ap_fixar_cas    cas;     // Current Axis State
-        struct ap_fixar_status status;  // Statuses
-        struct ap_fixar_sensors sensors; // Statuses
+    union in_msg {
+        uint32_t hdr_raw;                               // Just to avoid casting
+        struct hdr hdr;                                 // Header only up to lenght
+        struct common  common;
+        struct sensors sensors;                         // IMU readings from AP to TFlow
 
-        uint8_t raw[256 + 1][16];       // Maximum possible packet 4kiB+4
-    } in_bb_msg;
+        uint8_t raw[255 + sizeof(struct hdr) + 2];      // 260 bytes => 255 +3 for header +2 checksum
+    } ap_in_msg;
+
+    union out_msg {
+        struct hdr hdr;                                 // Header only up to lenght
+        struct positioning positioning;                 // Position Estimation from TFlow to AP
+        uint8_t raw[255 + sizeof(struct hdr) + 2];      // 260 bytes => 255 +3 for header +2 checksum
+    } ap_out_msg;
 
     int get_btr_dst(uint8_t** dst);
     int data_in(ssize_t bytes_read);
-    
-    //static void ap_fixar_cas_betoh(ap_fixar_cas &cas_dst, ap_fixar_cas& cas_src);
-    //static void ap_fixar_pe_betoh(ap_fixar_pe& pe_dst, ap_fixar_pe& pe_src);
 
+    static void chcksum_set(out_msg &msg);
 private:
     int wr_idx;
-    int chcksum_ok();
+
+    int chcksum_chk(in_msg &msg);
 };
 
 
@@ -226,49 +228,6 @@ struct hwHealth {
     enum HW_SENSOR_STATUS imu_mpu;
     enum HW_SENSOR_STATUS imu_mti;
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

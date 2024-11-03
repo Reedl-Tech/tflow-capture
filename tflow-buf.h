@@ -2,11 +2,12 @@
 
 #include <glib-unix.h>
 
-#define TFLOWBUF_MSG_SIGN_ID 0x11
-#define TFLOWBUF_MSG_PING    0x12
-#define TFLOWBUF_MSG_CAM_FD  0x21
-#define TFLOWBUF_MSG_CONSUME 0x31
-#define TFLOWBUF_MSG_REDEEM  0x32
+#define TFLOWBUF_MSG_SIGN_ID    0x11
+#define TFLOWBUF_MSG_PING       0x12
+#define TFLOWBUF_MSG_CAM_FD     0x21
+#define TFLOWBUF_MSG_CONSUME    0x31
+#define TFLOWBUF_MSG_REDEEM     0x32
+#define TFLOWBUF_MSG_CUSTOM_    0x80
 
 /* Class shared between client and server */
 class TFlowBuf {

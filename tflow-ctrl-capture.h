@@ -11,7 +11,7 @@ class TFlowCapture;
 
 class TFlowCtrlSrvCapture : public TFlowCtrlSrv {
 public:
-    TFlowCtrlSrvCapture(TFlowCtrlCapture &_ctrl_capture, GMainContext* context);
+    TFlowCtrlSrvCapture(TFlowCtrlCapture &_ctrl_capture, MainContextPtr context);
     int onCliPortConnect(int fd) override;
     void onCliPortError(int fd) override;
 
@@ -32,7 +32,7 @@ public:
 
     TFlowCapture& app;      // AV: For access to context. Passed to CtrlServer
 
-    void InitConfig();
+    int parseConfig(tflow_cmd_t* config_cmd, const std::string& cfg_fname, const std::string& raw_cfg_default);
     void InitServer();
 
     int player_fname_is_valid();
@@ -53,6 +53,18 @@ public:
         TFLOW_CMD_EOMSG
     };
 
+    struct cfg_v4l2_ctrls {
+        tflow_cmd_field_t   head;
+        tflow_cmd_field_t   vflip;
+        tflow_cmd_field_t   hflip;
+        tflow_cmd_field_t   eomsg;
+    } cmd_flds_cfg_v4l2_ctrls = {
+        .head          = { "v4l2-ctrls",     CFT_STR, 0, {.str = nullptr} },
+        .vflip         = { "vflip",          CFT_NUM, 0, {.num = 0} },
+        .hflip         = { "hflip",          CFT_NUM, 0, {.num = 0} },
+        TFLOW_CMD_EOMSG
+    };
+
     struct tflow_cmd_flds_config {
         tflow_cmd_field_t   state;
         tflow_cmd_field_t   buffs_num;
@@ -62,6 +74,7 @@ public:
         tflow_cmd_field_t   fmt_idx;        // The index of the currently used format from the fmt_enum
         tflow_cmd_field_t   serial_name;
         tflow_cmd_field_t   serial_baud;
+        tflow_cmd_field_t   v4l2_ctrls;
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
         .state        = { "state",        CFT_NUM, 0, {.num = 0} },
@@ -72,6 +85,7 @@ public:
         .fmt_idx      = { "fmt_idx",      CFT_NUM, 0, {.num = 0} },
         .serial_name  = { "serial_name",  CFT_STR, 0, {.num = 0} },
         .serial_baud  = { "serial_baud",  CFT_NUM, 0, {.num = 0} },
+        .v4l2_ctrls   = { "v4l2_ctrls",   CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls.head)} },
         TFLOW_CMD_EOMSG
     };
 
@@ -103,6 +117,6 @@ public:
 
 private:
 
-    const char* cfg_fname = "tflow-capture-config.json";
+    const std::string cfg_fname{ "tflow-capture-config.json" };
 };
 

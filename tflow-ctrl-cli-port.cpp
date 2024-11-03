@@ -6,14 +6,13 @@
 using namespace json11;
 using namespace std;
 
-gboolean TFlowCtrlCliPort::tflow_ctrl_cli_port_dispatch(GSource* g_source, GSourceFunc callback, gpointer user_data)
-{
-    TFlowCtrlCliPort::GSourceCliPort* source = (TFlowCtrlCliPort::GSourceCliPort*)g_source;
-    TFlowCtrlCliPort* cli_port = source->cli_port;
 
-    int rc = cli_port->onMsg();
+gboolean TFlowCtrlCliPort::onMsg(Glib::IOCondition io_cond)
+{
+    int rc = onMsgRcv();
     if (rc) {
-        cli_port->srv.onCliPortError(cli_port->sck_fd);
+        srv.onCliPortError(sck_fd);
+        delete this;
         return G_SOURCE_REMOVE;
     }
     return G_SOURCE_CONTINUE;
@@ -26,39 +25,28 @@ TFlowCtrlCliPort::~TFlowCtrlCliPort()
     }
 
     if (sck_src) {
-        if (sck_tag) {
-            g_source_remove_unix_fd((GSource*)sck_src, sck_tag);
-            sck_tag = nullptr;
-        }
-        g_source_destroy((GSource*)sck_src);
-        g_source_unref((GSource*)sck_src);
-        sck_src = nullptr;
+        sck_src->destroy();
+        sck_src.reset();
     }
-
 }
 
-TFlowCtrlCliPort::TFlowCtrlCliPort(GMainContext* _context, TFlowCtrlSrv &_srv, int fd) :
+TFlowCtrlCliPort::TFlowCtrlCliPort(MainContextPtr app_context, TFlowCtrlSrv &_srv, int fd) :
     srv(_srv)
 {
     sck_fd = fd;
-    sck_tag = NULL;
-    sck_src = NULL;
 
-    CLEAR(sck_gsfuncs);
+    context = app_context;
 
     last_idle_check_ts.tv_nsec = 0;
     last_idle_check_ts.tv_nsec = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &last_send_ts);
 
-    /* Assign g_source on the socket */
-    sck_gsfuncs.dispatch = tflow_ctrl_cli_port_dispatch;
-    sck_src = (GSourceCliPort*)g_source_new(&sck_gsfuncs, sizeof(GSourceCliPort));
-    sck_tag = g_source_add_unix_fd((GSource*)sck_src, sck_fd, (GIOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
-    sck_src->cli_port = this;
-    g_source_attach((GSource*)sck_src, _context);
+    sck_src = Glib::IOSource::create(sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    sck_src->connect(sigc::mem_fun(*this, &TFlowCtrlCliPort::onMsg));
+    sck_src->attach(context);
 }
-//    int TFlowCtrlCli::sendMsg(const char* cmd, Json::object j_params)
+
 int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object& j_resp_params)
 {
     ssize_t res;
@@ -108,8 +96,6 @@ int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object
 
 int TFlowCtrlCliPort::onMsgSign(const Json& j_params)
 {
-    int rc;
-
     signature = j_params["peer_signature"].string_value();
     pid = j_params["pid"].int_value();
 
@@ -119,7 +105,7 @@ int TFlowCtrlCliPort::onMsgSign(const Json& j_params)
     return 0;
 }
 
-int TFlowCtrlCliPort::onMsg()
+int TFlowCtrlCliPort::onMsgRcv()
 {
     int res = recv(sck_fd, &in_msg, sizeof(in_msg)-1, 0); //MSG_DONTWAIT 
     int err = errno;

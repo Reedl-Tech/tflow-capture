@@ -6,10 +6,10 @@
 
 #include <glib-unix.h>
 
+#include "tflow-glib.hpp"
 #include "tflow-buf.h"
 
 #define TFLOWBUFSRV_SOCKET_NAME "com.reedl.tflow.buf-server"
-
 
 class TFlowBufSrv;
 
@@ -19,21 +19,16 @@ public:
     TFlowBufCliPort(TFlowBufSrv* srv, uint32_t mask, int fd);
     ~TFlowBufCliPort();
 
-    GMainContext* context;      // AV: Q: ? is in use ? Use server context instead?
+    MainContextPtr context;      // AV: Q: ? is in use ? Use server context instead?
 
     std::string signature;
 
     TFlowBufSrv* srv;       // Is used to access the Camera device.
 
-    int onMsg();
+    gboolean onMsg(Glib::IOCondition io_cond);
+    int onMsgRcv();
 
     uint32_t cli_port_mask;     // TODO: Q: ? Use sck_fd as a mask ?
-
-    typedef struct
-    {
-        GSource g_source;
-        TFlowBufCliPort* cli_port;
-    } GSourceCliPort;
 
     int sck_fd;
 
@@ -49,9 +44,7 @@ private:
     int onPing(struct TFlowBuf::pck_ping *pck_ping);
     int SendCamFD();
 
-    GSourceCliPort*     sck_src;
-    gpointer            sck_tag;
-    GSourceFuncs        sck_gsfuncs;
+    IOSourcePtr sck_src;
 
     int msg_seq_num;
 };
@@ -62,7 +55,7 @@ class TFlowPlayer;
 class TFlowBufSrv  {
 public:
 
-    TFlowBufSrv(GMainContext* context);
+    TFlowBufSrv(MainContextPtr context);
     ~TFlowBufSrv();
     int StartListening();
     void onIdle(struct timespec* now_ts);
@@ -83,24 +76,21 @@ public:
     V4L2Device *cam;
     TFlowPlayer *player;
 
-    typedef struct
-    {
-        GSource g_source;
-        TFlowBufSrv* srv;
-    } GSourceSrv;
+    IOSourcePtr sck_src;
 
-    GSourceSrv* sck_src;
-    gpointer sck_tag;
-    GSourceFuncs sck_gsfuncs;
-
-    void onConnect();
+    gboolean onConnect(Glib::IOCondition io_cond);
     void releaseCliPort(TFlowBufCliPort* cli_port);
 
     int registerOnBuf(void* ctx, std::function<int(void* ctx, TFlowBuf& tflow_buf)> cb);
+    int registerOnCustomMsg(void* ctx, std::function<int(void* ctx, const TFlowBuf::pck_t& in_msg)> cb);
 
-    GMainContext* context;
+    MainContextPtr context;
 
     std::string my_name;
+
+    // Called from CliPort
+    void *onCustomMsg_ctx;
+    std::function<int(void* ctx, const TFlowBuf::pck_t& in_msg)> onCustomMsg_cb;
 
 private:
 
@@ -114,7 +104,6 @@ private:
                                     // TODO: Q: ? Use external oject shared between V4L2_Device and TFlowBufSrv/CliPort ?
 
     void* onBuf_ctx;
-    size_t onBuf_aux_data_len;
     std::function<int(void* ctx, TFlowBuf &tflow_buf)> onBuf_cb;
 };
 

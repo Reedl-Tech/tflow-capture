@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <termios.h>
 
+#include "tflow-glib.hpp"
 #include "tflow-ap-fixar.h"
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
@@ -10,43 +11,31 @@ class TFlowAutopilot {
 
 public:
 
-    TFlowAutopilot(GMainContext* app_context, const char* serial_name, int baud_rate);
+    TFlowAutopilot(MainContextPtr context, const char* serial_name, int baud_rate);
     ~TFlowAutopilot();
 
     int open_dev();
     void close_dev();
     
-    typedef struct {
-        GSource g_source;
-        TFlowAutopilot* ap;
-    } GSourceAP;
-
-    GMainContext* context;
     std::string serial_name;
     int baud_rate;
 
-    GSourceAP* serial_sck_src;
-    gpointer serial_sck_tag;
-    GSourceFuncs serial_sck_gsfuncs;
+    IOSourcePtr serial_sck_src;
     
     void onIdle(struct timespec* now_ts);
     void onConfigUpdate();
-    int onSerialData();
+    int onSerialData(Glib::IOCondition io_cond);
+    int onSerialDataRcv();
 
-    struct AP_FIXAR::ap_fixar_pe last_pe;
-    struct timeval last_pe_ts;
+    int serialDataSend(TFLOW_AP::out_msg &msg);
 
-    struct AP_FIXAR::ap_fixar_status last_status;   // Sensors healf, flight mode, etc.
-    struct timeval last_status_ts;
-
-    struct AP_FIXAR::ap_fixar_sensors last_sensors; // Sensors values (IMU, VN100, rangefinder, etc)
+    struct TFLOW_AP::sensors last_sensors;
     struct timeval last_sensors_ts;
-
-    struct AP_FIXAR::ap_fixar_cas last_cas;        // Current Axis State
-    struct timeval last_cas_ts;
-    struct timeval last_cas_ts_obsolete;
+    struct timeval last_sensors_ts_obsolete;
+    int last_sensor_cnt;
 
 private:
+    MainContextPtr context;
 
     struct timespec last_serial_check_tp;
 
@@ -60,11 +49,11 @@ private:
 
 
     // ***************************************************************
+
     int set_baudrate();
-    int write_dev(const void *src, size_t len);
 
-    AP_FIXAR ap_fixar;
-
-    void onFixarMsg(AP_FIXAR::ap_fixar_msg& msg);
+    TFLOW_AP ap_fixar;
+                            
+    void onTFlowAPMsg(TFLOW_AP::in_msg &msg);
 };
 

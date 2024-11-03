@@ -24,22 +24,6 @@ using namespace std;
 #include "tflow-capture.h"
 #include "tflow-player.h"
 
-static gboolean player_timer_dispatch(gpointer data)
-{
-    TFlowPlayer* player = (TFlowPlayer*)data;
-
-    return G_SOURCE_CONTINUE;
-
-    int rc = player->onTick();
-    if (rc) {
-        // Close the file???
-        // return G_SOURCE_REMOVE;
-    }
-
-    return G_SOURCE_CONTINUE;
-}
-
-
 int MJPEGCapture::rewind(int frame_num)
 {
     if (frame_offset_map.size() <= frame_num) {
@@ -274,19 +258,16 @@ int MJPEGCapture::open(const std::string& fname, int _offset_frame)
     return 0;
 }
 
-TFlowPlayer::TFlowPlayer(GMainContext* _context, int _buffs_num, float fps)
+TFlowPlayer::TFlowPlayer(MainContextPtr app_context, int _buffs_num, float fps)
 {
-    context = _context;
+    context = app_context;
     buffs_num = _buffs_num;
 
     buf_srv = NULL;
 
     if (fps != 0.f) {
         int fps_interval = (int)roundf(1 / fps * 1000.f);
-
-        fps_timer_src = g_timeout_source_new(fps_interval);
-        g_source_set_callback(fps_timer_src, (GSourceFunc)player_timer_dispatch, this, nullptr);
-        g_source_attach(fps_timer_src, _context);
+        Glib::signal_timeout().connect(sigc::mem_fun(*this, &TFlowPlayer::onTick), fps_interval);
     }
 
     CLEAR(v4l2_buf_template);
@@ -301,7 +282,6 @@ TFlowPlayer::TFlowPlayer(GMainContext* _context, int _buffs_num, float fps)
     frame_width = -1;
     frame_height = -1;
     frame_format = -1;       // 4c V4L2_PIX_FMT_GREY
-
 }
 
 int TFlowPlayer::getNextFrame(int buff_idx)
@@ -474,12 +454,6 @@ void TFlowPlayer::Deinit()
 
 TFlowPlayer::~TFlowPlayer()
 {
-    if (fps_timer_src) {
-        g_source_destroy((GSource*)fps_timer_src);
-        g_source_unref((GSource*)fps_timer_src);
-            fps_timer_src = nullptr;
-    }
-
     if (is_streaming) {
         is_streaming = false;
     }
