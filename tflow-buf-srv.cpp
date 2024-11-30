@@ -70,18 +70,18 @@ void TFlowBufSrv::releaseCliPort(TFlowBufCliPort* cli_port)
 
     for (auto& tflow_buf : bufs) {
         if (tflow_buf.owners & mask) {
-            g_warning("------TFlowBufSrv: redeem idx=%d, owners=%d", tflow_buf.index, tflow_buf.owners);
+            g_warning("TFlowBufSrv: redeem idx=%d, owners=%d", tflow_buf.index, tflow_buf.owners);
             buf_redeem(tflow_buf, mask);
         }
     }
 
     for (auto& cli_port_p : cli_ports) {
         if (cli_port_p == cli_port) {
+            delete cli_port;
             cli_port_p = NULL;
             break;
         }
     }
-    delete cli_port;
 
 }
 
@@ -151,6 +151,15 @@ TFlowBufSrv::TFlowBufSrv(MainContextPtr app_context)
 
     last_idle_check_ts.tv_nsec = 0;
     last_idle_check_ts.tv_sec = 0;
+
+    sck_fd = -1;
+    sck_state_flag.v = Flag::UNDEF;
+
+    cam = nullptr;
+    player = nullptr;
+
+    onBuf_ctx = nullptr;
+    onBuf_cb = nullptr;
 }
 
 void TFlowBufSrv::buf_create(int buf_num)
@@ -286,12 +295,13 @@ int TFlowBufCliPort::SendCamFD()
     if (srv->cam) {
         tflow_pck.cam_fd.planes_num = srv->cam->planes_num;
         tflow_pck.cam_fd.buffs_num  = srv->cam->buffs_num;
-        tflow_pck.cam_fd.width      = srv->cam->frame_width;
-        tflow_pck.cam_fd.height     = srv->cam->frame_height;
-        tflow_pck.cam_fd.format     = srv->cam->frame_format;
+        tflow_pck.cam_fd.width      = srv->cam->stream_fmt->width;
+        tflow_pck.cam_fd.height     = srv->cam->stream_fmt->height;
+        tflow_pck.cam_fd.format     = srv->cam->stream_fmt->fmt_cc.u32;
     } else if (srv->player) {
         tflow_pck.cam_fd.planes_num = 0;
         tflow_pck.cam_fd.buffs_num  = srv->player->buffs_num;
+        // WxH from config file of file meta info
         tflow_pck.cam_fd.width      = srv->player->frame_width;
         tflow_pck.cam_fd.height     = srv->player->frame_height;
         tflow_pck.cam_fd.format     = srv->player->frame_format;
@@ -480,6 +490,11 @@ int TFlowBufSrv::StartListening()
     struct sockaddr_un sock_addr;
     struct timeval tv;
 
+    if (sck_fd != -1) {
+        // Already listening
+        return 0;
+    }
+
     // Open local UNIX socket
     sck_fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
     if (sck_fd == -1) {
@@ -504,7 +519,7 @@ int TFlowBufSrv::StartListening()
 
     rc = listen(sck_fd, 1);
     if (rc == -1) {
-        g_warning("TFlowBufSrv: Can't bind (%d) - %s", errno, strerror(errno));
+        g_warning("TFlowBufSrv: Can't listen (%d) - %s", errno, strerror(errno));
         close(sck_fd);
         sck_fd = -1;
         return -1;
@@ -570,9 +585,13 @@ void TFlowBufSrv::onIdle(struct timespec *now_ts)
         // We can't provide buffers any more.
         // Probably camera is closed
         
-        // Close all Clients Ports
-        
-        // Close the socket? but why?
+        // Close all Clients Ports as the frame format might be changed then camera reopened
+        for (auto &cli_port_p : cli_ports) {
+            if (cli_port_p) {
+                delete cli_port_p;
+                cli_port_p = nullptr;
+            }
+        }
         sck_state_flag.v = Flag::CLR;
     }
 

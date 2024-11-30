@@ -2,11 +2,12 @@
 #include <sys/un.h>
 
 #include <json11.hpp>
-using namespace json11;
 
-#include "tflow-common.h"
 #include "tflow-ctrl-srv.h"
 
+using namespace json11;
+
+// TODO: reuse diff_timespec from perfmon
 static struct timespec diff_timespec(
     const struct timespec* time1,
     const struct timespec* time0)
@@ -86,7 +87,6 @@ int TFlowCtrlSrv::StartListening()
 {
     int rc;
     struct sockaddr_un sock_addr;
-    struct timeval tv;
 
     // Open local UNIX socket
     sck_fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
@@ -122,7 +122,7 @@ int TFlowCtrlSrv::StartListening()
         return -1;
     }
 
-    sck_src = Glib::IOSource::create(sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
+    sck_src = Glib::IOSource::create((Glib::PollFD::fd_t)sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
     sck_src->connect(sigc::mem_fun(*this, &TFlowCtrlSrv::onConnect));
     sck_src->attach(context);
 
@@ -144,13 +144,11 @@ void TFlowCtrlSrv::onIdle(struct timespec* now_ts)
     }
 
     if (sck_state_flag.v == Flag::RISE || sck_state_flag.v == Flag::UNDEF) {
-        int rc;
-
-        rc = StartListening();
+        int rc = StartListening();
         if (rc) {
             // Can't open local UNIX socket - try again later. 
             // It won't help, but anyway ...
-            sck_state_flag.v = Flag::CLR;
+            sck_state_flag.v = Flag::RISE;
         }
         else {
             sck_state_flag.v = Flag::SET;
@@ -164,5 +162,3 @@ void TFlowCtrlSrv::onIdle(struct timespec* now_ts)
     }
 
 }
-
-

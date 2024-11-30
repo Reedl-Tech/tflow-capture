@@ -6,6 +6,6 @@
     <RemoteDebuggerWorkingDirectory>/home/root/</RemoteDebuggerWorkingDirectory>
     <RemoteDebuggingMode>gdbserver</RemoteDebuggingMode>
     <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
-    <RemoteDebuggingTarget>1852149965;192.168.2.2 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteDebuggingTarget>4573005;192.168.2.2 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
   </PropertyGroup>
 </Project>

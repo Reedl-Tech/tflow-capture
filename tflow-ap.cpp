@@ -224,22 +224,22 @@ int TFlowAutopilot::serialDataSend(TFLOW_AP::out_msg &out_msg)
             out_str_p += n;
         }
         *out_str_p = 0;
-        g_warning(" POSITIONING: %s", out_str);
+        //g_warning(" POSITIONING: %s", out_str);
     }
 
     if (bytes_written <= 0) {
+        // In case of USB<->UART converter the port might disappear suddenly.
         g_warning("TFlowAutopilot: Can't write to serial (%s): %s", 
             serial_name.c_str(), strerror(errno));
-        //close_dev();
-        // serial_state_flag.v = Flag::FALL;
+        close_dev();
+        serial_state_flag.v = Flag::FALL;
         return -1;
     }
 
     if (bytes_written != bytes_to_wr) {
         g_warning("TFlowAutopilot: Can't write whole packet to (%s): %s", 
             serial_name.c_str(), strerror(errno));
-        // AV: What to do next? Flash tx buffer?
-        // serial_state_flag.v = Flag::FALL; ??
+        serial_state_flag.v = Flag::FALL;
         return -1;
     }
 

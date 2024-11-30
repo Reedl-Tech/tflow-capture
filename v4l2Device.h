@@ -19,6 +19,21 @@
 #define IMAGEHEIGHT 240
 #define IMAGEWIDTH  320
 
+#ifndef V4L2_CID_FLYN384_BASE
+#define V4L2_CID_FLYN384_BASE (V4L2_CID_LASTP1)
+#define V4L2_CID_FLYN384_COMPRESS_EN	    (V4L2_CID_FLYN384_BASE + 0)
+#define V4L2_CID_FLYN384_DENOISE	        (V4L2_CID_FLYN384_BASE + 1)
+#define V4L2_CID_FLYN384_FILTER		        (V4L2_CID_FLYN384_BASE + 2)
+#define V4L2_CID_FLYN384_PALETTE	        (V4L2_CID_FLYN384_BASE + 5)
+#define V4L2_CID_FLYN384_V_STRIP            (V4L2_CID_FLYN384_BASE + 6)
+#define V4L2_CID_FLYN384_FREEZE	            (V4L2_CID_FLYN384_BASE + 7)
+#define V4L2_CID_FLYN384_TEMP_CALIB	        (V4L2_CID_FLYN384_BASE + 8)
+#define V4L2_CID_FLYN384_SHUT_CALIB_PERIOD  (V4L2_CID_FLYN384_BASE + 9)
+#define V4L2_CID_FLYN384_SHUT_CALIB_TRIG    (V4L2_CID_FLYN384_BASE + 10)
+#endif 
+
+struct fmt_info;
+
 class V4L2Device {
 public:
 
@@ -27,22 +42,27 @@ public:
 
     ~V4L2Device();
 
-    int Init(const char* dev_name);
+    int Init();
     void Deinit();
    
     // Query device information
     int  ioctlQueryCapability();
+    void getDriverName();
     int  ioctlEnumFmt();
 
     // Get/set paramters
     int  ioctlSetControls();
     int  ioctlSetControls_ISI();
+    int  ioctlSetControls_flyn();
+    int  ioctlSetControls_flyn_calib(int on_off);
+    int  ioctlSetControls_flyn_calib_trig();
+    int  ioctlSetControls_atic();
 
     int  ioctlGetStreamParm();
     int  ioctlSetStreamParm(bool highQuality = false, u_int timeperframe = 30);
 
     int  ioctlGetStreamFmt();
-    int  ioctlSetStreamFmt(u_int pixelformat, u_int width, u_int height); 
+    int  ioctlSetStreamFmt(const struct fmt_info *stream_fmt); 
 
     int  InitBuffers();
     void DeinitBuffers();
@@ -51,19 +71,17 @@ public:
     int  ioctlQueueBuffer(int index);
     int  ioctlDequeueBuffer(v4l2_buffer &v4l2_buf);
 
-    int  StreamOn(int fmt_idx);
+    int StreamOn(const struct fmt_info *_stream_fmt);
     void ioctlSetStreamOff();
     
     int onBuff(Glib::IOCondition io_cond);       // Called at new buffer available from the driver
 
-    int dev_fd {-1};
+    int is_stall();                              //  Should be called periodiacally. For ex. from the idle loop.
+
+    int dev_fd;                                  // Camera ISI device
+    int sub_dev_fd;                              // Camera sensor device
 
     int f_in_fd;
-
-    //typedef struct {
-    //    GSource g_source;
-    //    V4L2Device* cam;
-    //} GSourceCam;
 
     TFlowBufSrv *buf_srv;   // Server to pass V4L2 buffers
     int buffs_num;          // Initialized on creation by callee 
@@ -72,26 +90,31 @@ public:
                             //           Consider usage of the same v4l2_buffer for all operation (4 times).
                             //           This will reduce the code size slightly
                             // 
-    // AV: TODO: Rework to get frame format params from enum
-    //           Q: ? use v4l2_format ?
-    uint32_t frame_width;
-    uint32_t frame_height;
-    uint32_t frame_format;       // 4c V4L2_PIX_FMT_GREY
+
+    const struct fmt_info *stream_fmt;   // one of fmt_info_enum
+    std::vector<struct fmt_info>    fmt_info_enum;
+
+    std::string driver_name;
+
+    int flyn_calib_is_on;
 
 private:
 
-    // AV: TODO: There is observable scenarios when camera can be closed and 
+    // AV: TODO: There is no observable scenarios when camera can be closed and 
     //           then reopened without complete reinit of internal data.
     //           Thus, it is worth to consider dev_name specifed upon creation
     //           as a constructor parameter.
     //           Also consider camera open/close from v4l2Device constructor/desctructor.
-    int  Open(const char* filename);
+    int  Open();
     void Close();
 
     MainContextPtr context;          // Context for pending events
 
-    const char* m_fname {nullptr};  // Just a local copy of the current device name
-    bool is_streaming {false};
+    bool is_streaming;
+
+    int streaming_watchdog_cnt;
+    int streaming_watchdog_frames_num;  // Number or frames received at the moment of previous WD test
+    static constexpr int STREAM_WDT_CNT = 10;
 
     IOSourcePtr io_in_src;
 
@@ -99,4 +122,7 @@ private:
     std::vector<v4l2_plane> mplanes_template;
 
     const TFlowCtrlCapture::cfg_v4l2_ctrls *cfg;
+
+    /* Statistics counters */
+    int stat_cnt_frames_num;
 };

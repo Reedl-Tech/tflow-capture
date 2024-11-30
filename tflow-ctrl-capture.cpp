@@ -1,3 +1,5 @@
+#include <string.h>
+#include <stdio.h>
 #include <sys/stat.h>
 
 #include <glib-unix.h>
@@ -14,12 +16,19 @@ static const std::string capture_raw_cfg_default{ R"(
     "config" : {
         "buffs_num"    : 4,
         "player_fname" : "/home/root/4",
-        "dev_name"     : "/dev/video2",
         "serial_name"  : "/dev/ttymxc0",
         "serial_baud"  : 921600,
-        "v4l2_ctrls" : {
-            "vflip" : 1,
-            "hflip" : 1
+        "v4l2" : {
+            "dev_name"     : "/dev/video0",
+            "sub_dev_name" : "/dev/v4l-subdev1",
+            "flyn384" : {
+                "filter"  : 0,
+                "denoise" : 0,
+                "contrast" : 100,
+                "brightness" : 8
+            },
+            "vflip"   : 1,
+            "hflip"   : 1
         }
     } 
 }
@@ -114,7 +123,7 @@ int TFlowCtrlCapture::parseConfig(
     }
 
     if (!use_default_cfg) {
-        char* raw_cfg = (char*)g_malloc(sb.st_size);
+        char* raw_cfg = (char*)g_malloc(sb.st_size + 1);
         int bytes_read = read(cfg_fd, raw_cfg, sb.st_size);
         if (bytes_read != sb.st_size) {
             g_warning("Can't read config file %s", cfg_fname.c_str());
@@ -123,6 +132,8 @@ int TFlowCtrlCapture::parseConfig(
 
         if (!use_default_cfg) {
             std::string err;
+            
+            raw_cfg[bytes_read] = 0;
             json_cfg = Json::parse(raw_cfg, err);
             if (json_cfg.is_null()) {
                 g_warning("Error in JSON format - %s\n%s", (char*)err.data(), raw_cfg);
@@ -158,15 +169,51 @@ int TFlowCtrlCapture::parseConfig(
 
 }
 
+void TFlowCtrlCapture::cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_enum)
+{
+    // get cfg string comma separated in format
+    // WWWWxHHHH CCCC
+    struct fmt_info fmt_info_parsed;
+    size_t strmax = 0;
+    char *next_token = NULL;
+    char *token;
+    
+    if (!cmd_flds_config.fmt_enum.v.str) return;
+
+    token = strtok_r(cmd_flds_config.fmt_enum.v.str, ",", &next_token);
+    while(token) {
+        int parsed = sscanf(token, "%dx%d %c%c%c%c", 
+            &fmt_info_parsed.width, &fmt_info_parsed.height, 
+            &fmt_info_parsed.fmt_cc.c[0],
+            &fmt_info_parsed.fmt_cc.c[1],
+            &fmt_info_parsed.fmt_cc.c[2],
+            &fmt_info_parsed.fmt_cc.c[3]);
+        if (parsed == 6) {
+            cfg_fmt_enum.emplace_back(fmt_info_parsed);
+        }
+        else {
+            g_warning("Bad fmt: %s - \"WxH CCCC,...\" expected)", token);
+            break;
+        }
+        token = strtok_r(cmd_flds_config.fmt_enum.v.str, ",", &next_token);
+    }
+
+}
 int TFlowCtrlCapture::serial_name_is_valid()
 {
-    // check cmd_flds_config.dev_name.v.str;
+    // check cmd_flds_config.serial_name.v.str;
     return 1;
 }
 
 int TFlowCtrlCapture::dev_name_is_valid()
 { 
     // check cmd_flds_config.dev_name.v.str;
+    return 1;
+}
+
+int TFlowCtrlCapture::sub_dev_name_is_valid()
+{ 
+    // check cmd_flds_config.sub_dev_name.v.str;
     return 1;
 }
 

@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -28,17 +29,21 @@ TFlowCtrlCliPort::~TFlowCtrlCliPort()
         sck_src->destroy();
         sck_src.reset();
     }
+
+    if (in_msg) {
+        g_free(in_msg);
+        in_msg = nullptr;
+    }
+
 }
 
-TFlowCtrlCliPort::TFlowCtrlCliPort(MainContextPtr app_context, TFlowCtrlSrv &_srv, int fd) :
+TFlowCtrlCliPort::TFlowCtrlCliPort(MainContextPtr context, TFlowCtrlSrv &_srv, int fd) :
     srv(_srv)
 {
     sck_fd = fd;
 
-    context = app_context;
-
-    last_idle_check_ts.tv_nsec = 0;
-    last_idle_check_ts.tv_nsec = 0;
+    in_msg_size = 1024 * 1024;
+    in_msg = (char*)g_malloc(in_msg_size);
 
     clock_gettime(CLOCK_MONOTONIC, &last_send_ts);
 
@@ -50,8 +55,6 @@ TFlowCtrlCliPort::TFlowCtrlCliPort(MainContextPtr app_context, TFlowCtrlSrv &_sr
 int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object& j_resp_params)
 {
     ssize_t res;
-//    if (sck_state_flag.v != Flag::SET) return 0;
-
     Json j_resp;
 
     if (resp_err) {
@@ -107,18 +110,19 @@ int TFlowCtrlCliPort::onMsgSign(const Json& j_params)
 
 int TFlowCtrlCliPort::onMsgRcv()
 {
-    int res = recv(sck_fd, &in_msg, sizeof(in_msg)-1, 0); //MSG_DONTWAIT 
-    int err = errno;
+    int res = recv(sck_fd, in_msg, in_msg_size - 1, 0); //MSG_DONTWAIT 
 
     if (res <= 0) {
-        if (err == ECONNRESET || err == EAGAIN) {
+        int err = errno;
+        if (err == ECONNRESET || err == EAGAIN || err == ENOENT) {
             g_warning("TFlowCtrlCliPort: [%s] disconnected (%d) - closing",
                 this->signature.c_str(), errno);
         }
         else {
             g_warning("TFlowCtrlCliPort: [%s] unexpected error (%d) - %s",
-                this->signature.c_str(), errno, strerror(errno));
+                this->signature.c_str(), err, strerror(err));
         }
+        srv.onCliPortError(sck_fd);
         return -1;
     }
     in_msg[res] = 0;
@@ -144,6 +148,12 @@ int TFlowCtrlCliPort::onMsgRcv()
     }
     else {
         srv.onTFlowCtrlMsg(in_cmd, j_in_params, j_resp_params, resp_err);
+#if CODE_BROWSE
+        TFlowCtrlSrvCapture::onTFlowCtrlMsg();
+        TFlowCtrlSrvProcess::onTFlowCtrlMsg();
+            TFlowCtrlProcess::cmd_cb_cfg_player();      // for in_cmd == "player"
+                tflow_cmd_t ctrl_process_rpc_cmds;
+#endif
     }
 
     return sendResp(in_cmd.c_str(), resp_err, j_resp_params );

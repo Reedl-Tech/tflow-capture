@@ -155,8 +155,6 @@ int TFlowCtrl::parseConfig(
     bool use_default_cfg = 0;
     Json json_cfg;
 
-    g_warning("== catach me ===");
-
     cfg_fd = open(cfg_fname.c_str(), O_RDWR);
 
     if (fstat(cfg_fd, &sb) < 0) {
@@ -199,8 +197,7 @@ int TFlowCtrl::parseConfig(
 
     // Top level processing 
     while (config_cmd->fields) {
-        int rc;
-        rc = setCmdFields(config_cmd->fields, json_cfg[config_cmd->name]);
+        int rc = setCmdFields(config_cmd->fields, json_cfg[config_cmd->name]);
         if (rc) return -1;
         config_cmd++;
     }

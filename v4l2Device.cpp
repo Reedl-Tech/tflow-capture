@@ -20,6 +20,8 @@ V4L2Device::V4L2Device(MainContextPtr _context,
     planes_num = _planes_num;
     cfg = _cfg;
 
+    is_streaming = false;
+
     buf_srv = NULL;
 
     CLEAR(v4l2_buf_template);
@@ -32,6 +34,17 @@ V4L2Device::V4L2Device(MainContextPtr _context,
     v4l2_buf_template.m.planes = mplanes_template.data();
     v4l2_buf_template.length = planes_num;
     v4l2_buf_template.index = 0;
+
+    stat_cnt_frames_num = 0;
+
+    streaming_watchdog_cnt = 0;         // Watchdog is enabled on StreamOn
+    streaming_watchdog_frames_num =0;
+
+    dev_fd = -1;        // ISI control
+    sub_dev_fd = -1;    // Camera sensor
+
+    flyn_calib_is_on = -1;      // -1 Unknown (will be updated from ioctl); 0 - off; 1 - on
+
 }
 
 V4L2Device::~V4L2Device()
@@ -78,22 +91,30 @@ int V4L2Device::onBuff(Glib::IOCondition G_IO_IN)
 
 }
 // Open video device
-int V4L2Device::Open(const char* dev_fname)
+int V4L2Device::Open()
 {
     int rc = 0;
 
-    dev_fd = open(dev_fname, O_RDWR | O_NONBLOCK);
+    dev_fd = open(cfg->dev_name.v.str, O_RDWR | O_NONBLOCK);
     if (dev_fd == -1) {
         g_warning("Can't open the video device %s (%d) - %s", 
-            dev_fname, errno, strerror(errno));
+            cfg->dev_name.v.str, errno, strerror(errno));
         return -1;
     }
-    m_fname = strdup(dev_fname);
+
+    // TODO: Get devices name as a function from /dev/videoX
+    sub_dev_fd = open(cfg->sub_dev_name.v.str, O_RDWR | O_NONBLOCK);
+    if (sub_dev_fd == -1) {
+        g_warning("Can't open the sub video device %s (%d) - %s", 
+            cfg->sub_dev_name.v.str, errno, strerror(errno));
+        // Not critical. Probably we can continue without sensor configuration
+    }
 
 #if CAM_DESCR
     rc |= ioctlQueryCapability();
     rc |= ioctlGetStreamParm();
     rc |= ioctlEnumFmt();
+    getDriverName();
     //    rc |= ioctlGetStreamFmt();
 #endif
 
@@ -103,6 +124,11 @@ int V4L2Device::Open(const char* dev_fname)
 // Close video device
 void V4L2Device::Close()
 {
+    if (sub_dev_fd != -1) {
+        close(sub_dev_fd);
+        sub_dev_fd = -1;
+    }
+
     if (dev_fd != -1) {
         close(dev_fd);
         dev_fd = -1;
@@ -140,29 +166,43 @@ int V4L2Device::ioctlQueryCapability()
     return 0;
 }
 
+void V4L2Device::getDriverName()
+{
+    v4l2_capability capa = { 0 };
+
+    if (sub_dev_fd == -1) return;
+
+    if (-1 == ioctl(sub_dev_fd, VIDIOC_QUERYCAP, &capa)) return;
+
+    driver_name = std::string((char*)capa.driver);
+}
+
 // Query and list the formats supported
 int V4L2Device::ioctlEnumFmt()
 {
-    v4l2_fmtdesc fmtdesc;
+    v4l2_fmtdesc fmtdesc = { 0 };
 
-    CLEAR(fmtdesc);
-    
     fmtdesc.index = 0;
     fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
-    std::cout << "\nSupport Format:\n";
     while (-1 != ioctl(dev_fd, VIDIOC_ENUM_FMT, &fmtdesc)) {
-        v4l2_frmsizeenum frmsize;
-        CLEAR(frmsize);
+        v4l2_frmsizeenum frmsize = { 0 };
+
         frmsize.pixel_format = fmtdesc.pixelformat;
         frmsize.index = 0;
         while (-1 != ioctl(dev_fd, VIDIOC_ENUM_FRAMESIZES, &frmsize)) {
-            std::cout << "description=" << fmtdesc.description << "\tpixelformat=" << std::oct
-                << char(fmtdesc.pixelformat&0xFF) << char((fmtdesc.pixelformat>>8)&0xFF)
-                << char((fmtdesc.pixelformat>>16)&0xFF) << char((fmtdesc.pixelformat>>24)&0xFF)
-                << std::dec << "\tWxH=" << frmsize.discrete.width << "x" << frmsize.discrete.height
-                // << "\tflags=" << fmtdesc.flags << "\ttype=" << frmsize.type
-                << "\n";
+            struct fmt_info fmt_info_cam = {
+                .fmt_cc = {.u32 = fmtdesc.pixelformat},
+                .width = frmsize.discrete.width,
+                .height = frmsize.discrete.height
+            };
+            fmt_info_enum.emplace_back(fmt_info_cam);
+            //std::cout << "description=" << fmtdesc.description << "\tpixelformat=" << std::oct
+            //    << char(fmtdesc.pixelformat&0xFF) << char((fmtdesc.pixelformat>>8)&0xFF)
+            //    << char((fmtdesc.pixelformat>>16)&0xFF) << char((fmtdesc.pixelformat>>24)&0xFF)
+            //    << std::dec << "\tWxH=" << frmsize.discrete.width << "x" << frmsize.discrete.height
+            //    // << "\tflags=" << fmtdesc.flags << "\ttype=" << frmsize.type
+            //    << "\n";
 
             frmsize.index++;
         }
@@ -233,32 +273,33 @@ int V4L2Device::ioctlGetStreamFmt()
     return 0;
 }
 
-int V4L2Device::ioctlSetStreamFmt(u_int pixelformat, u_int width, u_int height)
+int V4L2Device::ioctlSetStreamFmt(const struct fmt_info *stream_fmt)
 {
-    v4l2_format fmt;
-    CLEAR(fmt);
+    v4l2_format fmt = {0};
 
-#if 1    
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     if (-1 == ioctl(dev_fd, VIDIOC_G_FMT, &fmt)) {
         g_warning("Can't VIDIOC_G_FMT (%d)", errno);
         return -1;
     }
 
-    if ((width > fmt.fmt.pix_mp.width) || (height > fmt.fmt.pix_mp.height)) {
-        std::cerr << m_fname << ": out of support range." << std::endl;
+    if ((stream_fmt->width > fmt.fmt.pix_mp.width) || 
+        (stream_fmt->height > fmt.fmt.pix_mp.height)) {
+        g_warning("Bad WxH (%dx%d vs %dx%d)", 
+            stream_fmt->width, stream_fmt->height,
+            fmt.fmt.pix_mp.width, fmt.fmt.pix_mp.height);
         return -1;
     }
-#endif
 
-    fmt.fmt.pix_mp.width = width;
-    fmt.fmt.pix_mp.height = height;
+    fmt.fmt.pix_mp.width = stream_fmt->width;
+    fmt.fmt.pix_mp.height = stream_fmt->height;
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     fmt.fmt.pix_mp.num_planes = 1;
-    fmt.fmt.pix_mp.pixelformat = pixelformat;
+    fmt.fmt.pix_mp.pixelformat = stream_fmt->fmt_cc.u32;
     fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
     if (-1 == ioctl(dev_fd, VIDIOC_S_FMT, &fmt)) {
-        g_warning("Can't VIDIOC_S_FMT (%d)", errno);
+        g_warning("Can't VIDIOC_S_FMT (%d) %s", errno, strerror(errno));
+        /* AV: Sometimes on error the device not released properly, only exit from the application releases the camera */
         return -1;
     }
     return 0;
@@ -275,6 +316,7 @@ void V4L2Device::DeinitBuffers()
 
     // Release all previously requested DMA buffers
     // implicit VIDIOC_STREAMOFF.
+
     CLEAR(req);
     req.count = 0;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;  // Is it necessary then count == 0?
@@ -285,6 +327,7 @@ void V4L2Device::DeinitBuffers()
     }
     // TODO: Check STREAMOFF
     // TODO: Check double release (i.e. close application at stoped camera)
+
 }
 
 // Request buffers in kernel space
@@ -345,40 +388,68 @@ int V4L2Device::ioctlDequeueBuffer(v4l2_buffer &v4l2_buf)
         }
     }
 
+    stat_cnt_frames_num ++;
+    streaming_watchdog_cnt = V4L2Device::STREAM_WDT_CNT;
+
     return 0;
 }
 
-int V4L2Device::StreamOn(int fmt_idx)
+int V4L2Device::is_stall()
+{
+    if (streaming_watchdog_cnt == 0) return 0;
+
+    if (streaming_watchdog_frames_num == stat_cnt_frames_num) {
+        // frame counter not updated since last check
+        streaming_watchdog_cnt--;
+        if (streaming_watchdog_cnt == 0) {
+            g_warning("Camera stall on frame (%d)", streaming_watchdog_frames_num);
+            return 1;
+        }
+    }
+    
+    streaming_watchdog_frames_num = stat_cnt_frames_num;
+    return 0;
+
+}
+int V4L2Device::StreamOn(const struct fmt_info *_stream_fmt)
 {
     int rc = 0;
-    
-    // TODO: get format by index
-    //       v4l2_format fmt = fmt_enum[fmt_idx]
-    //       ioctlSetStreamFmt(fmt)
-    rc |= ioctlSetStreamFmt(V4L2_PIX_FMT_GREY, IMAGEWIDTH, IMAGEHEIGHT);
 
-    frame_format = V4L2_PIX_FMT_GREY;
-    frame_width = IMAGEWIDTH;
-    frame_height = IMAGEHEIGHT;
-    
+    if (!_stream_fmt) return -1;
+
+    stream_fmt = _stream_fmt;  //_stream_fmt points to one of enum fmt_info_enum
+    rc |= ioctlSetStreamFmt(stream_fmt);
     if (rc) {
         return -1;
     }
+
     rc |= InitBuffers();
 
     if (is_streaming) {
         return 0;
     }
+
+    stat_cnt_frames_num = 0;
+    
+    streaming_watchdog_cnt = V4L2Device::STREAM_WDT_CNT;
+    streaming_watchdog_frames_num = 0;
+
     v4l2_buf_type type { V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE };
     if (-1 == ioctl(dev_fd, VIDIOC_STREAMON, &type)) {
         g_warning("VIDIOC_STREAMON");
         return -1;
     }
+
+    /* AV: 
+     *     FLYN catch congestion error on very first configuration.
+     *     Either something wrong in MCU FW or in flyn driver. 
+     *     1. Why congestion not processed by driver?
+     *     2. How to get confirmation from MCU?
+     *     Need to be investigated. 
+     */
     
     is_streaming = true;
 
-    // TODO: Preserve currently used format ?
-    // 
     io_in_src = Glib::IOSource::create(dev_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR));
     io_in_src->connect(sigc::mem_fun(*this, &V4L2Device::onBuff));
     io_in_src->attach(context);
@@ -389,6 +460,11 @@ int V4L2Device::StreamOn(int fmt_idx)
 // Stop stream
 void V4L2Device::ioctlSetStreamOff()
 {
+    // Enable back calibration as not using the stream anymore.
+    ioctlSetControls_flyn_calib(1);
+
+    // TODO: ??? Restore other parameters ???
+
     v4l2_buf_type type {V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE};
     while (-1 == ioctl(dev_fd, VIDIOC_STREAMOFF, &type)) {
         perror("VIDIOC_STREAMOFF");
@@ -407,8 +483,176 @@ void V4L2Device::Deinit()
 
 int V4L2Device::ioctlSetControls()
 {
+    int rc; 
+
+    if (0 == driver_name.compare("atic320")) {
+        ioctlSetControls_atic();
+    }
+    else if (0 == driver_name.compare("flyn384")) {
+        ioctlSetControls_flyn();
+    }
+
     // Get controls from config or compose by the camera type?
-    return ioctlSetControls_ISI();
+    rc = ioctlSetControls_ISI();
+    return rc;
+
+}
+int V4L2Device::ioctlSetControls_atic() 
+{
+    return 0;
+}
+
+int V4L2Device::ioctlSetControls_flyn_calib(int on_off)
+{
+    int rc;
+
+    struct v4l2_ext_control flyn_ctrls_calib =
+        { .id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
+        .request_fd = sub_dev_fd, .controls = &flyn_ctrls_calib };
+
+    if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    // Preserve the state localy
+    flyn_calib_is_on = on_off;
+
+    // Modify Controls according to config
+    flyn_ctrls_calib.value = on_off;
+    rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN's controls");
+        return -1;
+    }
+    else {
+        g_warning( "FLYN384 controls: \r\n"\
+            "\t TEMP_CALIB = %d\r\n",
+            flyn_ctrls_calib.value);
+    }
+
+    return 0;
+}
+
+int V4L2Device::ioctlSetControls_flyn_calib_trig()
+{
+    int rc;
+
+    struct v4l2_ext_control flyn_ctrls_calib_trig =
+    { .id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
+        .request_fd = sub_dev_fd, .controls = &flyn_ctrls_calib_trig };
+
+        if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    flyn_ctrls_calib_trig.value = 1;
+    rc |= ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+
+    flyn_ctrls_calib_trig.value = 0;
+    rc |= ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN's controls (CALIB_TRIG)");
+        return -1;
+    }
+    else {
+        g_info("FLYN384 controls: CALIB_TRIG");
+    }
+
+    return 0;
+}
+
+int V4L2Device::ioctlSetControls_flyn()
+{
+#define FLYN384_CTRL_DENOISE     0
+#define FLYN384_CTRL_FILTER      1
+#define FLYN384_CTRL_TEMP_CALIB  2
+#define FLYN384_CTRL_BRIGHTNESS  3
+#define FLYN384_CTRL_CONTRAST    4
+#define FLYN384_CTRL_AUTOGAIN    5
+#define FLYN384_CTRL_NUMS        6
+
+    int rc;
+
+    struct v4l2_ext_control flyn_ctrls[FLYN384_CTRL_NUMS] = {
+        [FLYN384_CTRL_DENOISE   ] = {.id = V4L2_CID_FLYN384_DENOISE,    .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_FILTER    ] = {.id = V4L2_CID_FLYN384_FILTER,     .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_TEMP_CALIB] = {.id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_BRIGHTNESS] = {.id = V4L2_CID_BRIGHTNESS,         .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_CONTRAST  ] = {.id = V4L2_CID_CONTRAST,           .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_AUTOGAIN  ] = {.id = V4L2_CID_AUTOGAIN,           .size = 0, .value64 = 0 },
+    };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL,
+        .count = FLYN384_CTRL_NUMS,
+        .error_idx = 0,
+        .request_fd = sub_dev_fd,
+        .controls = flyn_ctrls
+    };
+
+    if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    flyn_calib_is_on = flyn_ctrls[FLYN384_CTRL_TEMP_CALIB].value;
+
+    const TFlowCtrlCapture::cfg_v4l2_ctrls_flyn* cfg_flyn = 
+        (const TFlowCtrlCapture::cfg_v4l2_ctrls_flyn *)cfg->flyn384.v.ref;
+
+    // Modify Controls according to config. 
+    // All but TEMP_CALIB it will be disabled on takeoff and enabled after landing
+    flyn_ctrls[FLYN384_CTRL_DENOISE   ].value = cfg_flyn->denoise.v.num;
+    flyn_ctrls[FLYN384_CTRL_FILTER    ].value = cfg_flyn->filter.v.num;
+    flyn_ctrls[FLYN384_CTRL_BRIGHTNESS].value = cfg_flyn->brightness.v.num;
+    flyn_ctrls[FLYN384_CTRL_CONTRAST  ].value = cfg_flyn->contrast.v.num;
+    flyn_ctrls[FLYN384_CTRL_AUTOGAIN  ].value = cfg_flyn->gain.v.num;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN controls");
+        return -1;
+    }
+    else {
+        g_info(
+            "FLYN384 controls: \r\n"\
+            "\t DENOISE    = %d\r\n"\
+            "\t FILTER     = %d\r\n"\
+            "\t BRIGHTNESS = %d\r\n"\
+            "\t CONTRAST   = %d\r\n"\
+            "\t AUTOGAIN   = %d\r\n",
+            flyn_ctrls[FLYN384_CTRL_DENOISE].value,
+            flyn_ctrls[FLYN384_CTRL_FILTER].value,
+            flyn_ctrls[FLYN384_CTRL_BRIGHTNESS].value,
+            flyn_ctrls[FLYN384_CTRL_CONTRAST].value,
+            flyn_ctrls[FLYN384_CTRL_AUTOGAIN].value);
+    }
+
+    return 0;
 }
 
 int V4L2Device::ioctlSetControls_ISI()
@@ -432,6 +676,7 @@ int V4L2Device::ioctlSetControls_ISI()
         .controls = isi_ctrls
     };
 
+    if (dev_fd == -1) return -1;
 
     rc = ioctl(dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
     if (rc) {
@@ -461,7 +706,7 @@ int V4L2Device::ioctlSetControls_ISI()
         return -1;
     }
     else {
-        g_warning(
+        g_info(
             "ISI Ctrls: \r\n"\
             "\t VFLIP = %d\r\n"\
             "\t HFLIP = %d\r\n",
@@ -472,16 +717,16 @@ int V4L2Device::ioctlSetControls_ISI()
     return 0;
 }
 
-int V4L2Device::Init(const char *dev_name)
+int V4L2Device::Init()
 {
     int rc;
 
-    if (!dev_name) {
+    if (!cfg->dev_name.v.str) {
         g_warning("Device name isn't specified");
         return -1;
     }
 
-    rc = Open(dev_name);
+    rc = Open();
     if (rc) return rc;
 
     // TODO: Compare the current ENUM list in the configuration with the 

@@ -142,7 +142,6 @@ private:
     MainContextPtr context;  // Context for pending events
 
     int frames_count;
-    const char* m_fname{ nullptr };
     bool is_streaming{ false };
 
     MJPEGCapture mjpegCapture;

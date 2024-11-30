@@ -2,8 +2,9 @@
 
 #include <time.h>
 #include <string>
-#include <glib-unix.h>
 #include <json11.hpp>
+
+#include "tflow-glib.hpp"
 
 class TFlowCtrlSrv;
 class TFlowCtrlCliPort {
@@ -15,11 +16,9 @@ public:
     std::string signature;
 
 private:
-    MainContextPtr context;
 
     TFlowCtrlSrv &srv;      // is used to report socket error to the Server
 
-    struct timespec last_idle_check_ts;
     struct timespec last_send_ts;
                                                         
     int pid;
@@ -33,5 +32,7 @@ private:
     int sendResp(const char *cmd, int err, const json11::Json::object& j_resp_params);
     IOSourcePtr sck_src;
 
-    char in_msg[4096];
+    size_t in_msg_size;
+    char* in_msg;
+
 };

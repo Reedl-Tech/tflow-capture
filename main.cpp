@@ -1,8 +1,8 @@
 #include <giomm.h>
 #include <glib-unix.h>
 #include <thread>
+#include <signal.h>
 
-#include "tflow-glib.hpp"
 #include "tflow-capture.h"
 
 TFlowCapture *gp_app;

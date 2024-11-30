@@ -30,8 +30,10 @@ public:
     int serialDataSend(TFLOW_AP::out_msg &msg);
 
     struct TFLOW_AP::sensors last_sensors;
-    struct timeval last_sensors_ts;
-    struct timeval last_sensors_ts_obsolete;
+    struct timeval last_sensors_ts;             // Time stamp of last received IMU
+    struct timeval last_sensors_ts_obsolete;    // Works like a flag 
+                                                // (tv_usec == -1) IMU is ok; 
+                                                // (tv_usec != -1) IMU data obsolete since timeval.
     int last_sensor_cnt;
 
 private:

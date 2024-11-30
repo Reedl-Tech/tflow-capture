@@ -65,7 +65,6 @@ public:
     void buf_redeem(TFlowBuf& buf, uint32_t mask);  // Called when CliPort returns buffers back to TFlow Buffer Server
     int  buf_consume(v4l2_buffer &v4l2_buf);        // Pass newly incoming frame to Client Ports
 
-    char* sck_name;
     int sck_fd = -1;
     Flag sck_state_flag;
 

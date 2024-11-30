@@ -63,7 +63,7 @@ pkg_check_modules(GLIBMM REQUIRED IMPORTED_TARGET
     giomm-2.4
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2") # Add debug information
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0") # Add debug information
 
 target_include_directories(tflow-capture PRIVATE ${GLIB_INCLUDE_DIRS})
 target_include_directories(tflow-capture PRIVATE ${GLIBMM_INCLUDE_DIRS})

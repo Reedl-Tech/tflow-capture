@@ -161,9 +161,9 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
         // sensors still not updated
         if ((presc++ & 0xff) == 0) {
             timersub(&buf.ts, &autopilot->last_sensors_ts_obsolete, &dt);
-            g_warning("IMU isn't updated for %ldsec",
-                dt.tv_sec);
+            g_warning("IMU isn't updated for %ldsec", dt.tv_sec);
         }
+        return 0;
     }
     else {
         timersub(&buf.ts, &autopilot->last_sensors_ts, &dt);
@@ -184,7 +184,7 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
         }
     }     
 
-    aux_ap_data.sign      = 0x32554D49;                        // "IMU2" -> IMU v.2
+    aux_ap_data.sign      = 0x32554D49;                            // "IMU2" -> IMU v.2
     aux_ap_data.tv_sec    = autopilot->last_sensors_ts.tv_sec;     // Local time
     aux_ap_data.tv_usec   = autopilot->last_sensors_ts.tv_usec;    // Local time
 
@@ -210,7 +210,7 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
     
     {
         static int presc = 0;
-        if ((presc++ & 0x3f) == 0) {
+        if ((presc++ & 0x7f) == 0) {
             g_warning("TFlowAP[%d]: Health=0x%08X ROLL=%5.1f PITCH=%5.1f YAW=%5.1f Alt=%f (rf=%d) Mode=%d",
                 autopilot->last_sensor_cnt,
                 autopilot->last_sensors.hwHealthStatus,
@@ -336,16 +336,77 @@ void TFlowCapture::checkPlayerState(struct timespec *now_ts)
 
 }
 
+const struct fmt_info* TFlowCapture::getCamFmt() 
+{
+    int cam_fmt_idx = -1;
+    // Get format from config - in config enum by config idx
+    std::vector<struct fmt_info> cfg_fmt_enum;
+    struct fmt_info cfg_fmt;
+
+    int cfg_idx = ctrl.cam_fmt_get();
+    int use_default_idx = 0;
+    int use_default_format = 0;
+
+    ctrl.cam_fmt_enum_get(cfg_fmt_enum);
+
+    if (cfg_idx < 0) {
+        use_default_idx = 1;
+    }
+
+    if (cfg_fmt_enum.empty()) {
+        use_default_format = 1;
+    }
+
+    if (use_default_idx && !use_default_format) {
+        g_warning("Use default config format [0]");
+        cfg_idx = 0;
+    }
+    else if (use_default_idx && use_default_format) {
+        // Get _Camera_ format index by mathcing fmt
+        for (struct fmt_info &cam_fmt : cam->fmt_info_enum) {
+            if (cam_fmt.fmt_cc.u32 == V4L2_PIX_FMT_GREY){
+                return &cam_fmt;
+            }
+        }
+
+        g_warning("Use default camera format [0]");
+        return &cam->fmt_info_enum[0];
+    }
+    else {
+        // Both index and format are from config
+        if (cfg_idx < cfg_fmt_enum.size()) {
+            cfg_fmt = cfg_fmt_enum[cfg_idx];
+        }
+        else {
+            g_warning("Bad index fmt index (%d vs %ld)", cfg_idx, cfg_fmt_enum.size());
+            return nullptr;
+        }
+    }
+
+    // Get _Camera_ format index by mathcing fmt
+    for (struct fmt_info &cam_fmt : cam->fmt_info_enum) {
+        if ((cam_fmt.fmt_cc.u32 == cfg_fmt.fmt_cc.u32) &&
+            (cam_fmt.width  == cfg_fmt.width) &&
+            (cam_fmt.height == cfg_fmt.height)) {
+            return &cam_fmt;
+        }
+    }
+
+    g_warning("Config format not matched (%d)", cfg_idx);
+
+    return nullptr;
+}
+
 void TFlowCapture::checkCamState(struct timespec* now_ts)
 {
     if (cam_state_flag.v == Flag::SET) {
+        if (cam->is_stall()) {
+            cam_state_flag.v = Flag::FALL;
+        }
         return;
     }
 
     if (cam_state_flag.v == Flag::CLR) {
-
-        // Check camera device name
-        if (!ctrl.dev_name_is_valid()) return;
 
         /* Don't try connect to camera to often */
         if (diff_timespec_msec(now_ts, &cam_last_check_ts) > 1000) {
@@ -357,9 +418,6 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
     if (cam_state_flag.v == Flag::UNDEF || cam_state_flag.v == Flag::RISE) {
         int rc;
 
-        // Check camera device name
-        if (!ctrl.dev_name_is_valid()) return;
-
         // TODO: How to put all supported configuration into the config before 
         //       opening the camera?
         //       Update Ctrl Format enum on camera Open and sed it to the UI
@@ -368,7 +426,7 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         do {
             int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
             cam = new V4L2Device(context, cfg_buffs_num, 1, 
-                (const TFlowCtrlCapture::cfg_v4l2_ctrls*)ctrl.cmd_flds_config.v4l2_ctrls.v.ref);
+                (const TFlowCtrlCapture::cfg_v4l2_ctrls*)ctrl.cmd_flds_config.v4l2.v.ref);
 
             /* Link Camera and TFlowBufferServer*/
             cam->buf_srv = buf_srv;
@@ -376,15 +434,14 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
             buf_srv->cam = cam;
             buf_srv->registerOnBuf(this, _onBufAP);
 
-            rc = cam->Init(ctrl.cam_name_get()); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
+            rc = cam->Init(); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
             if (rc) break;
 
-            rc = cam->StreamOn(ctrl.cam_fmt_get());
+            rc = cam->StreamOn(getCamFmt());
             if (rc) break;
 
             cam_state_flag.v = Flag::SET;
 
-            //rc = cam->onBuff();          // Trigger initial buffer readout - aka kick ???
         } while (0);
 
         if (rc) {
@@ -399,13 +456,18 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
     }
 
     if (cam_state_flag.v == Flag::FALL) {
+        // All Cli ports need to be closed and buffers released 
+        // prior the camera close
+        if (buf_srv->sck_state_flag.v != Flag::CLR) {
+            buf_srv->sck_state_flag.v = Flag::FALL;
+        }
 
-        buf_srv->sck_state_flag.v == Flag::FALL;
-
-        // close the camera
-        delete cam;
-        cam = NULL;
-        cam_state_flag.v = Flag::CLR;
+        if (buf_srv->sck_state_flag.v == Flag::CLR) {
+            // close the camera
+            delete cam;
+            cam = NULL;
+            cam_state_flag.v = Flag::CLR;
+        }
     }
 
 }
@@ -427,10 +489,30 @@ int TFlowCapture::onIdle()
 
     if (autopilot) {
         autopilot->onIdle(&now_ts);
+
+        // FLYN384 is a SHUTER camera, thus the calibration needs to be
+        // disabled during the flight
+        if (autopilot->last_sensors_ts_obsolete.tv_usec != autopilot->last_sensors_ts.tv_usec) {
+            if (cam && (0 == cam->driver_name.compare("flyn384"))) {
+                // TODO: Set calibration OFF on disarm and 
+                //       ON on "Copter" or "Plane" stabilization mode.
+                //       Stabilization mode isn't valid so far, thus let's use altitude with 
+                //       some hysteresis as a workaround.
+                if (autopilot->last_sensors.curr_pos_height < 5 && !cam->flyn_calib_is_on) {
+                    cam->ioctlSetControls_flyn_calib(1);
+                } 
+                else if (autopilot->last_sensors.curr_pos_height > 10 && cam->flyn_calib_is_on) {
+                    cam->ioctlSetControls_flyn_calib(0);
+                }
+            }
+        }
+
     }
 
     buf_srv->onIdle(&now_ts);
     ctrl.ctrl_srv.onIdle(&now_ts);
+
+
 
     return G_SOURCE_CONTINUE;
 }

@@ -4,6 +4,7 @@
 #include <time.h>
 #include <giomm.h>
 
+#include "tflow-glib.hpp"
 #include "tflow-common.h"
 #include "tflow-ctrl-capture.h"
 #include "tflow-buf-srv.h"
@@ -23,9 +24,19 @@ struct pck_navigator {
     uint8_t	    sync_mode;	        // TFlowNavigator synchronization mode	0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
 };
 
+struct fmt_info {
+    union {
+        uint32_t u32;
+        char c[4];
+    }fmt_cc;
+    uint32_t width;
+    uint32_t height;
+};
 
 class TFlowCapture {
 public:
+
+
     TFlowCapture(MainContextPtr context);
     ~TFlowCapture();
 
@@ -81,7 +92,6 @@ public:
 #pragma pack(pop)
 
 private:
-
     void checkCamState(struct timespec *now_tp);
     void checkPlayerState(struct timespec* now_tp);
 
@@ -96,6 +106,8 @@ private:
     struct timespec player_last_check_ts;
 
     TFlowAutopilot *autopilot;
+    
+    const struct fmt_info* getCamFmt();
 
 };
 
