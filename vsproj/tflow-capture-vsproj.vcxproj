@@ -67,6 +67,9 @@
     <ClInclude Include="..\tflow-player.h" />
     <ClInclude Include="..\v4l2Device.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\.editorconfig" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}</ProjectGuid>
     <Keyword>Linux</Keyword>
@@ -76,6 +79,7 @@
     <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
     <TargetLinuxPlatform>Generic</TargetLinuxPlatform>
     <LinuxProjectType>{FC1A4D80-50E9-41DA-9192-61C0DBAA00D2}</LinuxProjectType>
+    <ProjectName>tflow-capture-vsproj</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
@@ -105,12 +109,14 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
     <ConfigurationType>Makefile</ConfigurationType>
+    <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/</RemoteRootDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
     <ConfigurationType>Makefile</ConfigurationType>
-    <RemoteRootDir>~/imx/build-ucm-imx8m-plus/workspace-vvcam/sources/tflow-capture</RemoteRootDir>
-    <RemoteProjectRelDir />
+    <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/tflow-capture</RemoteRootDir>
+    <RemoteProjectRelDir>
+    </RemoteProjectRelDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings" />
@@ -118,7 +124,8 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <OutDir>$(Configuration)\</OutDir>
+    <OutDir>
+    </OutDir>
     <RemoteDeployDir>
     </RemoteDeployDir>
     <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
@@ -126,6 +133,10 @@
     <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
     <NMakeIncludeSearchPath>.;..;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;C:\MyWorks\LKD\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <RemoteBuildCommandLine>pwd</RemoteBuildCommandLine>
+    <RemoteCopySourceMethod>rsync</RemoteCopySourceMethod>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <PostBuildEvent>

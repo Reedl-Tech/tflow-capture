@@ -107,6 +107,8 @@ int TFlowCtrl::setField(tflow_cmd_field_t* cmd_field, const Json& cfg_param)
             cmd_field->v.num = cfg_param.bool_value();
         }
         else {
+            g_critical("Ooops... at %s (%d) Data type mismatch. Field name: %s (%d != %d)", __FILE__, __LINE__,
+                cmd_field->name, cmd_field->type, cfg_param.type());
             return -1;
         }
         return 0;
@@ -122,6 +124,8 @@ int TFlowCtrl::setField(tflow_cmd_field_t* cmd_field, const Json& cfg_param)
             cmd_field->v.dbl = cfg_param.bool_value();
         }
         else {
+            g_critical("Ooops... at %s (%d) Data type mismatch. Field name: %s (%d != %d)", __FILE__, __LINE__,
+                cmd_field->name, cmd_field->type, cfg_param.type());
             return -1;
         }
         return 0;
@@ -135,12 +139,14 @@ int TFlowCtrl::setField(tflow_cmd_field_t* cmd_field, const Json& cfg_param)
             }
         }
         else {
+            g_critical("Ooops... at %s (%d) Data type mismatch. Field name: %s (%d != %d)", __FILE__, __LINE__,
+                cmd_field->name, cmd_field->type, cfg_param.type());
             return -1;
         }
         return 0;
     }
     default:
-        g_info("Ooops... at %s (%d) Data type mismatch. Field name: %s (%d != %d)", __FILE__, __LINE__,
+        g_critical("Ooops... at %s (%d) Data type mismatch. Field name: %s (%d != %d)", __FILE__, __LINE__,
             cmd_field->name, cmd_field->type, cfg_param.type());
     }
 

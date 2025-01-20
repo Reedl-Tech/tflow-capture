@@ -33,6 +33,7 @@ public:
         union {
             int    num;
             char*  str;
+            const char *c_str;
             double dbl;
             struct tflow_cmd_field_s* ref;
         } v;

@@ -64,4 +64,7 @@
       <UniqueIdentifier>{d398b6a2-97a6-40ca-a146-61c8cf020ddd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\.editorconfig" />
+  </ItemGroup>
 </Project>

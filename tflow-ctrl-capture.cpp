@@ -16,10 +16,10 @@ static const std::string capture_raw_cfg_default{ R"(
     "config" : {
         "buffs_num"    : 4,
         "player_fname" : "/home/root/4",
-        "serial_name"  : "/dev/ttymxc0",
+        "serial_name"  : "/dev/ttymxc1",
         "serial_baud"  : 921600,
         "v4l2" : {
-            "dev_name"     : "/dev/video0",
+            "dev_name"     : "/dev/video2",
             "sub_dev_name" : "/dev/v4l-subdev1",
             "flyn384" : {
                 "filter"  : 0,
@@ -104,7 +104,7 @@ void TFlowCtrlCapture::InitServer()
 {
 }
 int TFlowCtrlCapture::parseConfig(
-    tflow_cmd_t* config_cmd, const std::string& _cfg_fname, const std::string& raw_cfg_default)
+    tflow_cmd_t* config_cmd_in, const std::string& _cfg_fname, const std::string& raw_cfg_default)
 {
     struct stat sb;
     int cfg_fd = -1;
@@ -144,27 +144,37 @@ int TFlowCtrlCapture::parseConfig(
         close(cfg_fd);
     }
 
-    if (use_default_cfg) {
-        std::string err;
-        json_cfg = Json::parse(raw_cfg_default.c_str(), err);
-        if (!err.empty()) {
-            g_error("Can't parse default config");
-            return -1;  // won't hit because of g_error
+    int rc = 0;
+    do {
+        tflow_cmd_t* config_cmd = config_cmd_in;
+        if (use_default_cfg) {
+            std::string err;
+            json_cfg = Json::parse(raw_cfg_default.c_str(), err);
+            if (!err.empty()) {
+                g_error("Can't parse default config");
+                return -1;  // won't hit because of g_error
+            }                      
         }
-    }
 
-    //std::string xz = json_cfg.dump();
-    //g_warning("CFG DUMP : %s", xz.c_str());
-
-    // Top level processing 
-    while (config_cmd->fields) {
-        const Json& in_params = json_cfg[config_cmd->name];
-        if (!in_params.is_null() && in_params.is_object()) {
-            int rc = setCmdFields(config_cmd->fields, in_params);
-            if (rc) return -1;
+        // Top level processing 
+        while (config_cmd->fields) {
+            const Json& in_params = json_cfg[config_cmd->name];
+            if (!in_params.is_null() && in_params.is_object()) {
+                rc = setCmdFields(config_cmd->fields, in_params);
+                if (rc) break;
+            }
+            config_cmd++;
         }
-        config_cmd++;
-    }
+
+        if (rc) {
+            g_critical("Can't parse config %s",
+                (use_default_cfg == 0) ? "- try to use defaults" : "- defaults fail");
+            if (use_default_cfg) break; // Default just tried and fails.
+            use_default_cfg = 1;        // Try to use default.
+        }
+
+    } while (rc);
+
     return 0;
 
 }
@@ -201,7 +211,7 @@ void TFlowCtrlCapture::cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_en
 }
 int TFlowCtrlCapture::serial_name_is_valid()
 {
-    // check cmd_flds_config.serial_name.v.str;
+    if (cmd_flds_config.serial_name.v.str == nullptr) return 0;
     return 1;
 }
 

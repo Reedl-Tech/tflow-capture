@@ -91,12 +91,12 @@ public:
 
         tflow_cmd_field_t   eomsg;
     } cmd_flds_cfg_v4l2 = {
-        .head          = { "v4l2", CFT_STR, 0, {.str = nullptr} },
+        .head          = { "v4l2",         CFT_STR, 0, {.str = nullptr} },
         .dev_name      = { "dev_name",     CFT_STR, 0, {.str = nullptr} },
         .sub_dev_name  = { "sub_dev_name", CFT_STR, 0, {.str = nullptr} },
         /* Common (ISI) */
-        .vflip   = { "vflip", CFT_NUM, 0, {.num = 0} },
-        .hflip   = { "hflip", CFT_NUM, 0, {.num = 0} },
+        .vflip   = { "vflip",    CFT_NUM, 0, {.num = 0} },
+        .hflip   = { "hflip",    CFT_NUM, 0, {.num = 0} },
         .flyn384 = { "flyn384",  CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls_flyn.head)} },
         TFLOW_CMD_EOMSG
     };

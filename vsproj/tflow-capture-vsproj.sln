@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.34301.259
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35514.174 d17.12
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tflow-capture-vsproj", "tflow-capture-vsproj.vcxproj", "{CF523D96-426A-4C8D-A815-48AC585E30FC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tflow-capture-vsproj", "tflow-capture-vsproj.vcxproj", "{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,12 +11,12 @@ Global
 		Release|ARM64 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{CF523D96-426A-4C8D-A815-48AC585E30FC}.Debug|ARM64.ActiveCfg = Debug|ARM64
-		{CF523D96-426A-4C8D-A815-48AC585E30FC}.Debug|ARM64.Build.0 = Debug|ARM64
-		{CF523D96-426A-4C8D-A815-48AC585E30FC}.Debug|ARM64.Deploy.0 = Debug|ARM64
-		{CF523D96-426A-4C8D-A815-48AC585E30FC}.Release|ARM64.ActiveCfg = Release|ARM64
-		{CF523D96-426A-4C8D-A815-48AC585E30FC}.Release|ARM64.Build.0 = Release|ARM64
-		{CF523D96-426A-4C8D-A815-48AC585E30FC}.Release|ARM64.Deploy.0 = Release|ARM64
+		{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}.Debug|ARM64.Build.0 = Debug|ARM64
+		{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}.Release|ARM64.ActiveCfg = Release|ARM64
+		{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}.Release|ARM64.Build.0 = Release|ARM64
+		{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}.Release|ARM64.Deploy.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

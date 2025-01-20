@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cassert>
-#include <time.h>
+#include <ctime>
 
 #include <json11.hpp>
 

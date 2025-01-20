@@ -248,6 +248,7 @@ TFlowCapture::TFlowCapture(MainContextPtr _context) :
     if (ctrl.serial_name_is_valid()) {
         autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
     } else {
+        g_info("TFlowAP: Disabled - Serial port name not configured");
         autopilot = nullptr;
     }
 }

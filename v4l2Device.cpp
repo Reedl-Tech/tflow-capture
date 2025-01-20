@@ -95,6 +95,9 @@ int V4L2Device::Open()
 {
     int rc = 0;
 
+    /* TODO: Try to find proper camera device by the driver/card/bus name if 
+     *       only one camera exists in the system.
+     */
     dev_fd = open(cfg->dev_name.v.str, O_RDWR | O_NONBLOCK);
     if (dev_fd == -1) {
         g_warning("Can't open the video device %s (%d) - %s", 
@@ -102,7 +105,9 @@ int V4L2Device::Open()
         return -1;
     }
 
-    // TODO: Get devices name as a function from /dev/videoX
+    /* TODO: Get devices name as a function from /dev/videoX or by the 
+     *       driver/card/bus name.
+     */
     sub_dev_fd = open(cfg->sub_dev_name.v.str, O_RDWR | O_NONBLOCK);
     if (sub_dev_fd == -1) {
         g_warning("Can't open the sub video device %s (%d) - %s", 
@@ -118,6 +123,18 @@ int V4L2Device::Open()
     //    rc |= ioctlGetStreamFmt();
 #endif
 
+    // Close the camera in case error on stream and fmt parameters set.
+    if (rc) {
+        if (dev_fd != -1) {
+            dev_fd = -1;
+            close(dev_fd);
+        }
+
+        if ( sub_dev_fd != -1 ) {
+            sub_dev_fd = -1;
+            close(sub_dev_fd);
+        }
+    }
     return rc;
 }
 
@@ -722,7 +739,7 @@ int V4L2Device::Init()
     int rc;
 
     if (!cfg->dev_name.v.str) {
-        g_warning("Device name isn't specified");
+        g_warning("Device name isn't specified.");
         return -1;
     }
 
