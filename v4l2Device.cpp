@@ -95,6 +95,9 @@ int V4L2Device::Open()
 {
     int rc = 0;
 
+    /* TODO: Try to find proper camera device by the driver/card/bus name if 
+     *       only one camera exists in the system.
+     */
     dev_fd = open(cfg->dev_name.v.str, O_RDWR | O_NONBLOCK);
     if (dev_fd == -1) {
         g_warning("Can't open the video device %s (%d) - %s", 
@@ -102,7 +105,9 @@ int V4L2Device::Open()
         return -1;
     }
 
-    // TODO: Get devices name as a function from /dev/videoX
+    /* TODO: Get devices name as a function from /dev/videoX or by the 
+     *       driver/card/bus name.
+     */
     sub_dev_fd = open(cfg->sub_dev_name.v.str, O_RDWR | O_NONBLOCK);
     if (sub_dev_fd == -1) {
         g_warning("Can't open the sub video device %s (%d) - %s", 
@@ -118,6 +123,18 @@ int V4L2Device::Open()
     //    rc |= ioctlGetStreamFmt();
 #endif
 
+    // Close the camera in case error on stream and fmt parameters set.
+    if (rc) {
+        if (dev_fd != -1) {
+            dev_fd = -1;
+            close(dev_fd);
+        }
+
+        if ( sub_dev_fd != -1 ) {
+            sub_dev_fd = -1;
+            close(sub_dev_fd);
+        }
+    }
     return rc;
 }
 
@@ -291,12 +308,17 @@ int V4L2Device::ioctlSetStreamFmt(const struct fmt_info *stream_fmt)
         return -1;
     }
 
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+
     fmt.fmt.pix_mp.width = stream_fmt->width;
     fmt.fmt.pix_mp.height = stream_fmt->height;
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    fmt.fmt.pix_mp.num_planes = 1;
     fmt.fmt.pix_mp.pixelformat = stream_fmt->fmt_cc.u32;
     fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
+
+    fmt.fmt.pix_mp.plane_fmt[0].bytesperline = stream_fmt->width;
+    fmt.fmt.pix_mp.plane_fmt[0].sizeimage    = stream_fmt->width * stream_fmt->height;
+    fmt.fmt.pix_mp.num_planes = 1;
+
     if (-1 == ioctl(dev_fd, VIDIOC_S_FMT, &fmt)) {
         g_warning("Can't VIDIOC_S_FMT (%d) %s", errno, strerror(errno));
         /* AV: Sometimes on error the device not released properly, only exit from the application releases the camera */
@@ -534,8 +556,8 @@ int V4L2Device::ioctlSetControls_flyn_calib(int on_off)
         return -1;
     }
     else {
-        g_warning( "FLYN384 controls: \r\n"\
-            "\t TEMP_CALIB = %d\r\n",
+        g_warning( "FLYN384 controls: \n"\
+            "\t TEMP_CALIB = %d\n",
             flyn_ctrls_calib.value);
     }
 
