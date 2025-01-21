@@ -1,12 +1,12 @@
 #pragma once
 
 #include <cassert>
-#include <time.h>
+#include <ctime>
 
 #include <json11.hpp>
 
 #include "tflow-glib.hpp"
-#include "tflow-common.h"
+#include "tflow-common.hpp"
 
 #include "tflow-ctrl-cli-port.h" 
 

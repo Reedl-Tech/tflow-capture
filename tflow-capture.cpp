@@ -1,4 +1,5 @@
 #include <iostream>
+#include <functional>
 #include <giomm.h>
 #include <glib-unix.h>
 #include <json11.hpp>
@@ -225,9 +226,9 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
     return 0;
 }
 
-TFlowCapture::TFlowCapture(MainContextPtr _context) :
+TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname) :
     context(_context),
-    ctrl(*this)
+    ctrl(*this, cfg_fname)
 {
     main_loop = Glib::MainLoop::create(context, false);
 
@@ -248,6 +249,7 @@ TFlowCapture::TFlowCapture(MainContextPtr _context) :
     if (ctrl.serial_name_is_valid()) {
         autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
     } else {
+        g_info("TFlowAP: Disabled - Serial port name not configured");
         autopilot = nullptr;
     }
 }
@@ -302,7 +304,7 @@ void TFlowCapture::checkPlayerState(struct timespec *now_ts)
             if (rc) break;
 
             // int player_state = ctrl.cmd_flds_config.player_state.v.num;
-            //int player_state = 1;   // Play/Pause
+            // int player_state = 1;   // Play/Pause
 
             //if (player_state == 1) {
             //    rc = player->StreamOn();

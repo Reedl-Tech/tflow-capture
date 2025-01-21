@@ -5,7 +5,7 @@
 #include <giomm.h>
 
 #include "tflow-glib.hpp"
-#include "tflow-common.h"
+#include "tflow-common.hpp"
 #include "tflow-ctrl-capture.h"
 #include "tflow-buf-srv.h"
 #include "tflow-ap.h"
@@ -37,7 +37,7 @@ class TFlowCapture {
 public:
 
 
-    TFlowCapture(MainContextPtr context);
+    TFlowCapture(MainContextPtr context, const std::string cfg_fname);
     ~TFlowCapture();
 
     MainContextPtr context;

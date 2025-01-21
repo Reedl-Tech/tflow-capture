@@ -32,7 +32,7 @@
     <ClInclude Include="..\v4l2Device.h">
       <Filter>V4L2Device</Filter>
     </ClInclude>
-    <ClInclude Include="..\tflow-common.h" />
+    <ClInclude Include="..\tflow-common.hpp" />
     <ClInclude Include="..\tflow-ctrl.h">
       <Filter>tlow-ctrl-lib</Filter>
     </ClInclude>
