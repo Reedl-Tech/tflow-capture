@@ -51,7 +51,23 @@ public:
 
     struct positioning {
         struct hdr hdr;
-        uint8_t msg_id;             // 0x01
+        uint8_t    msg_id;                // 0x01
+
+        int32_t    position_x;            // Drone position relative to takeoff point    In meters            
+        int32_t    position_y;            // 
+        int32_t    north_azimuth;         // Azimuth angle to North n degrees
+        uint8_t    position_quality;      // Position confidence coefficient, accuracy    0 - position can’t be used, 255 - position max accuracy
+
+        int32_t    velocity_x;            // Movement direction
+        int32_t    velocity_y;            // 
+        int32_t    velocity_heading;      // Azimuth angle to North in degrees
+        uint8_t    velocity_is_valid;     // 
+
+        uint32_t   sync_time;             // Last position synchronization time, type of synchronization is in sync_mode    In ms
+        uint8_t    video_quality;         // Video quality    0 - bad quality … 255 - best quality
+        uint8_t    sync_mode;             // TFlowNavigator synchronization mode    0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
+
+#if 0
         int32_t	    position_x;	        // Drone position relative to takeoff point	In meters			
         int32_t		position_y;	        // 
         int32_t	    north_azimuth;	    // Azimuth angle to North	In degrees
@@ -59,6 +75,7 @@ public:
         uint8_t	    position_quality;	// Position confidence coefficient, accuracy	0 - position can’t be used, 255 - position max accuracy
         uint8_t	    video_quality;	    // Video quality	0 - bad quality … 255 - best quality
         uint8_t	    sync_mode;	        // TFlowNavigator synchronization mode	0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
+#endif
     };
 
 #if 0

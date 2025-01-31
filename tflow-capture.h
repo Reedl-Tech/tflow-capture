@@ -13,7 +13,25 @@
 #include "v4l2Device.h"
 
 #define TFLOWBUF_MSG_CUSTOM_NAVIGATOR (TFLOWBUF_MSG_CUSTOM_ + 1)    // 0x80 + 1
+
+#pragma pack(push, 1)
 struct pck_navigator {
+    TFlowBuf::pck_hdr hdr;
+    int32_t    position_x;            // Drone position relative to takeoff point    In meters            
+    int32_t    position_y;            // 
+    int32_t    north_azimuth;         // Azimuth angle to North n degrees
+    uint8_t    position_quality;      // Position confidence coefficient, accuracy    0 - position can’t be used, 255 - position max accuracy
+
+    int32_t    velocity_x;            // Movement direction
+    int32_t    velocity_y;            // 
+    int32_t    velocity_heading;      // Azimuth angle to North in degrees
+    uint8_t    velocity_is_valid;     // 
+
+    uint32_t   sync_time;             // Last position synchronization time, type of synchronization is in sync_mode    In ms
+    uint8_t    video_quality;         // Video quality    0 - bad quality … 255 - best quality
+    uint8_t    sync_mode;             // TFlowNavigator synchronization mode    0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
+
+#if 0
     TFlowBuf::pck_hdr hdr;
     int32_t	    position_x;	        // Drone position relative to takeoff point	In meters			
     int32_t		position_y;	        // 
@@ -22,7 +40,9 @@ struct pck_navigator {
     uint8_t	    position_quality;	// Position confidence coefficient, accuracy	0 - position can’t be used, 255 - position max accuracy
     uint8_t	    video_quality;	    // Video quality	0 - bad quality … 255 - best quality
     uint8_t	    sync_mode;	        // TFlowNavigator synchronization mode	0 - GPS assisted, 1 - IMU assisted, 2 - Standalone
+#endif
 };
+#pragma pack(pop)
 
 struct fmt_info {
     union {

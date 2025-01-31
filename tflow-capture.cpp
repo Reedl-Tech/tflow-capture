@@ -10,6 +10,8 @@ using namespace json11;
 
 v4l2_buffer g_buf;
 
+//int g_first_boot = 1;
+
 #define IDLE_INTERVAL_MSEC 300
 
 static struct timespec diff_timespec(
@@ -98,6 +100,19 @@ int TFlowCapture::onCustomMsgNavigator(const struct pck_navigator& in_msg_nav)
         }
     };
 
+    msg.positioning.position_x        = in_msg_nav.position_x;
+    msg.positioning.position_y        = in_msg_nav.position_y;
+    msg.positioning.north_azimuth     = in_msg_nav.north_azimuth;
+    msg.positioning.position_quality  = in_msg_nav.position_quality;
+    msg.positioning.velocity_x        = in_msg_nav.velocity_x;
+    msg.positioning.velocity_y        = in_msg_nav.velocity_y;
+    msg.positioning.velocity_heading  = in_msg_nav.velocity_heading;
+    msg.positioning.velocity_is_valid = in_msg_nav.velocity_is_valid;
+    msg.positioning.sync_time         = in_msg_nav.sync_time;
+    msg.positioning.video_quality     = in_msg_nav.video_quality;
+    msg.positioning.sync_mode         = in_msg_nav.sync_mode;
+
+#if 0
     msg.positioning.position_x       = in_msg_nav.position_x;
     msg.positioning.position_y       = in_msg_nav.position_y;
     msg.positioning.north_azimuth    = in_msg_nav.north_azimuth;
@@ -105,6 +120,22 @@ int TFlowCapture::onCustomMsgNavigator(const struct pck_navigator& in_msg_nav)
     msg.positioning.position_quality = in_msg_nav.position_quality;
     msg.positioning.video_quality    = in_msg_nav.video_quality;
     msg.positioning.sync_mode        = in_msg_nav.sync_mode;
+#endif
+
+    {
+        static int presc = 0;
+        if ( ( presc++ & 0x7f ) == 0 ) {
+            g_warning("TFlowAP: Pos[%d]: x=%5.1f(%5.1f) z=%5.1f(%5.1f) az=%5.1f Vel[%d]: x=%5.1f z=%5.1f, az=%5f", 
+                msg.positioning.position_quality,
+                ( float ) autopilot->last_sensors.position_x/100, ( float ) msg.positioning.position_x / 100,
+                ( float ) autopilot->last_sensors.position_z/100, ( float ) msg.positioning.position_y / 100,
+                ( float ) msg.positioning.north_azimuth / 100,
+                msg.positioning.velocity_is_valid,
+                ( float ) msg.positioning.velocity_x/ 100, 
+                ( float ) msg.positioning.velocity_y / 100, 
+                ( float ) msg.positioning.velocity_heading / 100);
+        }
+    }
 
     if (autopilot) autopilot->serialDataSend(msg);
     return 0;
@@ -208,7 +239,7 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
 
     buf.aux_data = (uint8_t*)&aux_ap_data;
     buf.aux_data_len = sizeof(aux_ap_data);
-    
+#if 0   
     {
         static int presc = 0;
         if ((presc++ & 0x7f) == 0) {
@@ -223,6 +254,7 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
                 autopilot->last_sensors.stabilization_mode);
         }
     }
+#endif
     return 0;
 }
 
@@ -411,10 +443,11 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
     if (cam_state_flag.v == Flag::CLR) {
 
         /* Don't try connect to camera to often */
-        if (diff_timespec_msec(now_ts, &cam_last_check_ts) > 1000) {
+        if (diff_timespec_msec(now_ts, &cam_last_check_ts) > 5000) {
             cam_last_check_ts = *now_ts;
             cam_state_flag.v = Flag::RISE;
         }
+        return;
     }
 
     if (cam_state_flag.v == Flag::UNDEF || cam_state_flag.v == Flag::RISE) {
@@ -513,8 +546,6 @@ int TFlowCapture::onIdle()
 
     buf_srv->onIdle(&now_ts);
     ctrl.ctrl_srv.onIdle(&now_ts);
-
-
 
     return G_SOURCE_CONTINUE;
 }
