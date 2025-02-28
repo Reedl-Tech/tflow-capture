@@ -62,7 +62,7 @@
     <ClInclude Include="..\tflow-ctrl-capture.h" />
     <ClInclude Include="..\tflow-ctrl-cli-port.h" />
     <ClInclude Include="..\tflow-ctrl-srv.h" />
-    <ClInclude Include="..\tflow-ctrl.h" />
+    <ClInclude Include="..\tflow-ctrl.hpp" />
     <ClInclude Include="..\tflow-glib.hpp" />
     <ClInclude Include="..\tflow-player.h" />
     <ClInclude Include="..\v4l2Device.h" />
@@ -127,8 +127,8 @@
     </RemoteDeployDir>
     <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
     <RemoteCleanCommandLine>pwd &amp;&amp; ./build.sh cleanstate</RemoteCleanCommandLine>
-    <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>	
-    <NMakeIncludeSearchPath>.;..;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
+    <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
+    <NMakeIncludeSearchPath>.;..;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">

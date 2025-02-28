@@ -32,7 +32,7 @@ add_executable (tflow-capture
     "tflow-ctrl-cli-port.h"
     "tflow-ctrl-capture.cpp"
     "tflow-ctrl-capture.h"
-    "tflow-ctrl.h"
+    "tflow-ctrl.hpp"
     "tflow-ctrl.cpp"
     "tflow-ap-fixar.cpp"
     "tflow-ap-fixar.h"

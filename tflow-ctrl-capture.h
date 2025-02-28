@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_map>
 
-#include "tflow-ctrl.h"
+#include "tflow-ctrl.hpp"
 #include "tflow-ctrl-srv.h"
 
 class TFlowCtrlCapture;

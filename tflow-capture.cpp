@@ -524,9 +524,9 @@ int TFlowCapture::onIdle()
 
     if (autopilot) {
         autopilot->onIdle(&now_ts);
-
-        // FLYN384 is a SHUTER camera, thus the calibration needs to be
-        // disabled during the flight
+#if 0
+        // FLYN384 is a SHUTTER camera, thus the calibration needs to be
+        // disabled or controled directly by capture during the flight.
         if (autopilot->last_sensors_ts_obsolete.tv_usec != autopilot->last_sensors_ts.tv_usec) {
             if (cam && (0 == cam->driver_name.compare("flyn384"))) {
                 // TODO: Set calibration OFF on disarm and 
@@ -541,6 +541,7 @@ int TFlowCapture::onIdle()
                 }
             }
         }
+#endif
 
     }
 
