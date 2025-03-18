@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_map>
 
-#include "tflow-ctrl.h"
+#include "tflow-ctrl.hpp"
 #include "tflow-ctrl-srv.h"
 
 class TFlowCtrlCapture;
@@ -29,11 +29,10 @@ private:
 class TFlowCtrlCapture : private TFlowCtrl {
 public:
 
-    TFlowCtrlCapture(TFlowCapture& app);
+    TFlowCtrlCapture(TFlowCapture& app, const std::string _cfg_fname);
 
     TFlowCapture& app;      // AV: For access to context. Passed to CtrlServer
 
-    int parseConfig(tflow_cmd_t* config_cmd, const std::string& cfg_fname, const std::string& raw_cfg_default);
     void InitServer();
 
     int player_fname_is_valid();
@@ -74,6 +73,16 @@ public:
          TFLOW_CMD_EOMSG
      };
 
+    struct cfg_v4l2_ctrls_atic {
+        tflow_cmd_field_t   head;
+        tflow_cmd_field_t   xz;
+        tflow_cmd_field_t   eomsg;
+    } cmd_flds_cfg_v4l2_ctrls_atic = {
+        .head = { "v4l2-ctrls-atic", CFT_STR, 0, {.str = nullptr} },
+        .xz   = { "xz",              CFT_NUM, 0, {.num = 0} },
+         TFLOW_CMD_EOMSG
+    };
+
     struct cfg_v4l2_ctrls {
         tflow_cmd_field_t   head;
         tflow_cmd_field_t   dev_name;       // Camera ISI device name. For ex. /dev/video0
@@ -87,17 +96,18 @@ public:
         tflow_cmd_field_t   flyn384;
 
         /* ATIC specific */
-        //tflow_cmd_field_t   atic;
+        tflow_cmd_field_t   atic320;
 
         tflow_cmd_field_t   eomsg;
     } cmd_flds_cfg_v4l2 = {
         .head          = { "v4l2",         CFT_STR, 0, {.str = nullptr} },
-        .dev_name      = { "dev_name",     CFT_STR, 0, {.str = nullptr} },
-        .sub_dev_name  = { "sub_dev_name", CFT_STR, 0, {.str = nullptr} },
+        .dev_name      = { "dev_name",     CFT_STR, 0, {.str = nullptr} },  // TODO: Add auto get by name "ISI"
+        .sub_dev_name  = { "sub_dev_name", CFT_STR, 0, {.str = nullptr} },  // TODO: Add auto get by known name FLYN/ATIC
         /* Common (ISI) */
         .vflip   = { "vflip",    CFT_NUM, 0, {.num = 0} },
         .hflip   = { "hflip",    CFT_NUM, 0, {.num = 0} },
-        .flyn384 = { "flyn384",  CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls_flyn.head)} },
+        .flyn384 = { "flyn384",  CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_flyn.head )} },
+        .atic320 = { "atic320",  CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_flyn.head )} },
         TFLOW_CMD_EOMSG
     };
 
@@ -147,10 +157,12 @@ public:
 
     TFlowCtrlSrvCapture ctrl_srv;
 
-    static void getSignResponse(const tflow_cmd_t* cmd_p, json11::Json::object& j_params) { TFlowCtrl::getSignResponse(cmd_p, j_params); }
+    void getSignResponse(json11::Json::object &j_params);
 
 private:
 
-    const std::string cfg_fname{ "tflow-capture-config.json" };
+    int collectCtrls(const tflow_cmd_field_t *cmd_fld, json11::Json::array &j_out_params);
+    int collectCtrlsCustom(const tflow_cmd_field_t *cmd_fld, json11::Json::array &j_out_params);
+    const std::string cfg_fname;
 };
 

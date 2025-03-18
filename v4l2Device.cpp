@@ -308,12 +308,17 @@ int V4L2Device::ioctlSetStreamFmt(const struct fmt_info *stream_fmt)
         return -1;
     }
 
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+
     fmt.fmt.pix_mp.width = stream_fmt->width;
     fmt.fmt.pix_mp.height = stream_fmt->height;
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    fmt.fmt.pix_mp.num_planes = 1;
     fmt.fmt.pix_mp.pixelformat = stream_fmt->fmt_cc.u32;
     fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
+
+    fmt.fmt.pix_mp.plane_fmt[0].bytesperline = stream_fmt->width;
+    fmt.fmt.pix_mp.plane_fmt[0].sizeimage    = stream_fmt->width * stream_fmt->height;
+    fmt.fmt.pix_mp.num_planes = 1;
+
     if (-1 == ioctl(dev_fd, VIDIOC_S_FMT, &fmt)) {
         g_warning("Can't VIDIOC_S_FMT (%d) %s", errno, strerror(errno));
         /* AV: Sometimes on error the device not released properly, only exit from the application releases the camera */
@@ -551,8 +556,8 @@ int V4L2Device::ioctlSetControls_flyn_calib(int on_off)
         return -1;
     }
     else {
-        g_warning( "FLYN384 controls: \r\n"\
-            "\t TEMP_CALIB = %d\r\n",
+        g_warning( "FLYN384 controls: \n"\
+            "\t TEMP_CALIB = %d\n",
             flyn_ctrls_calib.value);
     }
 

@@ -45,19 +45,23 @@ public:
         std::function<int(const json11::Json& json, json11::Json::object& j_out_params)> cb;
     } tflow_cmd_t;
 
+    static int parseConfig(tflow_cmd_t *config_cmd, const std::string &cfg_filename, const std::string &raw_cfg_default);
+
     static void freeStrField(tflow_cmd_field_t *fld);   // Called from desctructor to release memory of all Cmd Fields
 
-    static void getSignResponse(const tflow_cmd_t* cmd_p, json11::Json::object& j_params);
-    static int parseConfig(tflow_cmd_t* config_cmd, const std::string& cfg_filename, const std::string& raw_cfg_default);
+    static void _getSignResponse(const tflow_cmd_t* cmd_p, json11::Json::object& j_params); // obsolete
     static int setCmdFields(tflow_cmd_field_t* cmd_field, const json11::Json& in_params);
 
     static void getCmdInfo(const tflow_cmd_field_t* fields, json11::Json::object& j_cmd_info);      // AV: Bad naming. Not info but rather value?
     static void setFieldStr(tflow_cmd_field_t *str_field, const char* value);
 
+    
+    static int addCtrlDef(const tflow_cmd_field_t *cmd_fld, json11::Json::array &j_ctrl_out_arr);
+    static int addCtrlEdit(const tflow_cmd_field_t *cmd_fld, const char *label, const char *val, int fld_size, json11::Json::object &j_out_params);
+    static int addCtrlRef(const tflow_cmd_field_t *cmd_fld, const char *label, json11::Json::array &j_ref_ctrls, json11::Json::object &j_out_params);
+
 private:
 
     static int setField(tflow_cmd_field_t* cmd_field, const json11::Json& in_param);
-
-
 };
 

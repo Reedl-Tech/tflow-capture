@@ -114,7 +114,7 @@ private:
 
     int streaming_watchdog_cnt;
     int streaming_watchdog_frames_num;  // Number or frames received at the moment of previous WD test
-    static constexpr int STREAM_WDT_CNT = 10;
+    static constexpr int STREAM_WDT_CNT = 100;
 
     IOSourcePtr io_in_src;
 

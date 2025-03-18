@@ -19,7 +19,7 @@ add_executable (tflow-capture
     "v4l2Device.cpp"
     "v4l2Device.h"
     "main.cpp"
-    "tflow-common.h"
+    "tflow-common.hpp"
     "tflow-glib.hpp"
     "tflow-capture.cpp"
     "tflow-capture.h"
@@ -32,7 +32,7 @@ add_executable (tflow-capture
     "tflow-ctrl-cli-port.h"
     "tflow-ctrl-capture.cpp"
     "tflow-ctrl-capture.h"
-    "tflow-ctrl.h"
+    "tflow-ctrl.hpp"
     "tflow-ctrl.cpp"
     "tflow-ap-fixar.cpp"
     "tflow-ap-fixar.h"
@@ -74,5 +74,7 @@ target_link_libraries(tflow-capture PkgConfig::GLIBMM)
 target_link_libraries(tflow-capture PkgConfig::OTHERS)
 
 target_link_libraries(tflow-capture -lrt)
+
+install(TARGETS tflow-capture DESTINATION bin)
 
 # TODO: Add tests and install targets if needed.
