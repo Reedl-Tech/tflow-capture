@@ -7,7 +7,13 @@
 
 #include <json11.hpp>
  
-#define TFLOW_CMD_EOMSG .eomsg = {.name = nullptr, .type = CFT_LAST, .max_len = 0, .v = {.num = 0} }
+#if _WIN32
+#define ARRAY_INIT_IDX(_idx)
+#else
+#define ARRAY_INIT_IDX(_idx) [_idx] = 
+#endif
+
+#define TFLOW_CMD_EOMSG .eomsg = {.name = nullptr, .type = TFlowCtrl::CFT_LAST, .max_len = 0, .v = {.num = 0} }
 
 #define THIS_M(_f) std::bind(_f, this, std::placeholders::_1, std::placeholders::_2)
 
@@ -54,7 +60,6 @@ public:
 
     static void getCmdInfo(const tflow_cmd_field_t* fields, json11::Json::object& j_cmd_info);      // AV: Bad naming. Not info but rather value?
     static void setFieldStr(tflow_cmd_field_t *str_field, const char* value);
-
     
     static int addCtrlDef(const tflow_cmd_field_t *cmd_fld, json11::Json::array &j_ctrl_out_arr);
     static int addCtrlEdit(const tflow_cmd_field_t *cmd_fld, const char *label, const char *val, int fld_size, json11::Json::object &j_out_params);
@@ -64,4 +69,3 @@ private:
 
     static int setField(tflow_cmd_field_t* cmd_field, const json11::Json& in_param);
 };
-

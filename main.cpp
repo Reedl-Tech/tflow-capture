@@ -4,7 +4,7 @@
 
 #include <signal.h>
 
-#include "tflow-capture.h"
+#include "tflow-capture.hpp"
 
 TFlowCapture *gp_app;
 
@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 {
     Gio::init();
 
-    g_info("TFlow Capture started.");
+    g_info("TFlow Capture started");
 
     std::string cfg_fname("/etc/tflow/tflow-capture-config.json");
     getConfigFilename(argc, argv[1], cfg_fname);

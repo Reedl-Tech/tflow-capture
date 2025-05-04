@@ -18,7 +18,7 @@
 using namespace std;
 
 //#include "reedl-generic.h"
-#include "tflow-capture.h"
+#include "tflow-capture.hpp"
 #include "tflow-ap-fixar.h"
 #include "tflow-ap.h"
 
@@ -158,6 +158,7 @@ TFlowAutopilot::TFlowAutopilot(MainContextPtr app_context, const char* _serial_n
 
     clock_gettime(CLOCK_MONOTONIC, &now);
 
+    memset(&last_sensors, 0, sizeof(last_sensors));
     last_sensors_ts.tv_sec = now.tv_sec;
     last_sensors_ts.tv_usec = now.tv_nsec / 1000;
 

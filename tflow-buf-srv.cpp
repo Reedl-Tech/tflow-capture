@@ -4,8 +4,8 @@
 #include <giomm.h>
 #include <glib-unix.h>
 
-#include "tflow-buf.h"
-#include "tflow-capture.h"
+#include "tflow-buf.hpp"
+#include "tflow-capture.hpp"
 
 static struct timespec diff_timespec(
     const struct timespec* time1,

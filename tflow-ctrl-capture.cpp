@@ -6,26 +6,28 @@
 
 #include <json11.hpp>
 
-#include "tflow-capture.h"
+#include "tflow-capture.hpp"
 
 using namespace json11;
 using namespace std;
 
-static const std::string capture_raw_cfg_default{ R"( 
+static const std::string capture_raw_cfg_default { R"( 
 {
-    "config" : {
+    "capture" : {
         "buffs_num"    : 4,
-        "player_fname" : "/home/root/4",
         "serial_name"  : "/dev/ttymxc1",
         "serial_baud"  : 921600,
         "v4l2" : {
-            "dev_name"     : "/dev/video2",
-            "sub_dev_name" : "/dev/v4l-subdev1",
+            "dev_name"     : "auto",
+            "sub_dev_name" : "auto",
             "flyn384" : {
                 "filter"     : 0,
                 "denoise"    : 0,
                 "contrast"   : 100,
-                "brightness" : 8
+                "brightness" : 8,
+                "gain"       : 0,
+        		"calib"      : 1,
+		        "calib_trig" : 0
             },
             "atic320" : {
                 "xz"     : 0
@@ -61,7 +63,7 @@ void TFlowCtrlSrvCapture::onCliPortError(int fd)
     auto ctrl_cli_it = ctrl_clis.find(fd);
 
     if (ctrl_cli_it == ctrl_clis.end()) {
-        g_error("Ooops in %s", __FUNCTION__); 
+        g_error("Ooops in %s, (fd=%d)", __FUNCTION__, fd);  // Triggered on CLI close. Needs to be debugged
     }
 
     TFlowCtrlCliPort& cli_port = ctrl_cli_it->second;
@@ -127,6 +129,7 @@ void TFlowCtrlCapture::InitServer()
 {
 }
 
+#if 0
 int TFlowCtrlCapture::parseConfig(
     tflow_cmd_t* config_cmd_in, const std::string& _cfg_fname, const std::string& raw_cfg_default)
 {
@@ -202,6 +205,7 @@ int TFlowCtrlCapture::parseConfig(
     return 0;
 
 }
+#endif
 
 void TFlowCtrlCapture::cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_enum)
 {
@@ -214,7 +218,8 @@ void TFlowCtrlCapture::cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_en
     
     if (!cmd_flds_config.fmt_enum.v.str) return;
 
-    token = strtok_r(cmd_flds_config.fmt_enum.v.str, ",", &next_token);
+    char *fmt_enum_str = strdup(cmd_flds_config.fmt_enum.v.str);
+    token = strtok_r(fmt_enum_str, ",", &next_token);
     while(token) {
         int parsed = sscanf(token, "%dx%d %c%c%c%c", 
             &fmt_info_parsed.width, &fmt_info_parsed.height, 
@@ -229,8 +234,9 @@ void TFlowCtrlCapture::cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_en
             g_warning("Bad fmt: %s - \"WxH CCCC,...\" expected)", token);
             break;
         }
-        token = strtok_r(cmd_flds_config.fmt_enum.v.str, ",", &next_token);
+        token = strtok_r(fmt_enum_str, ",", &next_token);
     }
+    free(fmt_enum_str);
 
 }
 int TFlowCtrlCapture::serial_name_is_valid()
@@ -251,13 +257,13 @@ int TFlowCtrlCapture::sub_dev_name_is_valid()
     return 1;
 }
 
-
+#if CAPTURE_PLAYER
 int TFlowCtrlCapture::player_fname_is_valid()
 {
     // check cmd_flds_config.player_fname.v.str;
     return 1;
 }
-
+#endif
 /*********************************/
 /*** Application specific part ***/
 /*********************************/
@@ -363,6 +369,32 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
     //  - Serial baud rate
 
     if (rc != 0) return -1;
+    
+    std::string del_me = j_in_params.dump();
+
+    if ( app.cam && ( 0 == app.cam->driver_name.compare("flyn384") ) ) {
+
+        const Json j_v4l2 = j_in_params [ "v4l2" ];
+        if ( j_v4l2.is_object() ) {
+            cfg_v4l2_ctrls *v4l2 = ( cfg_v4l2_ctrls * ) ( cmd_flds_config.v4l2.v.ref );
+            const Json j_flyn384 = j_v4l2 [ "flyn384" ];
+
+            if ( j_flyn384.is_object() ) {
+                cfg_v4l2_ctrls_flyn *flyn384 = ( cfg_v4l2_ctrls_flyn * ) ( v4l2->flyn384.v.ref );
+                const Json j_calib = j_flyn384 [ "calib" ];
+                const Json j_calib_trig = j_flyn384 [ "calib_trig" ];
+
+                if ( j_calib.is_number() ) {
+                    app.cam->ioctlSetControls_flyn_calib(j_calib.int_value());
+                }
+                if ( j_calib_trig.is_number() && j_calib_trig.int_value() ) {
+                    app.cam->ioctlSetControls_flyn_calib_trig();
+                    // One shot parameter. Clear after use.
+                    flyn384->calib_trig.v.num = 0;
+                }
+            }
+        }
+    }
 
     return 0;
 }

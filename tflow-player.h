@@ -17,7 +17,7 @@
 
 #include <jpeglib.h>
 
-#include "tflow-capture.h"
+#include "tflow-capture.hpp"
 
 class MJPEGCapture
 {

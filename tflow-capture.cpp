@@ -1,10 +1,12 @@
 #include <iostream>
 #include <functional>
+
 #include <giomm.h>
 #include <glib-unix.h>
+
 #include <json11.hpp>
 
-#include "tflow-capture.h"
+#include "tflow-capture.hpp"
 
 using namespace json11;
 
@@ -72,12 +74,13 @@ static int _onCustomMsg(void* ctx, const TFlowBuf::pck_t& in_msg)
     return m->onCustomMsg(in_msg);
 }
 
+#if CAPTURE_PLAYER
 static int _onBufPlayer(void* ctx, TFlowBuf& buf)
 {
     TFlowCapture* m = (TFlowCapture*)ctx;
     return m->onBufPlayer(buf);
 }
-
+#endif
 static int _onBufAP(void* ctx, TFlowBuf &buf)
 {
     TFlowCapture* m = (TFlowCapture*)ctx;
@@ -156,6 +159,7 @@ int TFlowCapture::onCustomMsg(const TFlowBuf::pck_t& in_msg)
     return 0;
 }
 
+#if CAPTURE_PLAYER
 /* 
  * Add data aux to TFlow buffer, data updated externaly by another module,
  * i.e. TFlowPlayer
@@ -174,7 +178,7 @@ int TFlowCapture::onBufPlayer(TFlowBuf& buf)
     buf.aux_data_len = sizeof(aux_ap_data);
     return 0;
 }
-
+#endif
 /* Add data from Autopilot to the temporary aux buffer */
 int TFlowCapture::onBufAP(TFlowBuf& buf) 
 {
@@ -273,10 +277,12 @@ TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname)
     cam = nullptr;
     cam_last_check_ts.tv_sec = 0;
     cam_last_check_ts.tv_nsec = 0;
-    
+
+#if CAPTURE_PLAYER    
     player = nullptr;
     player_last_check_ts.tv_sec = 0;
     player_last_check_ts.tv_nsec = 0;
+#endif
 
     if (ctrl.serial_name_is_valid()) {
         autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
@@ -295,6 +301,7 @@ TFlowCapture::~TFlowCapture()
     }
 }
 
+#if CAPTURE_PLAYER
 void TFlowCapture::checkPlayerState(struct timespec *now_ts)
 {
     if (player_state_flag.v == Flag::SET) {
@@ -369,11 +376,16 @@ void TFlowCapture::checkPlayerState(struct timespec *now_ts)
     }
 
 }
+#endif
 
 const struct fmt_info* TFlowCapture::getCamFmt() 
 {
+    // Get format from config:
+    //  Option 1.   By config idx 
+    //  Option 1.1  In case of stepwise frame size, the actual size defined by WxH
+    //  Option 2.   By WxH and format
+
     int cam_fmt_idx = -1;
-    // Get format from config - in config enum by config idx
     std::vector<struct fmt_info> cfg_fmt_enum;
     struct fmt_info cfg_fmt;
 
@@ -399,12 +411,23 @@ const struct fmt_info* TFlowCapture::getCamFmt()
         // Get _Camera_ format index by mathcing fmt
         for (struct fmt_info &cam_fmt : cam->fmt_info_enum) {
             if (cam_fmt.fmt_cc.u32 == V4L2_PIX_FMT_GREY){
+                
+                cam_fmt.height = cam_fmt.frmsize.discrete.height;
+                cam_fmt.width = cam_fmt.frmsize.discrete.width;
                 return &cam_fmt;
             }
         }
 
-        g_warning("Use default camera format [0]");
-        return &cam->fmt_info_enum[0];
+        if (cam->fmt_info_enum[0].height != 0 || 
+            cam->fmt_info_enum[0].width  != 0 ){
+            g_warning("Using default camera format [0]");
+            return &cam->fmt_info_enum[0];
+        }
+        else {
+            g_warning("WxH must be specified.");
+            return nullptr;
+        }
+
     }
     else {
         // Both index and format are from config
@@ -419,11 +442,20 @@ const struct fmt_info* TFlowCapture::getCamFmt()
 
     // Get _Camera_ format index by mathcing fmt
     for (struct fmt_info &cam_fmt : cam->fmt_info_enum) {
-        if ((cam_fmt.fmt_cc.u32 == cfg_fmt.fmt_cc.u32) &&
-            (cam_fmt.width  == cfg_fmt.width) &&
-            (cam_fmt.height == cfg_fmt.height)) {
-            return &cam_fmt;
+        switch ( cam_fmt.frmsize.type ) {
+        case V4L2_FRMSIZE_TYPE_DISCRETE:
+            if ( ( cam_fmt.fmt_cc.u32 == cfg_fmt.fmt_cc.u32 ) &&
+                ( cam_fmt.width == cfg_fmt.width ) &&
+                ( cam_fmt.height == cfg_fmt.height ) ) {
+                return &cam_fmt;
+            }
+
+        case V4L2_FRMSIZE_TYPE_STEPWISE:
+        case V4L2_FRMSIZE_TYPE_CONTINUOUS:
+            // TODO: need to be implemeneted for some RGB sensors
+            break;
         }
+        continue;
     }
 
     g_warning("Config format not matched (%d)", cfg_idx);
@@ -460,7 +492,7 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         //       If index is valid then use this format to start the stream
         do {
             int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
-            cam = new V4L2Device(context, cfg_buffs_num, 1, 
+            cam = new TFlowCaptureV4L2(context, cfg_buffs_num, 1, 
                 (const TFlowCtrlCapture::cfg_v4l2_ctrls*)ctrl.cmd_flds_config.v4l2.v.ref);
 
             /* Link Camera and TFlowBufferServer*/
@@ -473,6 +505,7 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
             if (rc) break;
 
             rc = cam->StreamOn(getCamFmt());
+
             if (rc) break;
 
             cam_state_flag.v = Flag::SET;
@@ -480,8 +513,15 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         } while (0);
 
         if (rc) {
-            // Can't open camera - try again later 
-            cam_state_flag.v = Flag::CLR;
+            if ( cam->dev_fd != -1 || cam->sub_dev_fd != -1 ) {
+                // Camera was opened but something goes wrong
+                // TODO: Don't try to open camera again until config changed
+                cam_state_flag.v = Flag::FALL;
+            } 
+            else {
+                // Can't open camera - try again later 
+                cam_state_flag.v = Flag::CLR;
+            }
         }
         else {
             /* Camera is open. Now we can advertise video buffers */
@@ -517,11 +557,12 @@ int TFlowCapture::onIdle()
     if (1) {
         checkCamState(&now_ts);
     }
+#if CAPTURE_PLAYER
     else {
         // Draft - not tested
         checkPlayerState(&now_ts);
     }
-
+#endif
     if (autopilot) {
         autopilot->onIdle(&now_ts);
 #if 0
@@ -546,7 +587,8 @@ int TFlowCapture::onIdle()
     }
 
     buf_srv->onIdle(&now_ts);
-    ctrl.ctrl_srv.onIdle(&now_ts);
+
+    ctrl.ctrl_srv.onIdle(now_ts);
 
     return G_SOURCE_CONTINUE;
 }

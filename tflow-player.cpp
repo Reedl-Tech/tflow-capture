@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#include "tflow-capture.h"
+#include "tflow-capture.hpp"
 #include "tflow-player.h"
 
 int MJPEGCapture::rewind(int frame_num)
@@ -328,7 +328,7 @@ int TFlowPlayer::onTick()
     shm_tbl[free_buff_idx].owner_player = 0;
 
     // Get empty shared mem buffer
-    v4l2_buffer v4l2_buf = v4l2_buf_template; // TODO: Q: can it be reused without reinitialization?
+    v4l2_buffer v4l2_buf = v4l2_buf_template;
     v4l2_buf.timestamp.tv_sec = 0;
     v4l2_buf.timestamp.tv_usec = 0;
     v4l2_buf.sequence = 0;

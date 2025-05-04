@@ -1,23 +1,12 @@
-#include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "tflow-ctrl-srv.h"
+#include <glibmm.h>
+
+#include "tflow-ctrl-srv.hpp"
 
 using namespace json11;
 using namespace std;
-
-
-gboolean TFlowCtrlCliPort::onMsg(Glib::IOCondition io_cond)
-{
-    int rc = onMsgRcv();
-    if (rc) {
-        srv.onCliPortError(sck_fd);
-        delete this;
-        return G_SOURCE_REMOVE;
-    }
-    return G_SOURCE_CONTINUE;
-}
 
 TFlowCtrlCliPort::~TFlowCtrlCliPort()
 {
@@ -58,10 +47,19 @@ int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object
     Json j_resp;
 
     if (resp_err) {
+        static const std::string err_unknown("unknown");
+        const string *err_msg = &err_unknown;
+
+        auto j_err_it  = j_resp_params.find("error");
+        if (j_err_it != j_resp_params.end() && j_err_it->second.is_string()) {
+            err_msg = &j_err_it->second.string_value();
+        } 
+
         j_resp = Json::object{
             { "cmd"    , cmd           },
             { "dir"    , "response"    },        // For better log readability only
-            { "err"    , resp_err      }
+            { "err"     , resp_err      },
+            { "err_msg" , *err_msg      }
         };
     }
     else {
@@ -108,21 +106,45 @@ int TFlowCtrlCliPort::onMsgSign(const Json& j_params)
     return 0;
 }
 
+
+gboolean TFlowCtrlCliPort::onMsg(Glib::IOCondition io_cond)
+{
+    if (io_cond == Glib::IOCondition::IO_ERR) {
+        assert(0);  // Implement something or remove condition from the source
+    }
+
+    if (io_cond == Glib::IOCondition::IO_HUP) {
+        assert(0);  // Implement something or remove condition from the source
+    }
+
+    int rc = onMsgRcv();
+    if (rc) {
+        // Let the Server kill us :/
+        // No more access to "this->" upon return
+        srv.onCliPortError(sck_fd);
+#if CODE_BROWSE
+        TFlowCtrlSrvCapture::onCliPortError(sck_fd);
+            TFlowCtrlCliPort::~TFlowCtrlCliPort();
+#endif
+        return G_SOURCE_REMOVE;
+    }
+    return G_SOURCE_CONTINUE;
+}
+
 int TFlowCtrlCliPort::onMsgRcv()
 {
     int res = recv(sck_fd, in_msg, in_msg_size - 1, 0); //MSG_DONTWAIT 
 
     if (res <= 0) {
         int err = errno;
-        if (err == ECONNRESET || err == EAGAIN || err == ENOENT) {
+        if (err == ECONNRESET || err == EAGAIN) {
             g_warning("TFlowCtrlCliPort: [%s] disconnected (%d) - closing",
                 this->signature.c_str(), errno);
         }
         else {
             g_warning("TFlowCtrlCliPort: [%s] unexpected error (%d) - %s",
-                this->signature.c_str(), err, strerror(err));
+                this->signature.c_str(), errno, strerror(errno));
         }
-        srv.onCliPortError(sck_fd);
         return -1;
     }
     in_msg[res] = 0;
@@ -153,9 +175,12 @@ int TFlowCtrlCliPort::onMsgRcv()
         TFlowCtrlSrvProcess::onTFlowCtrlMsg();
             TFlowCtrlProcess::cmd_cb_cfg_player();      // for in_cmd == "player"
                 tflow_cmd_t ctrl_process_rpc_cmds;
+                    TFlowCtrlProcess::cmd_cb_cfg_player();
+                    TFlowCtrlProcess::cmd_cb_player_dir();
 #endif
     }
+    
+    return sendResp(in_cmd.c_str(), resp_err, j_resp_params);
 
-    return sendResp(in_cmd.c_str(), resp_err, j_resp_params );
 }
 

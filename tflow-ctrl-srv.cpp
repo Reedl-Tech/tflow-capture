@@ -2,12 +2,11 @@
 #include <sys/un.h>
 
 #include <json11.hpp>
-
-#include "tflow-ctrl-srv.h"
-
 using namespace json11;
 
-// TODO: reuse diff_timespec from perfmon
+#include "tflow-common.hpp"
+#include "tflow-ctrl-srv.hpp"
+
 static struct timespec diff_timespec(
     const struct timespec* time1,
     const struct timespec* time0)
@@ -129,17 +128,22 @@ int TFlowCtrlSrv::StartListening()
     return 0;
 }
 
-void TFlowCtrlSrv::onIdle(struct timespec* now_ts)
+void TFlowCtrlSrv::onIdle(struct timespec now_ts)
 {
     if (sck_state_flag.v == Flag::SET) {
         return;
     }
 
     if (sck_state_flag.v == Flag::CLR) {
-        if (diff_timespec_msec(now_ts, &last_idle_check_ts) > 1000) {
-            last_idle_check_ts = *now_ts;
+        if (diff_timespec_msec(&now_ts, &last_idle_check_ts) > 1000) {
+            last_idle_check_ts = now_ts;
             sck_state_flag.v = Flag::RISE;
         }
+
+        return;
+    }
+
+    if (sck_state_flag.v == Flag::SET || sck_state_flag.v == Flag::CLR) {
         return;
     }
 

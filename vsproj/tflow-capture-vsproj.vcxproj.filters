@@ -4,7 +4,7 @@
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\tflow-capture.cpp" />
     <ClCompile Include="..\tflow-ctrl-capture.cpp" />
-    <ClCompile Include="..\v4l2Device.cpp">
+    <ClCompile Include="..\tflow-capture-v4l2.cpp">
       <Filter>V4L2Device</Filter>
     </ClCompile>
     <ClCompile Include="..\tflow-ctrl.cpp">
@@ -27,31 +27,33 @@
     <Text Include="..\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\tflow-capture.h" />
-    <ClInclude Include="..\tflow-ctrl-capture.h" />
-    <ClInclude Include="..\v4l2Device.h">
+    <ClInclude Include="..\tflow-capture.hpp" />
+    <ClInclude Include="..\tflow-ctrl-capture.hpp" />
+    <ClInclude Include="..\tflow-capture-v4l2.hpp">
       <Filter>V4L2Device</Filter>
     </ClInclude>
     <ClInclude Include="..\tflow-common.hpp" />
     <ClInclude Include="..\tflow-ctrl.hpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClInclude>
-    <ClInclude Include="..\tflow-ctrl-srv.h">
+    <ClInclude Include="..\tflow-ctrl-srv.hpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClInclude>
-    <ClInclude Include="..\tflow-ctrl-cli-port.h">
+    <ClInclude Include="..\tflow-ctrl-cli-port.hpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClInclude>
     <ClInclude Include="..\tflow-ap.h" />
     <ClInclude Include="..\tflow-ap-fixar.h" />
-    <ClInclude Include="..\tflow-buf.h">
+    <ClInclude Include="..\tflow-buf.hpp">
       <Filter>tflow-buf</Filter>
     </ClInclude>
-    <ClInclude Include="..\tflow-buf-srv.h">
+    <ClInclude Include="..\tflow-buf-srv.hpp">
       <Filter>tflow-buf</Filter>
     </ClInclude>
     <ClInclude Include="..\tflow-player.h" />
     <ClInclude Include="..\tflow-glib.hpp" />
+    <ClInclude Include="buildin.h" />
+    <ClInclude Include="..\tflow-build-cfg.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">

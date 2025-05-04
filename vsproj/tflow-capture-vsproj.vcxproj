@@ -47,7 +47,7 @@
     <ClCompile Include="..\tflow-ctrl-srv.cpp" />
     <ClCompile Include="..\tflow-ctrl.cpp" />
     <ClCompile Include="..\tflow-player.cpp" />
-    <ClCompile Include="..\v4l2Device.cpp" />
+    <ClCompile Include="..\tflow-capture-v4l2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
@@ -55,17 +55,19 @@
   <ItemGroup>
     <ClInclude Include="..\tflow-ap-fixar.h" />
     <ClInclude Include="..\tflow-ap.h" />
-    <ClInclude Include="..\tflow-buf-srv.h" />
-    <ClInclude Include="..\tflow-buf.h" />
-    <ClInclude Include="..\tflow-capture.h" />
+    <ClInclude Include="..\tflow-buf-srv.hpp" />
+    <ClInclude Include="..\tflow-buf.hpp" />
+    <ClInclude Include="..\tflow-build-cfg.hpp" />
+    <ClInclude Include="..\tflow-capture.hpp" />
     <ClInclude Include="..\tflow-common.hpp" />
-    <ClInclude Include="..\tflow-ctrl-capture.h" />
-    <ClInclude Include="..\tflow-ctrl-cli-port.h" />
-    <ClInclude Include="..\tflow-ctrl-srv.h" />
+    <ClInclude Include="..\tflow-ctrl-capture.hpp" />
+    <ClInclude Include="..\tflow-ctrl-cli-port.hpp" />
+    <ClInclude Include="..\tflow-ctrl-srv.hpp" />
     <ClInclude Include="..\tflow-ctrl.hpp" />
     <ClInclude Include="..\tflow-glib.hpp" />
     <ClInclude Include="..\tflow-player.h" />
-    <ClInclude Include="..\v4l2Device.h" />
+    <ClInclude Include="..\tflow-capture-v4l2.hpp" />
+    <ClInclude Include="buildin.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
@@ -82,30 +84,6 @@
     <ProjectName>tflow-capture</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" Label="Configuration">
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'" Label="Configuration">
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <ConfigurationType>Makefile</ConfigurationType>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
     <ConfigurationType>Makefile</ConfigurationType>
@@ -117,6 +95,7 @@
     <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/tflow-capture</RemoteRootDir>
     <RemoteProjectRelDir>
     </RemoteProjectRelDir>
+    <UseCompiler>true</UseCompiler>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings" />
@@ -131,7 +110,7 @@
     <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
     <RemoteCleanCommandLine>pwd &amp;&amp; ./build.sh cleanstate</RemoteCleanCommandLine>
     <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
-    <NMakeIncludeSearchPath>.;..;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;C:\MyWorks\tflow-sdk\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
+    <NMakeIncludeSearchPath>.;..;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -140,7 +119,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <PostBuildEvent>
-      <Command>pscp $(OutDir)tflow-capture root@ucm-imx8m-plus:/home/root</Command>
+      <Command>pscp $(OutDir)tflow-capture root@bubo-bubo-001:/home/root</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
