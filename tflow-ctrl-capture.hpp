@@ -152,14 +152,14 @@ public:
     int cmd_cb_set_as_def(const json11::Json& j_in_params, json11::Json::object& j_out_params);
 
 #define TFLOW_CAPTURE_RPC_CMD_VERSION    0
-#define TFLOW_CAPTURE_RPC_CMD_CONFIG     1
-#define TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF 2
+#define TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF 1
+#define TFLOW_CAPTURE_RPC_CMD_CONFIG     2
 #define TFLOW_CAPTURE_RPC_CMD_LAST       3
 
     tflow_cmd_t ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_LAST + 1] = {
         ARRAY_INIT_IDX(TFLOW_CAPTURE_RPC_CMD_VERSION   ) { "version",    (tflow_cmd_field_t*)&cmd_flds_version   , THIS_M(&TFlowCtrlCapture::cmd_cb_version)   },
-        ARRAY_INIT_IDX(TFLOW_CAPTURE_RPC_CMD_CONFIG    ) { "capture",    (tflow_cmd_field_t*)&cmd_flds_config    , THIS_M(&TFlowCtrlCapture::cmd_cb_config)    },
         ARRAY_INIT_IDX(TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF) { "set_as_def", (tflow_cmd_field_t*)&cmd_flds_set_as_def, THIS_M(&TFlowCtrlCapture::cmd_cb_set_as_def)},
+        ARRAY_INIT_IDX(TFLOW_CAPTURE_RPC_CMD_CONFIG    ) { "capture",    (tflow_cmd_field_t*)&cmd_flds_config    , THIS_M(&TFlowCtrlCapture::cmd_cb_config)    },
         ARRAY_INIT_IDX(TFLOW_CAPTURE_RPC_CMD_LAST) { nullptr , nullptr, nullptr }
     };
 

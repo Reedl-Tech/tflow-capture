@@ -71,6 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
+    <None Include="..\tflow-capture-config.json" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}</ProjectGuid>

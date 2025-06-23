@@ -26,8 +26,8 @@ static const std::string capture_raw_cfg_default { R"(
                 "contrast"   : 100,
                 "brightness" : 8,
                 "gain"       : 0,
-        		"calib"      : 1,
-		        "calib_trig" : 0
+                "calib"      : 1,
+                "calib_trig" : 0
             },
             "atic320" : {
                 "xz"     : 0

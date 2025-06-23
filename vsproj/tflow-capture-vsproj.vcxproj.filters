@@ -68,5 +68,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
+    <None Include="..\tflow-capture-config.json" />
   </ItemGroup>
 </Project>

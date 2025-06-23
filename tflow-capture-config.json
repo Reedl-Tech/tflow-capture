@@ -1,7 +1,6 @@
 {
     "capture" : {
         "buffs_num"    : 4,
-        "player_fname" : "/home/root/4",
         "serial_name"  : "/dev/ttymxc1",
         "serial_baud"  : 921600,
         "v4l2" : {
@@ -13,8 +12,8 @@
                 "filter"     : 0,
                 "denoise"    : 0,
                 "gain"       : 0,
-		"calib"      : 1,
-		"calib_trig" : 0
+                "calib"      : 1,
+                "calib_trig" : 0
             },
             "atic320" : {
                 "xz"     : 0
