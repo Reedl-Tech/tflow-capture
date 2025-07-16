@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-//#define BETOH_FLOAT(f) (*(uint32_t*)&f = htobe32(*(uint32_t *)&f))
 #define BETOH_FLOAT(d,s) (*(uint32_t*)&d = htobe32(*(uint32_t *)&s))
 
 static_assert (sizeof(float) == sizeof(uint32_t));
@@ -21,7 +20,6 @@ public:
     };
     // Serial parser assumes that header is always less than 4 bytes (uint32_t)
     static_assert (sizeof(struct hdr) < sizeof(uint32_t), "bad ap header");
-
 
     struct common {
         struct hdr hdr;
@@ -47,6 +45,19 @@ public:
         int32_t  position_y;
         int32_t  position_z;
         int32_t  raw_yaw;
+        /* GPS raw data */
+        uint8_t  gps_flags;
+        uint8_t  gps_fix_type;
+        uint8_t  gps_numSat;
+        uint8_t  gps_is_new;
+        uint16_t gps_hdop;
+        uint16_t gps_eph;
+        uint16_t gps_epv;
+        uint16_t gps_groundCourse;
+        uint16_t gps_groundSpeed;
+        uint32_t gps_lat;
+        uint32_t gps_lon;
+        uint32_t gps_alt;
     };
 
     struct positioning {

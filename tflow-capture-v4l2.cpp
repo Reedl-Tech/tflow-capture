@@ -854,37 +854,33 @@ int TFlowCaptureV4L2::ioctlSetControls_ISI()
     rc = ioctl(dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
     if (rc) {
         // EACCES  || ENOSPC 
-        g_warning("Error reading external controls");
+        g_critical("Error reading external controls");
         return -1;
     }
 #if 0
     else {
-        g_warning(
-            "ISI Ctrls: \r\n"\
-            "\t VFLIP = %d\r\n"\
-            "\t HFLIP = %d\r\n",
+        g_info( "ISI Ctrls: VFLIP=%d HFLIP=%d",
         isi_ctrls[ISI_CTRL_VFLIP].value, 
         isi_ctrls[ISI_CTRL_HFLIP].value);
     }
 #endif
 
     // Modify Controls according to config
-    isi_ctrls[ISI_CTRL_VFLIP].value = cfg->vflip.v.num;
-    isi_ctrls[ISI_CTRL_HFLIP].value = cfg->hflip.v.num;
+    const TFlowCtrlCapture::cfg_v4l2_ctrls_flip *cfg_flip = 
+        (TFlowCtrlCapture::cfg_v4l2_ctrls_flip*)cfg->flip.v.ref;
+    isi_ctrls[ISI_CTRL_VFLIP].value = (cfg_flip->vflip.v.num);
+    isi_ctrls[ISI_CTRL_HFLIP].value = (cfg_flip->hflip.v.num);
 
     rc = ioctl(dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
     if (rc) {
         // EACCES  || ENOSPC 
-        g_warning("Error setting external controls");
+        g_critical("Error setting external controls");
         return -1;
     }
     else {
-        g_info(
-            "ISI Ctrls: \r\n"\
-            "\t VFLIP = %d\r\n"\
-            "\t HFLIP = %d\r\n",
-        isi_ctrls[ISI_CTRL_VFLIP].value, 
-        isi_ctrls[ISI_CTRL_HFLIP].value);
+        g_info("ISI Ctrls: VFLIP=%d HFLIP=%d",
+            isi_ctrls[ISI_CTRL_VFLIP].value, 
+            isi_ctrls[ISI_CTRL_HFLIP].value);
     }
 
     return 0;

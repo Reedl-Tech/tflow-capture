@@ -13,13 +13,17 @@ using namespace std;
 
 static const std::string capture_raw_cfg_default { R"( 
 {
-    "capture" : {
+    "config" : {
         "buffs_num"    : 4,
         "serial_name"  : "/dev/ttymxc1",
         "serial_baud"  : 921600,
         "v4l2" : {
             "dev_name"     : "auto",
             "sub_dev_name" : "auto",
+            "flip" : {
+                "vflip"    : 1,
+                "hflip"    : 1
+            },
             "flyn384" : {
                 "filter"     : 0,
                 "denoise"    : 0,
@@ -32,8 +36,6 @@ static const std::string capture_raw_cfg_default { R"(
             "atic320" : {
                 "xz"     : 0
             },
-            "vflip"   : 1,
-            "hflip"   : 1
         }
     } 
 }
@@ -82,18 +84,16 @@ void TFlowCtrlSrvCapture::onCliPortError(int fd)
 
 void TFlowCtrlSrvCapture::onTFlowCtrlMsg(const std::string& cmd, const json11::Json& j_in_params, Json::object& j_out_params, int& err)
 {
-    int t = j_in_params.is_object();
-    if ( !j_in_params.is_object() ) {
-        // Empty request - reply with all controls
-    }
     // Find command by name
     // Call command's processor from table
     TFlowCtrl::tflow_cmd_t *ctrl_cmd_p = ctrl_capture.ctrl_capture_rpc_cmds;
+
     while ( ctrl_cmd_p->name ) {
         if ( 0 == strncmp(ctrl_cmd_p->name, cmd.c_str(), cmd.length()) ) {
             err = ctrl_cmd_p->cb(j_in_params, j_out_params);
 #if CODE_BROWSE
-            TFlowCtrlCapture::cmd_cb_cfg_...();
+            TFlowCtrlCapture::cmd_cb_config();
+            TFlowCtrlCapture::cmd_cb_ui_sign();
 #endif
             return;
         }
@@ -121,8 +121,8 @@ TFlowCtrlCapture::TFlowCtrlCapture(TFlowCapture& _app, const std::string _cfg_fn
     parseConfig(ctrl_capture_rpc_cmds, cfg_fname, capture_raw_cfg_default);
     InitServer();
     
-    json11::Json::object xx;
-    getSignResponse(xx);
+    //json11::Json::object xx;
+    //getSignResponse(xx);
 }
 
 void TFlowCtrlCapture::InitServer()
@@ -270,11 +270,18 @@ int TFlowCtrlCapture::player_fname_is_valid()
 
 void TFlowCtrlCapture::getSignResponse(json11::Json::object &j_out_params)
 {
-    const tflow_cmd_t *cmd_p = &ctrl_capture_rpc_cmds[0];
-
     j_out_params.emplace("state", "OK");
     j_out_params.emplace("version", "v0");  // TODO: replace for version from git or signature hash or both?
+    j_out_params.emplace("config_id", config_id);  
 
+    const tflow_cmd_t *cmd_config = &ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_CONFIG];
+
+    Json::array j_resp_controls_arr;
+    collectCtrls(cmd_config->fields, j_resp_controls_arr);
+    j_out_params.emplace("controls", j_resp_controls_arr);
+
+#if 0
+    const tflow_cmd_t *cmd_p = &ctrl_capture_rpc_cmds[0];
     while (cmd_p->name) {
         tflow_cmd_field_t *cmd_fld = (tflow_cmd_field_t *)cmd_p->fields;
         Json::object j_cmd_fields;
@@ -297,49 +304,87 @@ void TFlowCtrlCapture::getSignResponse(json11::Json::object &j_out_params)
         j_out_params.emplace(cmd_p->name, j_cmd_fields);
         cmd_p++;
     }
+#endif
 
     Json test = Json(j_out_params);
     std::string s_msg = test.dump();
     g_critical("signature: %s", s_msg.c_str());
 }
 
-
-int TFlowCtrlCapture::collectCtrlsCustom(const tflow_cmd_field_t *cmd_fld, Json::array &j_out_ctrl_arr)
+void TFlowCtrlCapture::collectCtrlsCustom(UICTRL_TYPE _custom_type,
+    const char *fld_name, const tflow_cmd_field_t *cmd_fld, Json::array &j_out_ctrl_arr)
 {
+    UICTRL_TYPE_CUSTOM custom_type = (UICTRL_TYPE_CUSTOM)_custom_type;
+
+    json11::Json::object j_custom;
+    Json::array j_custom_arr; 
+
+    // Custom controls - array which contains predefined set of control objects
     if ( 0 == strcmp(cmd_fld->name, "name_of_custom_control") ) {
-        return 1;
+        //j_custom_arr.emplace_back(<controls>);
+        //j_custom.emplace("type", "name_of_custom_control");
+        //j_custom.emplace("name", "name_of_custom_control");
+        // Template ^^^
     }
-    // cmd_fld isn't a custom Control - proceed with default
-    return 0;
-}
+    else if ( custom_type == UICTRL_TYPE_CUSTOM::FLYN_COMPRESSION) {
 
-int TFlowCtrlCapture::collectCtrls(const tflow_cmd_field_t *cmd_fld, Json::array &j_out_ctrl_arr)
-{
-    // Json json = Json::array{ Json::object { { "k", "v" } } };
-    // Loop over all config parameters, add default control description for
-    // all parameters except ones processed in collectCtrlsCustom().
-    // Parameter's references are processed recursivly
-    while (cmd_fld->name) {
-        if ( cmd_fld->type == TFlowCtrl::CFT_REF ) {
-            const tflow_cmd_field_t *cmd_fld_ref_hdr = cmd_fld->v.ref;
-            Json::array j_ctrl_ref_arr;
-            collectCtrls(cmd_fld_ref_hdr + 1, j_ctrl_ref_arr);  // +1 to skip header
-            
-            Json::object j_ctrl_params;
-            addCtrlRef(cmd_fld, cmd_fld_ref_hdr->name, j_ctrl_ref_arr, j_ctrl_params);
-            j_out_ctrl_arr.emplace_back(j_ctrl_params);
+        // Compression control
+        const cfg_v4l2_ctrls_flyn_compression *cmd_cc = (cfg_v4l2_ctrls_flyn_compression*)cmd_fld;
 
-            cmd_fld++;
-            continue;
-        }
+        Json::array j_flyn_histogramm_arr; 
+        j_flyn_histogramm_arr.emplace_back(10);
+        j_flyn_histogramm_arr.emplace_back(20);
+        j_flyn_histogramm_arr.emplace_back(120);
+        j_flyn_histogramm_arr.emplace_back(50);
+        j_flyn_histogramm_arr.emplace_back(10);
+        j_flyn_histogramm_arr.emplace_back(150);
+        j_flyn_histogramm_arr.emplace_back(30);
+        j_flyn_histogramm_arr.emplace_back(10);
+        
+        json11::Json::object j_histogramm;
+        
+        j_histogramm.emplace("name", std::string("histogramm"));
+        j_histogramm.emplace("type", std::string("histogramm"));
+        j_histogramm.emplace("value", j_flyn_histogramm_arr );
 
-        if (!collectCtrlsCustom(cmd_fld, j_out_ctrl_arr)) {
-            addCtrlDef(cmd_fld, j_out_ctrl_arr);
-        }
-        cmd_fld++;
+        // Collect UI controls from configuration
+        collectCtrls(cmd_fld + 1, j_custom_arr);  // +1 to skip header
+
+        // Add runtime value as an array
+        j_custom_arr.emplace_back(j_histogramm);
+                                    
+        j_custom.emplace("type", "compression");
+    }
+    else if ( custom_type == UICTRL_TYPE_CUSTOM::FLIP  ) {
+
+        // Flip control - is a dual check box with specific icons
+        const cfg_v4l2_ctrls_flip *cmd_flip = (cfg_v4l2_ctrls_flip*)cmd_fld;
+
+        json11::Json::object j_vflip, j_hflip;
+        
+        j_vflip.emplace("name", std::string(cmd_flip->vflip.name));
+        j_vflip.emplace("value", cmd_flip->vflip.v.num );
+        j_custom_arr.emplace_back(j_vflip);
+
+        j_hflip.emplace("name", std::string(cmd_flip->hflip.name));
+        j_hflip.emplace("value", cmd_flip->hflip.v.num );
+        j_custom_arr.emplace_back(j_hflip);
+
+        j_custom.emplace("type", "flip");
+    }
+    else if ( custom_type == UICTRL_TYPE_CUSTOM::SW_DROPDOWN) {
+
+        // FLYN test pattern is custom only by logic on UI side all controls 
+        // are standard.
+        collectCtrls(cmd_fld + 1, j_custom_arr);  // +1 to skip header
+
+        j_custom.emplace("type", "sw_dropdown");
     }
 
-    return 0;
+    j_custom.emplace("name", fld_name);
+    j_custom.emplace("value", j_custom_arr);
+    j_out_ctrl_arr.emplace_back(j_custom);
+    //auto del_me = json11::Json(j_custom).dump();
 }
 
 int TFlowCtrlCapture::cmd_cb_version(const json11::Json& j_in_params, Json::object& j_out_params)
@@ -353,51 +398,90 @@ int TFlowCtrlCapture::cmd_cb_set_as_def(const json11::Json& j_in_params, Json::o
     return 0;
 }
 
-int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::object& j_out_params)
+int TFlowCtrlCapture::cmd_cb_ui_sign(const json11::Json& j_in_params, Json::object& j_out_params)
 {
-    g_info("Config command\n    params:\t");
+    g_info("UI Sign command\n");
 
-    int rc = setCmdFields((tflow_cmd_field_t*)&cmd_flds_config, j_in_params);
-
-    if (rc != 0) return -1;
-
-    // TODO: Add changed flag or trivial (lambda?) callback function  into field definition
-    // Check something was changes
-    //  - Camera name
-    //  - Video fmt
-    //  - Serial port name 
-    //  - Serial baud rate
-
-    if (rc != 0) return -1;
-    
-    std::string del_me = j_in_params.dump();
-
-    if ( app.cam && ( 0 == app.cam->driver_name.compare("flyn384") ) ) {
-
-        const Json j_v4l2 = j_in_params [ "v4l2" ];
-        if ( j_v4l2.is_object() ) {
-            cfg_v4l2_ctrls *v4l2 = ( cfg_v4l2_ctrls * ) ( cmd_flds_config.v4l2.v.ref );
-            const Json j_flyn384 = j_v4l2 [ "flyn384" ];
-
-            if ( j_flyn384.is_object() ) {
-                cfg_v4l2_ctrls_flyn *flyn384 = ( cfg_v4l2_ctrls_flyn * ) ( v4l2->flyn384.v.ref );
-                const Json j_calib = j_flyn384 [ "calib" ];
-                const Json j_calib_trig = j_flyn384 [ "calib_trig" ];
-
-                if ( j_calib.is_number() ) {
-                    app.cam->ioctlSetControls_flyn_calib(j_calib.int_value());
-                }
-                if ( j_calib_trig.is_number() && j_calib_trig.int_value() ) {
-                    app.cam->ioctlSetControls_flyn_calib_trig();
-                    // One shot parameter. Clear after use.
-                    flyn384->calib_trig.v.num = 0;
-                }
-            }
-        }
-    }
+    getSignResponse(j_out_params);
 
     return 0;
 }
+
+int TFlowCtrlCapture::onConfigFLYN()
+{
+    cfg_v4l2_ctrls_flyn *cfg_flyn = &cmd_flds_cfg_v4l2_ctrls_flyn;
+
+    if (cfg_flyn->calib.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_calib(cfg_flyn->calib.v.num);
+    
+    //if (cfg_flyn->calib.flags & FIELD_FLAG::CHANGED) 
+    //    app.cam->ioctlSetControls_flyn_calib(cfg_flyn->calib.v.num);
+
+    //if (cfg_flyn->calib_trig.flags & FIELD_FLAG::CHANGED) 
+    //    app.cam->ioctlSetControls_flyn_calib_trig();
+
+    return 0;
+}
+
+int TFlowCtrlCapture::onConfigATIC()
+{
+    return 0;
+}
+int TFlowCtrlCapture::onConfigV4L2()
+{
+    cfg_v4l2_ctrls *cfg_v4l2 = &cmd_flds_cfg_v4l2;
+
+    if ( ( cfg_v4l2->dev_name.flags & FIELD_FLAG::CHANGED ) ||
+         ( cfg_v4l2->sub_dev_name.flags & FIELD_FLAG::CHANGED ) ) {
+        // app.cam->xxx;
+        // In theory it is meaningless to proceed with other configuration
+        // if device was changed, thus just return.
+        g_warning("Device changed via UI not implemented yet");
+        return 0;
+    }
+
+    if ( cfg_v4l2->flip.flags & FIELD_FLAG::CHANGED_STICKY ) {
+        app.cam->ioctlSetControls_ISI();
+    }
+
+    if ( cfg_v4l2->flyn384.flags & FIELD_FLAG::CHANGED_STICKY ) onConfigFLYN();
+
+    if ( cfg_v4l2->atic320.flags & FIELD_FLAG::CHANGED_STICKY ) onConfigATIC();
+
+    return 0;
+}
+
+int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::object& j_out_params)
+{
+    tflow_cmd_field_t* flds = (tflow_cmd_field_t*)&cmd_flds_config;
+
+    g_info("Config command: %s", j_in_params.dump().c_str());
+
+    // Fill config fields with values from Json input object
+    int was_changed = 0;
+    int rc = setCmdFields(flds, j_in_params, was_changed);
+
+    if ( rc != 0 ) {
+        // TODO: Add notice or error to out_params in case of error.
+        //       We can't just return from here, because some parameters
+        //       might be already changed and we don't have rollback functionality
+        //       So, finger cross and just continue...
+    }
+
+    if ( cmd_flds_config.v4l2.flags & FIELD_FLAG::CHANGED_STICKY) {
+        onConfigV4L2();
+    }
+
+    // Composes all required config params and clears changed flag.
+    // Also advance config ID on configuration change.
+    // If previous config_id doesn't match with one receive in command, then
+    // collect _all_ controls.
+    // TODO: Collect UI exposed controls only?
+    collectRequestedChangesTop(flds, j_in_params, j_out_params);
+
+    return 0;
+}
+
 
 
 

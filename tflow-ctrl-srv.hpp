@@ -12,7 +12,7 @@
 class TFlowCtrlSrv {
 public:
 
-    TFlowCtrlSrv(const std::string &my_name, const std::string & srv_sck_name, MainContextPtr context);
+    TFlowCtrlSrv(const std::string& my_name, const std::string& srv_sck_name, MainContextPtr context);
     ~TFlowCtrlSrv();
     int StartListening();
     void onIdle(struct timespec now_ts);
@@ -21,14 +21,14 @@ public:
     virtual void onCliPortError(int fd) {};
 
     virtual void onSignature(json11::Json::object& j_params, int& err) {};
-    virtual void onTFlowCtrlMsg(const std::string& cmd, const json11::Json& j_in_params, json11::Json::object& j_out_params, int &err) {};
+    virtual void onTFlowCtrlMsg(const std::string& cmd, const json11::Json& j_in_params, json11::Json::object& j_out_params, int& err) {};
 #if CODE_BROWSE
     TFlowCtrlSrvCapture::onTFlowCtrlMsg();
     TFlowCtrlSrvVStream::onTFlowCtrlMsg();
     TFlowCtrlSrvProcess::onTFlowCtrlMsg();
         TFlowCtrlProcess::cmd_cb_cfg_player();
 #endif
-   
+
     MainContextPtr context;
     std::string my_name;
     struct timespec last_idle_check_ts;

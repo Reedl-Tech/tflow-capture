@@ -1,5 +1,5 @@
 {
-    "capture" : {
+    "config" : {
         "buffs_num"    : 4,
         "serial_name"  : "/dev/ttymxc1",
         "serial_baud"  : 921600,
@@ -15,11 +15,13 @@
                 "calib"      : 1,
                 "calib_trig" : 0
             },
+            "flip" : {
+                "hflip" : 1,
+                "vflip" : 1
+            },
             "atic320" : {
                 "xz"     : 0
-            },
-            "vflip"   : 1,
-            "hflip"   : 1
+            }
         }
     } 
 }

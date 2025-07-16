@@ -20,7 +20,7 @@ private:
     TFlowCtrlSrv &srv;      // is used to report socket error to the Server
 
     struct timespec last_send_ts;
-                                                        
+    
     int pid;
 
     int sck_fd;

@@ -59,7 +59,6 @@ struct fmt_info {
 class TFlowCapture {
 public:
 
-
     TFlowCapture(MainContextPtr context, const std::string cfg_fname);
     ~TFlowCapture();
 
@@ -112,6 +111,20 @@ public:
         int32_t  position_y;
         int32_t  position_z;
         int32_t  raw_yaw;
+
+        /* GPS raw data */
+        uint8_t  gps_flags;
+        uint8_t  gps_fix_type;
+        uint8_t  gps_numSat;
+        uint8_t  gps_is_new;
+        uint16_t gps_hdop;
+        uint16_t gps_eph;
+        uint16_t gps_epv;
+        uint16_t gps_groundCourse;
+        uint16_t gps_groundSpeed;
+        uint32_t gps_lat;
+        uint32_t gps_lon;
+        uint32_t gps_alt;
 
     } aux_ap_data; // Temporary local copy
 #pragma pack(pop)

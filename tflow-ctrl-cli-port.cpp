@@ -172,6 +172,9 @@ int TFlowCtrlCliPort::onMsgRcv()
         srv.onTFlowCtrlMsg(in_cmd, j_in_params, j_resp_params, resp_err);
 #if CODE_BROWSE
         TFlowCtrlSrvCapture::onTFlowCtrlMsg();
+            TFlowCtrlCapture::cmd_cb_config();
+            TFlowCtrlCapture::cmd_cb_controls();
+
         TFlowCtrlSrvProcess::onTFlowCtrlMsg();
             TFlowCtrlProcess::cmd_cb_cfg_player();      // for in_cmd == "player"
                 tflow_cmd_t ctrl_process_rpc_cmds;

@@ -220,7 +220,8 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
         }
     }     
 
-    aux_ap_data.sign      = 0x32554D49;                            // "IMU2" -> IMU v.2
+    //aux_ap_data.sign      = 0x32554D49;                          // "IMU2" -> IMU v.2
+    aux_ap_data.sign      = 0x33554D49;                            // "IMU3" -> IMU v.3 added GPS data
     aux_ap_data.tv_sec    = autopilot->last_sensors_ts.tv_sec;     // Local time
     aux_ap_data.tv_usec   = autopilot->last_sensors_ts.tv_usec;    // Local time
 
@@ -240,6 +241,19 @@ int TFlowCapture::onBufAP(TFlowBuf& buf)
     aux_ap_data.position_y           = autopilot->last_sensors.position_y;
     aux_ap_data.position_z           = autopilot->last_sensors.position_z;
     aux_ap_data.raw_yaw              = autopilot->last_sensors.raw_yaw;
+    /* GPS raw data (since v3) */
+    aux_ap_data.gps_flags            = autopilot->last_sensors.gps_flags;
+    aux_ap_data.gps_fix_type         = autopilot->last_sensors.gps_fix_type;
+    aux_ap_data.gps_numSat           = autopilot->last_sensors.gps_numSat;
+    aux_ap_data.gps_is_new           = autopilot->last_sensors.gps_is_new;
+    aux_ap_data.gps_hdop             = autopilot->last_sensors.gps_hdop;
+    aux_ap_data.gps_eph              = autopilot->last_sensors.gps_eph;
+    aux_ap_data.gps_epv              = autopilot->last_sensors.gps_epv;
+    aux_ap_data.gps_groundCourse     = autopilot->last_sensors.gps_groundCourse;
+    aux_ap_data.gps_groundSpeed      = autopilot->last_sensors.gps_groundSpeed;
+    aux_ap_data.gps_lat              = autopilot->last_sensors.gps_lat;
+    aux_ap_data.gps_lon              = autopilot->last_sensors.gps_lon;
+    aux_ap_data.gps_alt              = autopilot->last_sensors.gps_alt;
 
     buf.aux_data = (uint8_t*)&aux_ap_data;
     buf.aux_data_len = sizeof(aux_ap_data);
