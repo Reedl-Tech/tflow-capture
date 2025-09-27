@@ -1,8 +1,7 @@
-#include <giomm.h>
-#include <glib-unix.h>
 #include <thread>
-
 #include <signal.h>
+
+#include "tflow-glib.hpp"
 
 #include "tflow-capture.hpp"
 
@@ -24,8 +23,8 @@ void getConfigFilename(int argc, char *argv, std::string cfg_fname)
         std::string config_fname_in(argv);
         struct stat sb;
         int cfg_fd = open(config_fname_in.c_str(), O_RDWR);
-        
-        if ( cfg_fd ==  -1 || fstat(cfg_fd, &sb) < 0 || !S_ISREG(sb.st_mode)) {
+
+        if ( cfg_fd == -1 || fstat(cfg_fd, &sb) < 0 || !S_ISREG(sb.st_mode)) {
             g_warning("Can't open configuration file %s. Will try to use default %s",
                 config_fname_in.c_str(), cfg_fname.c_str());
             return;
@@ -35,9 +34,12 @@ void getConfigFilename(int argc, char *argv, std::string cfg_fname)
 
 int main(int argc, char** argv)
 {
+    char env[] = "G_MESSAGES_DEBUG=all";
+    putenv(env);
+
     Gio::init();
 
-    g_info("TFlow Capture started");
+    g_info("TFlow Capture (Milesi) started");
 
     std::string cfg_fname("/etc/tflow/tflow-capture-config.json");
     getConfigFilename(argc, argv[1], cfg_fname);

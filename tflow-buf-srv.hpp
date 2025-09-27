@@ -4,10 +4,10 @@
 #include <time.h>
 #include <linux/videodev2.h> //V4L2 stuff
 
-#include <glib-unix.h>
-
 #include "tflow-glib.hpp"
+
 #include "tflow-buf.hpp"
+#include "tflow-buf-pck.hpp"
 
 #define TFLOWBUFSRV_SOCKET_NAME "com.reedl.tflow.capture.buf-server"
 
@@ -35,14 +35,14 @@ public:
     int request_cnt;
 
     int SendConsume(TFlowBuf& tflow_buf);
+    int SendCamFD();
 
 private:
     struct timespec last_idle_check_ts;
 
-    int onRedeem(struct TFlowBuf::pck_redeem* pck_redeem);
-    int onSign(struct TFlowBuf::pck_sign *pck_sign);
-    int onPing(struct TFlowBuf::pck_ping *pck_ping);
-    int SendCamFD();
+    int onRedeem(struct TFlowBufPck::pck_redeem* pck_redeem);
+    int onSign(struct TFlowBufPck::pck_sign *pck_sign);
+    int onPing(struct TFlowBufPck::pck_ping *pck_ping);
 
     IOSourcePtr sck_src;
 
@@ -55,7 +55,9 @@ class TFlowPlayer;
 class TFlowBufSrv  {
 public:
 
-    TFlowBufSrv(MainContextPtr context);
+    TFlowBufSrv(MainContextPtr context, 
+        std::function<int(const TFlowBufPck::pck& in_msg)> onCustomMsg_cb);
+
     ~TFlowBufSrv();
     int StartListening();
     void onIdle(struct timespec* now_ts);
@@ -80,16 +82,16 @@ public:
     gboolean onConnect(Glib::IOCondition io_cond);
     void releaseCliPort(TFlowBufCliPort* cli_port);
 
-    int registerOnBuf(void* ctx, std::function<int(void* ctx, TFlowBuf& tflow_buf)> cb);
-    int registerOnCustomMsg(void* ctx, std::function<int(void* ctx, const TFlowBuf::pck_t& in_msg)> cb);
-
     MainContextPtr context;
 
     std::string my_name;
 
     // Called from CliPort
-    void *onCustomMsg_ctx;
-    std::function<int(void* ctx, const TFlowBuf::pck_t& in_msg)> onCustomMsg_cb;
+    std::function<int(const TFlowBufPck::pck& in_msg)> onCustomMsg;
+
+    std::function<int(TFlowBuf &tflow_buf)> onBuf;
+    
+    void onCamFD();
 
 private:
 
@@ -102,7 +104,5 @@ private:
     std::vector<TFlowBuf> bufs;     // Actual buffers will be created by Camera device upon successeful request from Kernel
                                     // TODO: Q: ? Use external oject shared between V4L2_Device and TFlowBufSrv/CliPort ?
 
-    void* onBuf_ctx;
-    std::function<int(void* ctx, TFlowBuf &tflow_buf)> onBuf_cb;
 };
 

@@ -1,8 +1,10 @@
 {
-    "config" : {
-        "buffs_num"    : 4,
-        "serial_name"  : "/dev/ttymxc1",
-        "serial_baud"  : 921600,
+    "config": {
+        "buffs_num": 4,
+        "Milesi": {
+            "serial_name": "/dev/ttymxc1",
+            "serial_baud": 921600
+        },
         "v4l2" : {
             "dev_name"     : "auto",
             "sub_dev_name" : "auto",
@@ -18,10 +20,7 @@
             "flip" : {
                 "hflip" : 1,
                 "vflip" : 1
-            },
-            "atic320" : {
-                "xz"     : 0
             }
         }
-    } 
+    }
 }

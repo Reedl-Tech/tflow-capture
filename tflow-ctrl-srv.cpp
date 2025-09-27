@@ -44,7 +44,7 @@ TFlowCtrlSrv::~TFlowCtrlSrv()
     }
 }
 
-TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_sck_name, MainContextPtr app_context)
+TFlowCtrlSrv::TFlowCtrlSrv(const std::string& _my_name, const std::string& _srv_sck_name, MainContextPtr app_context)
 {
     context = app_context;
 
@@ -55,6 +55,7 @@ TFlowCtrlSrv::TFlowCtrlSrv(const std::string &_my_name, const std::string& _srv_
 
     last_idle_check_ts.tv_nsec = 0;
     last_idle_check_ts.tv_sec = 0;
+
 }
 
 gboolean TFlowCtrlSrv::onConnect(Glib::IOCondition io_cond)

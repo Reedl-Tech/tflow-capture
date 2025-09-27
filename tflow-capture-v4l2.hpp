@@ -15,21 +15,49 @@
 
 #include "tflow-glib.hpp"
 
-// AV: TODO: FMT@HxW are part of of configuration!!!
-#define IMAGEHEIGHT 240
-#define IMAGEWIDTH  320
-
+// Att: Keep the following in sync with kernel defines in 
+//      kernel/drivers/staging/media/reedl-flyn384/flyn384.c
 #ifndef V4L2_CID_FLYN384_BASE
 #define V4L2_CID_FLYN384_BASE (V4L2_CID_LASTP1)
-#define V4L2_CID_FLYN384_COMPRESS_EN	    (V4L2_CID_FLYN384_BASE + 0)
-#define V4L2_CID_FLYN384_DENOISE	        (V4L2_CID_FLYN384_BASE + 1)
-#define V4L2_CID_FLYN384_FILTER		        (V4L2_CID_FLYN384_BASE + 2)
-#define V4L2_CID_FLYN384_PALETTE	        (V4L2_CID_FLYN384_BASE + 5)
-#define V4L2_CID_FLYN384_V_STRIP            (V4L2_CID_FLYN384_BASE + 6)
-#define V4L2_CID_FLYN384_FREEZE	            (V4L2_CID_FLYN384_BASE + 7)
-#define V4L2_CID_FLYN384_TEMP_CALIB	        (V4L2_CID_FLYN384_BASE + 8)
-#define V4L2_CID_FLYN384_SHUT_CALIB_PERIOD  (V4L2_CID_FLYN384_BASE + 9)
+#define V4L2_CID_FLYN384_COMPRESS_EN	    (V4L2_CID_FLYN384_BASE +  0)
+#define V4L2_CID_FLYN384_DENOISE	        (V4L2_CID_FLYN384_BASE +  1)
+#define V4L2_CID_FLYN384_FILTER		        (V4L2_CID_FLYN384_BASE +  2)
+#define V4L2_CID_FLYN384_PALETTE	        (V4L2_CID_FLYN384_BASE +  5)
+#define V4L2_CID_FLYN384_V_STRIP            (V4L2_CID_FLYN384_BASE +  6)
+#define V4L2_CID_FLYN384_FREEZE	            (V4L2_CID_FLYN384_BASE +  7)
+#define V4L2_CID_FLYN384_TEMP_CALIB	        (V4L2_CID_FLYN384_BASE +  8)
+#define V4L2_CID_FLYN384_SHUT_CALIB_PERIOD  (V4L2_CID_FLYN384_BASE +  9)
 #define V4L2_CID_FLYN384_SHUT_CALIB_TRIG    (V4L2_CID_FLYN384_BASE + 10)
+#define V4L2_CID_FLYN384_IMG_MODE           (V4L2_CID_FLYN384_BASE + 11)
+#define V4L2_CID_FLYN384_ENH_DETAIL         (V4L2_CID_FLYN384_BASE + 12)
+#define V4L2_CID_FLYN384_DENOISE_2D         (V4L2_CID_FLYN384_BASE + 13)
+
+#define V4L2_CID_FLYN384_COMPRESS_FIRST (V4L2_CID_FLYN384_BASE + 0x10)
+#define V4L2_CID_FLYN384_COMPRESS_Y0 (V4L2_CID_FLYN384_BASE + 0x10)
+#define V4L2_CID_FLYN384_COMPRESS_Y1 (V4L2_CID_FLYN384_BASE + 0x11)
+#define V4L2_CID_FLYN384_COMPRESS_Y2 (V4L2_CID_FLYN384_BASE + 0x12)
+#define V4L2_CID_FLYN384_COMPRESS_Y3 (V4L2_CID_FLYN384_BASE + 0x13)
+#define V4L2_CID_FLYN384_COMPRESS_Y4 (V4L2_CID_FLYN384_BASE + 0x14)
+
+#define V4L2_CID_FLYN384_COMPRESS_A0 (V4L2_CID_FLYN384_BASE + 0x20)
+#define V4L2_CID_FLYN384_COMPRESS_A1 (V4L2_CID_FLYN384_BASE + 0x21)
+#define V4L2_CID_FLYN384_COMPRESS_A2 (V4L2_CID_FLYN384_BASE + 0x22)
+#define V4L2_CID_FLYN384_COMPRESS_A3 (V4L2_CID_FLYN384_BASE + 0x23)
+#define V4L2_CID_FLYN384_COMPRESS_A4 (V4L2_CID_FLYN384_BASE + 0x24)
+
+#define V4L2_CID_FLYN384_COMPRESS_B0 (V4L2_CID_FLYN384_BASE + 0x30)
+#define V4L2_CID_FLYN384_COMPRESS_B1 (V4L2_CID_FLYN384_BASE + 0x31)
+#define V4L2_CID_FLYN384_COMPRESS_B2 (V4L2_CID_FLYN384_BASE + 0x32)
+#define V4L2_CID_FLYN384_COMPRESS_B3 (V4L2_CID_FLYN384_BASE + 0x33)
+#define V4L2_CID_FLYN384_COMPRESS_B4 (V4L2_CID_FLYN384_BASE + 0x34)
+#define V4L2_CID_FLYN384_COMPRESS_LAST (V4L2_CID_FLYN384_BASE + 0x34)
+
+#define V4L2_CID_FLYN384_DEVICE_ID   (V4L2_CID_FLYN384_BASE + 0x40)
+#define V4L2_CID_FLYN384_SERIAL_SENS (V4L2_CID_FLYN384_BASE + 0x41)
+#define V4L2_CID_FLYN384_SERIAL_FLYN (V4L2_CID_FLYN384_BASE + 0x42)
+#define V4L2_CID_FLYN384_REVISION    (V4L2_CID_FLYN384_BASE + 0x43)
+#define V4L2_CID_FLYN384_SENSOR_TYPE (V4L2_CID_FLYN384_BASE + 0x48)
+
 #endif 
 
 struct fmt_info;
@@ -48,14 +76,22 @@ public:
     // Query device information
     int  ioctlQueryCapability();
     void getDriverName();
+    void getSensorType();
     int  ioctlEnumFmt();
 
     // Get/set paramters
     int  ioctlSetControls();
     int  ioctlSetControls_ISI();
     int  ioctlSetControls_flyn();
-    int  ioctlSetControls_flyn_calib(int on_off);
-    int  ioctlSetControls_flyn_calib_trig();
+    int  ioctlSetControls_flyn_coin417g2();
+    int  ioctlSetControls_flyn_twin412g2();
+    int  ioctlSetControls_flyn_twin412();
+    int  ioctlSetControls_flyn_comp_en(int on_off);
+    int  ioctlSetControls_flyn_comp_time(int minutes);
+    int  ioctlSetControls_flyn_comp_trig();
+    int  ioctlSetControls_flyn_int(const TFlowCtrl::tflow_cmd_field_t *fld, uint32_t id);
+    int  ioctlSetControls_flyn_int(const TFlowCtrl::tflow_cmd_field_t *fld, int val, uint32_t id);
+
     int  ioctlSetControls_atic();
 
     int  ioctlGetStreamParm();
@@ -78,8 +114,17 @@ public:
 
     int is_stall();                              //  Should be called periodiacally. For ex. from the idle loop.
 
+    enum class SENSOR_API_TYPE {
+        UNDEF          = 0,
+        ATIC           = 1,
+        FLYN_COIN417G2 = 2,
+        FLYN_TWIN412   = 3,
+        FLYN_TWIN412G2 = 4
+    } sensor_api_type;
+
     int dev_fd;                                  // Camera ISI device
     int sub_dev_fd;                              // Camera sensor device
+    int sensor_type;                             // Read from the FLYN device via IOCTL
 
     int f_in_fd;
 
@@ -91,8 +136,6 @@ public:
     std::vector<struct fmt_info>    fmt_info_enum;
 
     std::string driver_name;
-
-    int flyn_calib_is_on;
 
     v4l2_capability capa;
     v4l2_buf_type fmt_type;

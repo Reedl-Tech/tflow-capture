@@ -3,8 +3,7 @@
 #include <iostream>
 #include <fcntl.h>
 
-#include <giomm.h>
-#include <glib-unix.h>
+#include "tflow-glib.hpp"
 
 #include "tflow-capture.hpp"
 #include "tflow-capture-v4l2.hpp"
@@ -43,8 +42,8 @@ TFlowCaptureV4L2::TFlowCaptureV4L2(MainContextPtr _context,
     dev_fd = -1;        // ISI control
     sub_dev_fd = -1;    // Camera sensor
 
-    flyn_calib_is_on = -1;      // -1 Unknown (will be updated from ioctl); 0 - off; 1 - on
-
+    sensor_type = -1;
+    sensor_api_type = SENSOR_API_TYPE::UNDEF;
 }
 
 TFlowCaptureV4L2::~TFlowCaptureV4L2()
@@ -59,7 +58,7 @@ TFlowCaptureV4L2::~TFlowCaptureV4L2()
 /*
  * The function is a calback called on async VIDIOC_DQBUF completion
  */
-int TFlowCaptureV4L2::onBuff(Glib::IOCondition G_IO_IN)
+int TFlowCaptureV4L2::onBuff(Glib::IOCondition io_cond)
 {
     // TODO: Check camera state 
     // ... 
@@ -99,6 +98,8 @@ int TFlowCaptureV4L2::Open()
      */
     dev_fd = -1;
     if ( strcmp(cfg->dev_name.v.str, "auto") == 0 ) {
+        std::string isi_drv_name("mxc-isi-cap");
+
         for( int dev_num = 0; dev_num < 5; dev_num++) {
             v4l2_capability capa = { 0 };
             char dev_name [ 16 ] = {};
@@ -111,7 +112,7 @@ int TFlowCaptureV4L2::Open()
             if ( 0 == ioctl(_dev_fd, VIDIOC_QUERYCAP, &capa) ) {
                 // TFlow thermal cameras uses ISI interface, thus try to match
                 // it by name
-                if ( 0 == strcmp((char*)capa.driver, "mxc-isi-cap") ) {
+                if ( 0 == strncmp((char*)capa.driver, isi_drv_name.c_str(), isi_drv_name.length()) ) {
                     // Found an isi capture!
                     g_warning("Dev %s: Card %s, Driver %s - selected", dev_name, capa.card, capa.driver);
                     dev_fd = _dev_fd;
@@ -138,7 +139,7 @@ int TFlowCaptureV4L2::Open()
      */
     sub_dev_fd = -1;
     if ( strcmp(cfg->sub_dev_name.v.str, "auto") == 0 ) {
-        for ( int sub_dev_num = 2; sub_dev_num < 5; sub_dev_num++ ) {
+        for ( int sub_dev_num = 1; sub_dev_num < 5; sub_dev_num++ ) {
             v4l2_capability capa = { 0 };
             char sub_dev_name [ 32 ] = {};
             snprintf(sub_dev_name, sizeof(sub_dev_name), "/dev/v4l-subdev%d",
@@ -154,7 +155,7 @@ int TFlowCaptureV4L2::Open()
                 // it by name
                 if ( 0 == strcmp((char*)capa.driver, "flyn384") ||
                      0 == strcmp((char*)capa.driver, "atic320") ) {
-                    // Found a REEDL Tech cameras!
+                    // Found a REEDL Tech camera!
                     g_warning("SubDev %s: Driver %s - selected", sub_dev_name, capa.driver);
                     sub_dev_fd = _sub_dev_fd;
                     break;
@@ -190,11 +191,14 @@ int TFlowCaptureV4L2::Open()
     rc |= ioctlGetStreamParm();
     rc |= ioctlEnumFmt();
     getDriverName();
+    
+    getSensorType();
+
 #if CAM_DESCR
-    //    rc |= ioctlGetStreamFmt();
+    rc |= ioctlGetStreamFmt();
 #endif
 
-    // Close the camera in case error on stream and fmt parameters set.
+    // Close the camera in case of error on the stream or fmt parameters set.
     if (rc) {
         if (dev_fd != -1) {
             dev_fd = -1;
@@ -285,6 +289,51 @@ int TFlowCaptureV4L2::ioctlQueryCapability()
         g_critical("Ooops, streaming is not supported by device");
     }
     return 0;
+}
+
+void TFlowCaptureV4L2::getSensorType()
+{
+    if (sub_dev_fd == -1) return;
+
+    struct v4l2_ext_control flyn_int_ctrl =
+        { .id = V4L2_CID_FLYN384_SENSOR_TYPE, .size = 0, .value64 = 0 };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
+        .request_fd = sub_dev_fd, .controls = &flyn_int_ctrl};
+
+    int rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        g_critical("Ooops, can't get sensor type (%d) - %s", errno, strerror(errno));
+        return;
+    }
+
+// 0x0A COIN417G2/TWIN412 Observation
+// 0x0B COIN417G2/TWIN412 Temperature
+// 0x28 COIN417G2 (defacto - not documented)
+// 0x2E TWIN412G2 Observation
+// 0x2F TWIN412RG2 Temperature measurement mode
+// 0x30 TWIN612G2 Observation
+// 0x31 TWIN612RG2 Temperature measurement mode
+
+    sensor_type = controls.controls[0].value64;
+    switch (sensor_type) {
+        case 0x0A: // 0x0A COIN417G2/TWIN412 Observation
+        case 0x0B: // 0x0B COIN417G2/TWIN412 Temperature
+        case 0x28: // 0x28 COIN417G2 (defacto - not documented)
+            sensor_api_type = SENSOR_API_TYPE::FLYN_COIN417G2;
+            break;
+        case 0x2E: // TWIN412G2 Observation
+            sensor_api_type = SENSOR_API_TYPE::FLYN_TWIN412G2;
+            break;
+        default:
+            sensor_api_type = SENSOR_API_TYPE::UNDEF;
+    }
+
+    g_info("FLYN384: API TYPE - %s",
+        (sensor_api_type == SENSOR_API_TYPE::FLYN_COIN417G2) ? "FLYN_COIN417G2" : 
+        (sensor_api_type == SENSOR_API_TYPE::FLYN_TWIN412G2) ? "FLYN_TWIN412G2" : 
+        "Undefined");
 }
 
 void TFlowCaptureV4L2::getDriverName()
@@ -479,7 +528,6 @@ int TFlowCaptureV4L2::ioctlSetStreamFmt(const struct fmt_info *stream_fmt)
 void TFlowCaptureV4L2::DeinitBuffers()
 {
     v4l2_requestbuffers req;
-    int rc;
     
     /*
      * Returns all memory buffers to the Kernel
@@ -492,10 +540,8 @@ void TFlowCaptureV4L2::DeinitBuffers()
     req.count = 0;
     req.type = fmt_type;                // Is it necessary then count == 0?
     req.memory = V4L2_MEMORY_MMAP;      // Is it necessary then count == 0?
-    rc = ioctl(dev_fd, VIDIOC_REQBUFS, &req);
-    if (-1 == rc) {
-        g_warning("clear me as we don't care");
-    }
+    ioctl(dev_fd, VIDIOC_REQBUFS, &req);
+
     // TODO: Check STREAMOFF
     // TODO: Check double release (i.e. close application at stoped camera)
 
@@ -506,7 +552,6 @@ int TFlowCaptureV4L2::InitBuffers()
 {
     int rc = 0;
     v4l2_requestbuffers req{};
-    v4l2_requestbuffers req_delme;  // AV: TODO: check zero initialization
     CLEAR(req);
 
     /* 
@@ -631,13 +676,6 @@ int TFlowCaptureV4L2::StreamOn(const struct fmt_info *_stream_fmt)
 // Stop stream
 void TFlowCaptureV4L2::ioctlSetStreamOff()
 {
-    if (0 == driver_name.compare("flyn384")) {
-    	// Enable back calibration as not using the stream anymore.
-    	ioctlSetControls_flyn_calib(1);
-    }
-
-    // TODO: ??? Restore other parameters ???
-
     v4l2_buf_type type {fmt_type};
     
     if ( -1 == ioctl(dev_fd, VIDIOC_STREAMOFF, &type)) {
@@ -675,16 +713,32 @@ int TFlowCaptureV4L2::ioctlSetControls_atic()
     return 0;
 }
 
-int TFlowCaptureV4L2::ioctlSetControls_flyn_calib(int on_off)
+int TFlowCaptureV4L2::ioctlSetControls_flyn_int(const TFlowCtrl::tflow_cmd_field_t *fld, uint32_t id)
+{
+    // Set field value to specified IOCTL ID
+    if ( fld->type == TFlowCtrl::CFT_NUM ) {
+        return ioctlSetControls_flyn_int(fld, fld->v.num, id);
+    }
+    else if ( fld->type == TFlowCtrl::CFT_STR ) {
+        if ( fld->ui_ctrl && fld->ui_ctrl->type == TFlowCtrlUI::DROPDOWN) {
+            int v = TFlowCtrl::getDropDownIdx(fld);
+            return ioctlSetControls_flyn_int(fld, v, id);
+        }
+        return ioctlSetControls_flyn_int(fld, atoi(fld->v.c_str), id);
+    }
+    return -1;
+}
+
+int  TFlowCaptureV4L2::ioctlSetControls_flyn_int(const TFlowCtrl::tflow_cmd_field_t *fld, int val, uint32_t id)
 {
     int rc;
 
-    struct v4l2_ext_control flyn_ctrls_calib =
-        { .id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 };
+    struct v4l2_ext_control flyn_int_ctrl =
+        { .id = id, .size = 0, .value64 = 0 };
 
     struct v4l2_ext_controls controls = {
         .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
-        .request_fd = sub_dev_fd, .controls = &flyn_ctrls_calib };
+        .request_fd = sub_dev_fd, .controls = &flyn_int_ctrl};
 
     if (sub_dev_fd == -1) return -1;
 
@@ -695,11 +749,43 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn_calib(int on_off)
         return -1;
     }
 
-    // Preserve the state localy
-    flyn_calib_is_on = on_off;
+    // Modify Controls according to input argument
+    flyn_int_ctrl.value = val;
 
-    // Modify Controls according to config
-    flyn_ctrls_calib.value = on_off;
+    rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN's controls (%s)", fld->name);
+        return -1;
+    }
+    else {
+        g_info( "FLYN384 controls: %s = %d\n", fld->name, val);
+    }
+
+    return 0;
+}
+
+int TFlowCaptureV4L2::ioctlSetControls_flyn_comp_en(int on_off)
+{
+    int rc;
+
+    struct v4l2_ext_control flyn_ctrls_comp_en = {
+        .id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
+        .request_fd = sub_dev_fd, .controls = &flyn_ctrls_comp_en };
+
+    if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    flyn_ctrls_comp_en.value = on_off;
     rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
     if (rc) {
         // EACCES  || ENOSPC 
@@ -707,26 +793,24 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn_calib(int on_off)
         return -1;
     }
     else {
-        g_warning( "FLYN384 controls: \n"\
-            "\t TEMP_CALIB = %d\n",
-            flyn_ctrls_calib.value);
+        g_info( "FLYN384 controls: TEMP_CALIB = %d", flyn_ctrls_comp_en.value);
     }
 
     return 0;
 }
 
-int TFlowCaptureV4L2::ioctlSetControls_flyn_calib_trig()
+int TFlowCaptureV4L2::ioctlSetControls_flyn_comp_trig()
 {
     int rc;
 
-    struct v4l2_ext_control flyn_ctrls_calib_trig =
-    { .id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 };
+    struct v4l2_ext_control flyn_ctrls_calib_trig = { 
+        .id = V4L2_CID_FLYN384_SHUT_CALIB_TRIG, .size = 0, .value64 = 0 };
 
     struct v4l2_ext_controls controls = {
         .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
         .request_fd = sub_dev_fd, .controls = &flyn_ctrls_calib_trig };
 
-        if (sub_dev_fd == -1) return -1;
+    if (sub_dev_fd == -1) return -1;
 
     rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
     if (rc) {
@@ -737,6 +821,8 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn_calib_trig()
 
     flyn_ctrls_calib_trig.value = 1;
     rc |= ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+
+    usleep(1000);
 
     flyn_ctrls_calib_trig.value = 0;
     rc |= ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
@@ -753,22 +839,233 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn_calib_trig()
     return 0;
 }
 
+int TFlowCaptureV4L2::ioctlSetControls_flyn_comp_time(int minutes)
+{
+    int rc;
+
+    struct v4l2_ext_control flyn_ctrls_calib_time = {
+        .id = V4L2_CID_FLYN384_SHUT_CALIB_PERIOD, .size = 0, .value64 = 0 };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL, .count = 1, .error_idx = 0,
+        .request_fd = sub_dev_fd, .controls = &flyn_ctrls_calib_time };
+
+    if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    flyn_ctrls_calib_time.value = minutes;
+    rc |= ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN's controls (COMP_TIME)");
+        return -1;
+    }
+    else {
+        g_info("FLYN384 controls: COMP_TIME - %d minutes", minutes);
+    }
+
+    return 0;
+}
+
 int TFlowCaptureV4L2::ioctlSetControls_flyn()
+{
+    switch (sensor_api_type) {
+    case SENSOR_API_TYPE::FLYN_COIN417G2:
+        return ioctlSetControls_flyn_coin417g2();
+    case SENSOR_API_TYPE::FLYN_TWIN412:
+        return ioctlSetControls_flyn_twin412();
+    case SENSOR_API_TYPE::FLYN_TWIN412G2:
+        return ioctlSetControls_flyn_twin412g2();
+    }
+    return 0;
+}
+
+int TFlowCaptureV4L2::ioctlSetControls_flyn_twin412()
+{
+    int rc;
+
+#define FLYN384_TWIN412_CTRL_DENOISE     0
+#define FLYN384_TWIN412_CTRL_FILTER      1
+#define FLYN384_TWIN412_CTRL_COMP_EN     2
+#define FLYN384_TWIN412_CTRL_COMP_TIME   3
+#define FLYN384_TWIN412_CTRL_BRIGHTNESS  4
+#define FLYN384_TWIN412_CTRL_CONTRAST    5
+#define FLYN384_TWIN412_CTRL_AUTOGAIN    6
+#define FLYN384_TWIN412_CTRL_NUMS        7
+
+    struct v4l2_ext_control flyn_ctrls[FLYN384_TWIN412_CTRL_NUMS] = {
+        [FLYN384_TWIN412_CTRL_DENOISE   ] = {.id = V4L2_CID_FLYN384_DENOISE,    .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412_CTRL_FILTER    ] = {.id = V4L2_CID_FLYN384_FILTER,     .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412_CTRL_COMP_EN   ] = {.id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412_CTRL_COMP_TIME ] = {.id = V4L2_CID_FLYN384_SHUT_CALIB_PERIOD, .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412_CTRL_BRIGHTNESS] = {.id = V4L2_CID_BRIGHTNESS,         .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412_CTRL_CONTRAST  ] = {.id = V4L2_CID_CONTRAST,           .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412_CTRL_AUTOGAIN  ] = {.id = V4L2_CID_AUTOGAIN,           .size = 0, .value64 = 0 },
+    };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL,
+        .count = FLYN384_TWIN412_CTRL_NUMS,
+        .error_idx = 0,
+        .request_fd = sub_dev_fd,
+        .controls = flyn_ctrls
+    };
+
+    if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    const TFlowCtrlCapture::cfg_v4l2_ctrls_flyn* cfg_flyn = 
+        (const TFlowCtrlCapture::cfg_v4l2_ctrls_flyn *)cfg->flyn384.v.ref;
+
+    // Modify Controls according to config. 
+    // All but TEMP_CALIB it will be disabled on takeoff and enabled after landing
+    //flyn_ctrls[FLYN384_CTRL_DENOISE   ].value = cfg_flyn->denoise.v.num;
+    //flyn_ctrls[FLYN384_CTRL_FILTER    ].value = cfg_flyn->filter.v.num;
+    flyn_ctrls[FLYN384_TWIN412_CTRL_BRIGHTNESS].value = cfg_flyn->brightness.v.num;
+    flyn_ctrls[FLYN384_TWIN412_CTRL_CONTRAST  ].value = cfg_flyn->contrast.v.num;
+    flyn_ctrls[FLYN384_TWIN412_CTRL_AUTOGAIN  ].value = cfg_flyn->gain.v.num;
+    flyn_ctrls[FLYN384_TWIN412_CTRL_COMP_EN   ].value = cfg_flyn->comp_en.v.num;
+    flyn_ctrls[FLYN384_TWIN412_CTRL_COMP_TIME ].value = cfg_flyn->comp_time.v.num;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN controls");
+        return -1;
+    }
+    else {
+        g_info(
+            "FLYN384 TWIN412 controls: \r\n"\
+            "\t DENOISE    = %d\r\n"\
+            "\t FILTER     = %d\r\n"\
+            "\t BRIGHTNESS = %d\r\n"\
+            "\t CONTRAST   = %d\r\n"\
+            "\t AUTOGAIN   = %d\r\n"\
+            "\t COMP EN    = %d\r\n"\
+            "\t COMP TIME  = %d\r\n",
+            flyn_ctrls[FLYN384_TWIN412_CTRL_DENOISE   ].value,
+            flyn_ctrls[FLYN384_TWIN412_CTRL_FILTER    ].value,
+            flyn_ctrls[FLYN384_TWIN412_CTRL_BRIGHTNESS].value,
+            flyn_ctrls[FLYN384_TWIN412_CTRL_CONTRAST  ].value,
+            flyn_ctrls[FLYN384_TWIN412_CTRL_AUTOGAIN  ].value,
+            flyn_ctrls[FLYN384_TWIN412_CTRL_COMP_EN   ].value,
+            flyn_ctrls[FLYN384_TWIN412_CTRL_COMP_TIME ].value);
+    }
+
+    return 0;
+}
+
+int TFlowCaptureV4L2::ioctlSetControls_flyn_twin412g2()
+{
+    int rc;
+
+#define FLYN384_TWIN412G2_CTRL_BRIGHTNESS  0
+#define FLYN384_TWIN412G2_CTRL_CONTRAST    1
+//#define FLYN384_TWIN412G2_CTRL_ENH_DETAIL   ???
+//#define FLYN384_TWIN412G2_CTRL_DENOISE2D    ???
+// Setup @11 - mode - Standard/Low noise
+#define FLYN384_TWIN412G2_CTRL_IMG_MODE    2
+#define FLYN384_TWIN412G2_CTRL_COMP_EN     3
+#define FLYN384_TWIN412G2_CTRL_COMP_TIME   4
+#define FLYN384_TWIN412G2_CTRL_NUMS        5
+
+    struct v4l2_ext_control flyn_ctrls[FLYN384_TWIN412G2_CTRL_NUMS] = {
+        [FLYN384_TWIN412G2_CTRL_BRIGHTNESS] = {.id = V4L2_CID_BRIGHTNESS,         .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412G2_CTRL_CONTRAST  ] = {.id = V4L2_CID_CONTRAST,           .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412G2_CTRL_IMG_MODE  ] = {.id = V4L2_CID_FLYN384_IMG_MODE,   .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412G2_CTRL_COMP_EN   ] = {.id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 },
+        [FLYN384_TWIN412G2_CTRL_COMP_TIME ] = {.id = V4L2_CID_FLYN384_SHUT_CALIB_PERIOD, .size = 0, .value64 = 0 },
+    };
+
+    struct v4l2_ext_controls controls = {
+        .which = V4L2_CTRL_WHICH_CUR_VAL,
+        .count = FLYN384_TWIN412G2_CTRL_NUMS,
+        .error_idx = 0,
+        .request_fd = sub_dev_fd,
+        .controls = flyn_ctrls
+    };
+
+    if (sub_dev_fd == -1) return -1;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error reading external controls");
+        return -1;
+    }
+
+    auto cfg_twin412g2 = 
+        (const TFlowCtrlCapture::cfg_v4l2_ctrls_twin412g2 *)cfg->twin412g2.v.ref;
+
+    int image_mode = cfg_twin412g2->image_mode.v.num;
+    // Modify Controls according to config. 
+    if ( image_mode == TFlowCtrlCaptureUI::TWIN412G2_IMAGE_MODE::IMAGE_MODE_USER) {
+        // In user mode set brightness and contrast overrides value.
+        flyn_ctrls[FLYN384_TWIN412G2_CTRL_BRIGHTNESS].value = cfg_twin412g2->brightness.v.num;
+        flyn_ctrls[FLYN384_TWIN412G2_CTRL_CONTRAST  ].value = cfg_twin412g2->contrast.v.num;
+    }
+    else {
+        flyn_ctrls[FLYN384_TWIN412G2_CTRL_IMG_MODE  ].value = image_mode;
+    }
+    
+    flyn_ctrls[FLYN384_TWIN412G2_CTRL_COMP_EN].value = cfg_twin412g2->comp_en.v.num;
+    flyn_ctrls[FLYN384_TWIN412G2_CTRL_COMP_TIME].value = cfg_twin412g2->comp_time.v.num;
+
+    rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
+    if (rc) {
+        // EACCES  || ENOSPC 
+        g_warning("Error setting FLYN controls");
+        return -1;
+    }
+    else {
+        g_info(
+            "FLYN384 TWIN412G2 controls: \r\n"\
+            "\t BRIGHTNESS = %d\r\n"\
+            "\t CONTRAST   = %d\r\n"\
+            "\t IMG MODE   = %d\r\n"\
+            "\t COMP EN    = %d\r\n"\
+            "\t COMP TIME  = %d\r\n",
+            flyn_ctrls[FLYN384_TWIN412G2_CTRL_BRIGHTNESS].value,
+            flyn_ctrls[FLYN384_TWIN412G2_CTRL_CONTRAST  ].value,
+            flyn_ctrls[FLYN384_TWIN412G2_CTRL_IMG_MODE  ].value,
+            flyn_ctrls[FLYN384_TWIN412G2_CTRL_COMP_EN   ].value,
+            flyn_ctrls[FLYN384_TWIN412G2_CTRL_COMP_TIME ].value );
+    }
+
+    return 0;
+}
+
+int TFlowCaptureV4L2::ioctlSetControls_flyn_coin417g2()
 {
 #define FLYN384_CTRL_DENOISE     0
 #define FLYN384_CTRL_FILTER      1
-#define FLYN384_CTRL_TEMP_CALIB  2
-#define FLYN384_CTRL_BRIGHTNESS  3
-#define FLYN384_CTRL_CONTRAST    4
-#define FLYN384_CTRL_AUTOGAIN    5
-#define FLYN384_CTRL_NUMS        6
+#define FLYN384_CTRL_COMP_EN     2
+#define FLYN384_CTRL_COMP_TIME   3
+#define FLYN384_CTRL_BRIGHTNESS  4
+#define FLYN384_CTRL_CONTRAST    5
+#define FLYN384_CTRL_AUTOGAIN    6
+#define FLYN384_CTRL_NUMS        7
 
     int rc;
 
     struct v4l2_ext_control flyn_ctrls[FLYN384_CTRL_NUMS] = {
         [FLYN384_CTRL_DENOISE   ] = {.id = V4L2_CID_FLYN384_DENOISE,    .size = 0, .value64 = 0 },
         [FLYN384_CTRL_FILTER    ] = {.id = V4L2_CID_FLYN384_FILTER,     .size = 0, .value64 = 0 },
-        [FLYN384_CTRL_TEMP_CALIB] = {.id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_COMP_EN   ] = {.id = V4L2_CID_FLYN384_TEMP_CALIB, .size = 0, .value64 = 0 },
+        [FLYN384_CTRL_COMP_TIME ] = {.id = V4L2_CID_FLYN384_SHUT_CALIB_PERIOD, .size = 0, .value64 = 0 },
         [FLYN384_CTRL_BRIGHTNESS] = {.id = V4L2_CID_BRIGHTNESS,         .size = 0, .value64 = 0 },
         [FLYN384_CTRL_CONTRAST  ] = {.id = V4L2_CID_CONTRAST,           .size = 0, .value64 = 0 },
         [FLYN384_CTRL_AUTOGAIN  ] = {.id = V4L2_CID_AUTOGAIN,           .size = 0, .value64 = 0 },
@@ -791,8 +1088,6 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn()
         return -1;
     }
 
-    flyn_calib_is_on = flyn_ctrls[FLYN384_CTRL_TEMP_CALIB].value;
-
     const TFlowCtrlCapture::cfg_v4l2_ctrls_flyn* cfg_flyn = 
         (const TFlowCtrlCapture::cfg_v4l2_ctrls_flyn *)cfg->flyn384.v.ref;
 
@@ -803,6 +1098,8 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn()
     flyn_ctrls[FLYN384_CTRL_BRIGHTNESS].value = cfg_flyn->brightness.v.num;
     flyn_ctrls[FLYN384_CTRL_CONTRAST  ].value = cfg_flyn->contrast.v.num;
     flyn_ctrls[FLYN384_CTRL_AUTOGAIN  ].value = cfg_flyn->gain.v.num;
+    flyn_ctrls[FLYN384_CTRL_COMP_EN   ].value = cfg_flyn->comp_en.v.num;
+    flyn_ctrls[FLYN384_CTRL_COMP_TIME ].value = cfg_flyn->comp_time.v.num;
 
     rc = ioctl(sub_dev_fd, VIDIOC_S_EXT_CTRLS, &controls);
     if (rc) {
@@ -817,12 +1114,16 @@ int TFlowCaptureV4L2::ioctlSetControls_flyn()
             "\t FILTER     = %d\r\n"\
             "\t BRIGHTNESS = %d\r\n"\
             "\t CONTRAST   = %d\r\n"\
-            "\t AUTOGAIN   = %d\r\n",
-            flyn_ctrls[FLYN384_CTRL_DENOISE].value,
-            flyn_ctrls[FLYN384_CTRL_FILTER].value,
+            "\t AUTOGAIN   = %d\r\n"\
+            "\t COMP_EN    = %d\r\n"\
+            "\t COMP_TIME  = %d\r\n",
+            flyn_ctrls[FLYN384_CTRL_DENOISE   ].value,
+            flyn_ctrls[FLYN384_CTRL_FILTER    ].value,
             flyn_ctrls[FLYN384_CTRL_BRIGHTNESS].value,
-            flyn_ctrls[FLYN384_CTRL_CONTRAST].value,
-            flyn_ctrls[FLYN384_CTRL_AUTOGAIN].value);
+            flyn_ctrls[FLYN384_CTRL_CONTRAST  ].value,
+            flyn_ctrls[FLYN384_CTRL_AUTOGAIN  ].value,
+            flyn_ctrls[FLYN384_CTRL_COMP_EN   ].value,
+            flyn_ctrls[FLYN384_CTRL_COMP_TIME ].value);
     }
 
     return 0;

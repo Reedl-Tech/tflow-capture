@@ -25,6 +25,7 @@ add_executable (tflow-capture
     "tflow-capture-v4l2.cpp"
     "tflow-capture-v4l2.hpp"
     "tflow-buf.hpp"
+    "tflow-buf-pck.hpp"
     "tflow-buf-srv.cpp"
     "tflow-buf-srv.hpp"
     "tflow-ctrl-srv.cpp"
@@ -36,12 +37,17 @@ add_executable (tflow-capture
     "tflow-ctrl-capture-ui.hpp"
     "tflow-ctrl.hpp"
     "tflow-ctrl.cpp"
-    "tflow-ap-fixar.cpp"
-    "tflow-ap-fixar.h"
-    "tflow-ap.cpp"
-    "tflow-ap.h"
+    "tflow-serial.cpp"
+    "tflow-serial.hpp"
     "tflow-player.cpp"
     "tflow-player.h"
+    "tflow-ap.hpp"
+    "AP-Milesi/tflow-ap-milesi-if.cpp"
+    "AP-Milesi/tflow-ap-milesi.cpp"
+    "AP-Milesi/tflow-ap-milesi.hpp"
+    "AP-Milesi/tflow-ap-milesi-cfg.hpp"
+    "tflow-udp.cpp"
+    "tflow-udp.hpp"
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -78,5 +84,3 @@ target_link_libraries(tflow-capture PkgConfig::OTHERS)
 target_link_libraries(tflow-capture -lrt)
 
 install(TARGETS tflow-capture DESTINATION bin)
-
-# TODO: Add tests and install targets if needed.

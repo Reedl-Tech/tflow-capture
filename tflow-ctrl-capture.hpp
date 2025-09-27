@@ -9,6 +9,13 @@
 
 #include "tflow-ctrl-capture-ui.hpp"
 
+#if WITH_AP
+#include "tflow-ap.hpp"
+
+// Structure that link TFlowCtrl with user specific Autopilot
+extern TFlowAP::tflow_cfg_ap cmd_flds_cfg_ap;
+#endif
+
 class TFlowCtrlCapture;
 class TFlowCapture;
 struct fmt_info;
@@ -30,7 +37,7 @@ private:
 
 //extern class TFlowCtrlUI ctrl_ui;
 //TFlowCtrlProcessUI
-class TFlowCtrlCapture : private TFlowCtrlCaptureUI, private TFlowCtrl {
+class TFlowCtrlCapture : private TFlowCtrlCaptureUI, public TFlowCtrl {
 public:
 
     TFlowCtrlCapture(TFlowCapture& app, const std::string _cfg_fname);
@@ -48,10 +55,6 @@ public:
     int cam_fmt_get()    { return cmd_flds_config.fmt_idx.v.num; }
 
     void cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_enum);
-
-    int serial_name_is_valid();
-    char* serial_name_get() { return serial_name_is_valid() ? cmd_flds_config.serial_name.v.str : nullptr; }
-    int serial_baud_get()   { return cmd_flds_config.serial_baud.v.num; }
 
     struct tflow_cmd_flds_sign {
         tflow_cmd_field_t   eomsg;
@@ -119,32 +122,63 @@ public:
          TFLOW_CMD_EOMSG
      };
 
+    // TODO: Need differentiation between COIN/TWIN/TWING2
+
     struct cfg_v4l2_ctrls_flyn {
         tflow_cmd_field_t   head;
-        tflow_cmd_field_t   compression;
+//        tflow_cmd_field_t   compression;
         tflow_cmd_field_t   test_patt;
         tflow_cmd_field_t   contrast;
         tflow_cmd_field_t   brightness;
         tflow_cmd_field_t   filter;
         tflow_cmd_field_t   denoise;
         tflow_cmd_field_t   gain;
-        tflow_cmd_field_t   calib;
-        tflow_cmd_field_t   calib_trig;
-
+        tflow_cmd_field_t   comp_en;
+        tflow_cmd_field_t   comp_time;
+        tflow_cmd_field_t   comp_trig;
+    
         tflow_cmd_field_t   eomsg;
     } cmd_flds_cfg_v4l2_ctrls_flyn = {
         TFLOW_CMD_HEAD("FLYN384"),
-        .compression = { "compression", CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls_flyn_compression.head) }, &ui_custom_flyn_compression},
+//        .compression = { "compression", CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls_flyn_compression.head) }, &ui_custom_flyn_compression},
         .test_patt   = { "testpatt",    CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls_flyn_testpatt.head)    }, &ui_custom_flyn_testpatt},
         .contrast    = { "contrast",    CFT_NUM, 0, {.num = 100}    , &ui_flyn_contrast  },
         .brightness  = { "brightness",  CFT_NUM, 0, {.num =   8}    , &ui_flyn_brightness},
         .filter      = { "filter",      CFT_NUM, 0, {.num =   0}    , &ui_flyn_filter},
-        .denoise     = { "denoise",     CFT_NUM, 0, {.num =   0}    , nullptr},
+        .denoise     = { "denoise",     CFT_NUM, 0, {.num =   0}    , &ui_flyn_denoise},
         .gain        = { "gain",        CFT_NUM, 0, {.num =   0}    , &ui_flyn_gain},
-        .calib       = { "calib",       CFT_NUM, 0, {.num =   0}    , &ui_ll_edit_def},
-        .calib_trig  = { "calib_trig",  CFT_NUM, 0, {.num =   0}    , &ui_butt_def},
+        .comp_en     = { "comp_en",     CFT_NUM, 0, {.num =   1}    , &ui_sw_flyn_comp_en},
+        .comp_time   = { "comp_time",   CFT_NUM, 0, {.num =   1}    , &ui_edit_flyn_comp_time},
+        .comp_trig   = { "comp_trig",   CFT_NUM, 0, {.num =   0}    , &ui_butt_flyn_comp_trig},
          TFLOW_CMD_EOMSG
      };
+
+    struct cfg_v4l2_ctrls_twin412g2 {
+        tflow_cmd_field_t   head;
+        tflow_cmd_field_t   test_patt;
+        tflow_cmd_field_t   image_mode;
+        tflow_cmd_field_t   contrast;
+        tflow_cmd_field_t   brightness;
+        tflow_cmd_field_t   enh_detail;
+        tflow_cmd_field_t   denoise2d;
+        tflow_cmd_field_t   comp_en;
+        tflow_cmd_field_t   comp_time;
+        tflow_cmd_field_t   comp_trig;
+        tflow_cmd_field_t   eomsg;
+    } cmd_flds_cfg_v4l2_ctrls_twin412g2 = {
+        TFLOW_CMD_HEAD("FLYN384-TWIN412G2"),
+        .test_patt   = { "testpatt",    CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2_ctrls_flyn_testpatt.head)  }, &ui_custom_flyn_testpatt},
+        .image_mode  = { "image_mode",  CFT_NUM, 0, {.num = IMAGE_MODE_STD } , &ui_flyn_image_mode_twin412g2 },
+        .contrast    = { "contrast",    CFT_NUM, 0, {.num = 100} , &ui_flyn_contrast_twin412g2   },
+        .brightness  = { "brightness",  CFT_NUM, 0, {.num =   8} , &ui_flyn_brightness_twin412g2 },
+        .enh_detail  = { "enh_detail",  CFT_NUM, 0, {.num =   0} , &ui_flyn_enh_detail_twin412g2 },
+        .denoise2d   = { "denoise2d",   CFT_NUM, 0, {.num =   0} , &ui_flyn_denoise2d_twin412g2  },
+        .comp_en     = { "comp_en",     CFT_NUM, 0, {.num =   1} , &ui_sw_flyn_comp_en           },
+        .comp_time   = { "comp_time",   CFT_NUM, 0, {.num =   1} , &ui_edit_flyn_comp_time       },
+        .comp_trig   = { "comp_trig",   CFT_NUM, 0, {.num =   0} , &ui_butt_flyn_comp_trig       },
+         TFLOW_CMD_EOMSG
+     };
+
 
     struct cfg_v4l2_ctrls_atic {
         tflow_cmd_field_t   head;
@@ -164,8 +198,9 @@ public:
         /* ISI common */
         tflow_cmd_field_t   flip;
 
-        /* ATIC specific */
+        /* FLYN384 specific */
         tflow_cmd_field_t   flyn384;
+        tflow_cmd_field_t   twin412g2;
 
         /* ATIC specific */
         tflow_cmd_field_t   atic320;
@@ -176,9 +211,11 @@ public:
         .dev_name      = { "dev_name",     CFT_STR, 0, {.str = nullptr} },
         .sub_dev_name  = { "sub_dev_name", CFT_STR, 0, {.str = nullptr} },
         /* Common (ISI) */
-        .flip    = { "flip",     CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_flip.head )}, &ui_custom_flip},
-        .flyn384 = { "flyn384",  CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_flyn.head )}, &ui_group_def},
-        .atic320 = { "atic320",  CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_atic.head )} },
+        .flip      = { "flip",      CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_flip.head      )} , &ui_custom_flip },
+        /* Sensor specific */
+        .flyn384   = { "flyn384",   CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_flyn.head      )} },       // Att: Only one sensor specific settings should be 
+        .twin412g2 = { "twin412g2", CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_twin412g2.head )} },       //      exposed to UI. The proper one will be exposed 
+        .atic320   = { "atic320",   CFT_REF, 0, {.ref = &( cmd_flds_cfg_v4l2_ctrls_atic.head      )} },       //      on camera creation depends on camera model.
         TFLOW_CMD_EOMSG
     };
 
@@ -189,20 +226,22 @@ public:
         tflow_cmd_field_t   fmt_idx;        // The index of the currently used format from the fmt_enum
         tflow_cmd_field_t   preffered_w;    // Prefered width/height selected by a user in case of 
         tflow_cmd_field_t   preffered_h;    // STEPWISE and CONTINUOS frame size
-        tflow_cmd_field_t   serial_name;
-        tflow_cmd_field_t   serial_baud;
+#if WITH_AP
+        tflow_cmd_field_t   ap;
+#endif        
         tflow_cmd_field_t   v4l2;
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
-        .state        = { "state",        CFT_NUM, 0, {.num = 0}       },
-        .buffs_num    = { "buffs_num",    CFT_NUM, 0, {.num = 0},                         &ui_ll_edit_def},
+        .state        = { "state",        CFT_NUM, 0, {.num =  0}      },
+        .buffs_num    = { "buffs_num",    CFT_NUM, 0, {.num =  0}      },
         .fmt_enum     = { "fmt_enum",     CFT_STR, 0, {.str = nullptr} },     // WxH CCCC, ...
         .fmt_idx      = { "fmt_idx",      CFT_NUM, 0, {.num = -1}      },     // Invalidate index
         .preffered_w  = { "pref_width",   CFT_NUM, 0, {.num = -1}      },     // 
         .preffered_h  = { "pref_height",  CFT_NUM, 0, {.num = -1}      },     // 
-        .serial_name  = { "serial_name",  CFT_STR, 0, {.str = nullptr},                   &ui_edit_def    },
-        .serial_baud  = { "serial_baud",  CFT_NUM, 0, {.num = 0},                         &ui_serial_baud },
-        .v4l2         = { "v4l2",         CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2.head)}, &ui_group_def   },
+#if WITH_AP
+        .ap           = { "ap",           CFT_REF_SKIP, 0, {.ref = &cmd_flds_cfg_ap.head } , &ui_group_def },
+#endif        
+        .v4l2         = { "v4l2",         CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2.head)} , &ui_group_def },
         TFLOW_CMD_EOMSG
     };
 
@@ -214,6 +253,7 @@ public:
 
     int onConfigV4L2();
     int onConfigFLYN();
+    int onConfigFLYN_TWIN412G2();
     int onConfigATIC();
 
     int cmd_cb_version   (const json11::Json& j_in_params, json11::Json::object& j_out_params);
@@ -238,12 +278,14 @@ public:
     TFlowCtrlSrvCapture ctrl_srv;
 
     void getSignResponse(json11::Json::object &j_params);
+    void getUISignResponse(json11::Json::object &j_params);
 
 private:
 
-    void collectCtrlsCustom(UICTRL_TYPE type, const char *fld_name, 
+    void collectCtrlsCustom(UICTRL_TYPE custom_type,
         const tflow_cmd_field_t *cmd_fld, json11::Json::array &j_out_params) override;
 
     const std::string cfg_fname;
+
 };
 

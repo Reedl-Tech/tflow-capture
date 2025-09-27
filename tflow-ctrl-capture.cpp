@@ -1,11 +1,9 @@
-#include <string.h>
-#include <stdio.h>
+#include "tflow-build-cfg.hpp"
 #include <sys/stat.h>
-
-#include <glib-unix.h>
 
 #include <json11.hpp>
 
+#include "tflow-glib.hpp"
 #include "tflow-capture.hpp"
 
 using namespace json11;
@@ -15,8 +13,6 @@ static const std::string capture_raw_cfg_default { R"(
 {
     "config" : {
         "buffs_num"    : 4,
-        "serial_name"  : "/dev/ttymxc1",
-        "serial_baud"  : 921600,
         "v4l2" : {
             "dev_name"     : "auto",
             "sub_dev_name" : "auto",
@@ -37,7 +33,7 @@ static const std::string capture_raw_cfg_default { R"(
                 "xz"     : 0
             },
         }
-    } 
+    }
 }
 )" };
 
@@ -69,7 +65,7 @@ void TFlowCtrlSrvCapture::onCliPortError(int fd)
     }
 
     TFlowCtrlCliPort& cli_port = ctrl_cli_it->second;
-    
+
     g_warning("TFlowCtrlSrvCapture: Release port [%s] (%d)",
         cli_port.signature.c_str(), fd);
 
@@ -120,9 +116,6 @@ TFlowCtrlCapture::TFlowCtrlCapture(TFlowCapture& _app, const std::string _cfg_fn
 {
     parseConfig(ctrl_capture_rpc_cmds, cfg_fname, capture_raw_cfg_default);
     InitServer();
-    
-    //json11::Json::object xx;
-    //getSignResponse(xx);
 }
 
 void TFlowCtrlCapture::InitServer()
@@ -239,11 +232,6 @@ void TFlowCtrlCapture::cam_fmt_enum_get(std::vector<struct fmt_info> &cfg_fmt_en
     free(fmt_enum_str);
 
 }
-int TFlowCtrlCapture::serial_name_is_valid()
-{
-    if (cmd_flds_config.serial_name.v.str == nullptr) return 0;
-    return 1;
-}
 
 int TFlowCtrlCapture::dev_name_is_valid()
 { 
@@ -267,12 +255,9 @@ int TFlowCtrlCapture::player_fname_is_valid()
 /*********************************/
 /*** Application specific part ***/
 /*********************************/
-
-void TFlowCtrlCapture::getSignResponse(json11::Json::object &j_out_params)
+void TFlowCtrlCapture::getUISignResponse(json11::Json::object &j_out_params)
 {
-    j_out_params.emplace("state", "OK");
-    j_out_params.emplace("version", "v0");  // TODO: replace for version from git or signature hash or both?
-    j_out_params.emplace("config_id", config_id);  
+    getSignResponse(j_out_params);
 
     const tflow_cmd_t *cmd_config = &ctrl_capture_rpc_cmds[TFLOW_CAPTURE_RPC_CMD_CONFIG];
 
@@ -306,15 +291,23 @@ void TFlowCtrlCapture::getSignResponse(json11::Json::object &j_out_params)
     }
 #endif
 
-    Json test = Json(j_out_params);
-    std::string s_msg = test.dump();
-    g_critical("signature: %s", s_msg.c_str());
+    //Json test = Json(j_out_params);
+    //std::string s_msg = test.dump();
+    //g_critical("signature: %s", s_msg.c_str());
+}
+
+void TFlowCtrlCapture::getSignResponse(json11::Json::object &j_out_params)
+{
+    j_out_params.emplace("state", "OK");
+    j_out_params.emplace("version", "v0");  // TODO: replace for version from git or signature hash or both?
+    j_out_params.emplace("config_id", config_id);  
 }
 
 void TFlowCtrlCapture::collectCtrlsCustom(UICTRL_TYPE _custom_type,
-    const char *fld_name, const tflow_cmd_field_t *cmd_fld, Json::array &j_out_ctrl_arr)
+    const tflow_cmd_field_t *cmd_fld, Json::array &j_out_ctrl_arr)
 {
     UICTRL_TYPE_CUSTOM custom_type = (UICTRL_TYPE_CUSTOM)_custom_type;
+    assert((UICTRL_TYPE)custom_type > UICTRL_TYPE::CUSTOM);
 
     json11::Json::object j_custom;
     Json::array j_custom_arr; 
@@ -329,7 +322,8 @@ void TFlowCtrlCapture::collectCtrlsCustom(UICTRL_TYPE _custom_type,
     else if ( custom_type == UICTRL_TYPE_CUSTOM::FLYN_COMPRESSION) {
 
         // Compression control
-        const cfg_v4l2_ctrls_flyn_compression *cmd_cc = (cfg_v4l2_ctrls_flyn_compression*)cmd_fld;
+        const cfg_v4l2_ctrls_flyn_compression *cmd_cc = 
+            (cfg_v4l2_ctrls_flyn_compression*)cmd_fld;
 
         Json::array j_flyn_histogramm_arr; 
         j_flyn_histogramm_arr.emplace_back(10);
@@ -355,7 +349,7 @@ void TFlowCtrlCapture::collectCtrlsCustom(UICTRL_TYPE _custom_type,
                                     
         j_custom.emplace("type", "compression");
     }
-    else if ( custom_type == UICTRL_TYPE_CUSTOM::FLIP  ) {
+    else if ( custom_type == UICTRL_TYPE_CUSTOM::FLIP ) {
 
         // Flip control - is a dual check box with specific icons
         const cfg_v4l2_ctrls_flip *cmd_flip = (cfg_v4l2_ctrls_flip*)cmd_fld;
@@ -381,7 +375,7 @@ void TFlowCtrlCapture::collectCtrlsCustom(UICTRL_TYPE _custom_type,
         j_custom.emplace("type", "sw_dropdown");
     }
 
-    j_custom.emplace("name", fld_name);
+    j_custom.emplace("name", cmd_fld->name);
     j_custom.emplace("value", j_custom_arr);
     j_out_ctrl_arr.emplace_back(j_custom);
     //auto del_me = json11::Json(j_custom).dump();
@@ -402,23 +396,138 @@ int TFlowCtrlCapture::cmd_cb_ui_sign(const json11::Json& j_in_params, Json::obje
 {
     g_info("UI Sign command\n");
 
-    getSignResponse(j_out_params);
+    getUISignResponse(j_out_params);
 
     return 0;
 }
 
+int TFlowCtrlCapture::onConfigFLYN_TWIN412G2()
+{
+    cfg_v4l2_ctrls_twin412g2 *cfg_twin412g2 = &cmd_flds_cfg_v4l2_ctrls_twin412g2;
+
+    if (cfg_twin412g2->comp_en.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_comp_en(cfg_twin412g2->comp_en.v.num);
+    
+    if (cfg_twin412g2->comp_time.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_comp_time(cfg_twin412g2->comp_time.v.num);
+
+    if (cfg_twin412g2->comp_trig.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_comp_trig();
+
+    if ( cfg_twin412g2->test_patt.flags & FIELD_FLAG::CHANGED ) {
+        // on the FLYN the test patterns can be triggered either on FPGA 
+        // (aka MIPI) or on the sensor (aka GST).
+        // In case of test pattern enabled on the sensor side the calibration 
+        // (aka compensation) should be disabled. Otherwise the algortihm will 
+        // compensate the testpattern.
+        // TODO: Should it be part of driver's logic?
+
+        const struct cfg_v4l2_ctrls_flyn_testpatt *flyn_testpatt = 
+            (struct cfg_v4l2_ctrls_flyn_testpatt *)cfg_twin412g2->test_patt.v.ref;
+
+        if ( flyn_testpatt->mipi_testpatt.flags & FIELD_FLAG::CHANGED) {
+            app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->mipi_testpatt, V4L2_CID_TEST_PATTERN);
+        }
+
+        if ( flyn_testpatt->gst_testpatt.flags & FIELD_FLAG::CHANGED) {
+            if ( flyn_testpatt->gst_testpatt.v.num ) {
+                // Disable calibration (compensation).
+                // Enable test pattern
+                app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->comp_en, 0, V4L2_CID_FLYN384_TEMP_CALIB);
+                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, V4L2_CID_TEST_PATTERN);
+            }
+            else {
+                // Disable test patterm. Restore calib settings from config
+                app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->comp_en, V4L2_CID_FLYN384_TEMP_CALIB);
+                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, 0, V4L2_CID_TEST_PATTERN);
+            }
+        }
+    }
+
+    if ( cfg_twin412g2->image_mode.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->image_mode, V4L2_CID_FLYN384_IMG_MODE);
+    }
+
+    if ( cfg_twin412g2->contrast.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->contrast, V4L2_CID_CONTRAST);
+    }
+    if ( cfg_twin412g2->brightness.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->brightness, V4L2_CID_BRIGHTNESS);
+    }
+    if ( cfg_twin412g2->enh_detail.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->enh_detail, V4L2_CID_FLYN384_ENH_DETAIL);
+    }
+
+    if ( cfg_twin412g2->denoise2d.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->denoise2d, V4L2_CID_FLYN384_DENOISE_2D);
+    }
+
+    tflow_cmd_field_t   enh_detail;
+        tflow_cmd_field_t   denoise2d;
+
+    return 0;
+
+}
 int TFlowCtrlCapture::onConfigFLYN()
 {
     cfg_v4l2_ctrls_flyn *cfg_flyn = &cmd_flds_cfg_v4l2_ctrls_flyn;
 
-    if (cfg_flyn->calib.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_calib(cfg_flyn->calib.v.num);
+    if (cfg_flyn->comp_en.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_comp_en(cfg_flyn->comp_en.v.num);
     
-    //if (cfg_flyn->calib.flags & FIELD_FLAG::CHANGED) 
-    //    app.cam->ioctlSetControls_flyn_calib(cfg_flyn->calib.v.num);
+    if (cfg_flyn->comp_time.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_comp_time(cfg_flyn->comp_time.v.num);
 
-    //if (cfg_flyn->calib_trig.flags & FIELD_FLAG::CHANGED) 
-    //    app.cam->ioctlSetControls_flyn_calib_trig();
+    if (cfg_flyn->comp_trig.flags & FIELD_FLAG::CHANGED) 
+        app.cam->ioctlSetControls_flyn_comp_trig();
+
+    if ( cfg_flyn->test_patt.flags & FIELD_FLAG::CHANGED ) {
+        // on the FLYN the test patterns can be triggered either on FPGA or
+        // on sensor.
+        // In case of test pattern enabled on the sensor side the calibration 
+        // (aka compensation) should be disabled. Otherwise the algortihm will 
+        // compensate testpattern.
+        // TODO: Should it be part of driver's logic?
+
+        const struct cfg_v4l2_ctrls_flyn_testpatt *flyn_testpatt = 
+            (struct cfg_v4l2_ctrls_flyn_testpatt *)cfg_flyn->test_patt.v.ref;
+
+        if ( flyn_testpatt->mipi_testpatt.flags & FIELD_FLAG::CHANGED) {
+            app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->mipi_testpatt, V4L2_CID_TEST_PATTERN);
+        }
+
+        if ( flyn_testpatt->gst_testpatt.flags & FIELD_FLAG::CHANGED) {
+            if ( flyn_testpatt->gst_testpatt.v.num ) {
+                // Enable. Preserve calibration setting and disable it
+                app.cam->ioctlSetControls_flyn_comp_en(0);
+                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, V4L2_CID_TEST_PATTERN);
+            }
+            else {
+                // Disable. Restore calib settings
+                app.cam->ioctlSetControls_flyn_comp_en(cfg_flyn->comp_en.v.num);
+                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, 0, V4L2_CID_TEST_PATTERN);
+            }
+        }
+    }
+
+    if ( cfg_flyn->contrast.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->contrast, V4L2_CID_CONTRAST);
+    }
+    if ( cfg_flyn->brightness.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->brightness, V4L2_CID_BRIGHTNESS);
+    }
+
+    if ( cfg_flyn->filter.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->filter, V4L2_CID_FLYN384_FILTER);
+    }
+
+    if ( cfg_flyn->denoise.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->denoise, V4L2_CID_FLYN384_DENOISE);
+    }
+
+    if ( cfg_flyn->gain.flags & FIELD_FLAG::CHANGED ) {
+        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->gain, V4L2_CID_AUTOGAIN);
+    }
 
     return 0;
 }
@@ -440,13 +549,15 @@ int TFlowCtrlCapture::onConfigV4L2()
         return 0;
     }
 
-    if ( cfg_v4l2->flip.flags & FIELD_FLAG::CHANGED_STICKY ) {
+    if ( cfg_v4l2->flip.flags & FIELD_FLAG::CHANGED ) {
         app.cam->ioctlSetControls_ISI();
     }
 
-    if ( cfg_v4l2->flyn384.flags & FIELD_FLAG::CHANGED_STICKY ) onConfigFLYN();
+    if ( cfg_v4l2->flyn384.flags & FIELD_FLAG::CHANGED ) onConfigFLYN();
 
-    if ( cfg_v4l2->atic320.flags & FIELD_FLAG::CHANGED_STICKY ) onConfigATIC();
+    if ( cfg_v4l2->twin412g2.flags & FIELD_FLAG::CHANGED ) onConfigFLYN_TWIN412G2();
+
+    if ( cfg_v4l2->atic320.flags & FIELD_FLAG::CHANGED ) onConfigATIC();
 
     return 0;
 }
@@ -468,7 +579,7 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
         //       So, finger cross and just continue...
     }
 
-    if ( cmd_flds_config.v4l2.flags & FIELD_FLAG::CHANGED_STICKY) {
+    if ( cmd_flds_config.v4l2.flags & FIELD_FLAG::CHANGED) {
         onConfigV4L2();
     }
 

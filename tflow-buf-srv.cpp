@@ -1,10 +1,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <giomm.h>
-#include <glib-unix.h>
-
+#include "tflow-glib.hpp"
 #include "tflow-buf.hpp"
+#include "tflow-buf-pck.hpp"
 #include "tflow-capture.hpp"
 
 static struct timespec diff_timespec(
@@ -85,22 +84,6 @@ void TFlowBufSrv::releaseCliPort(TFlowBufCliPort* cli_port)
 
 }
 
-int TFlowBufSrv::registerOnBuf(void* ctx, std::function<int(void* ctx, TFlowBuf& tflow_buf)> cb) 
-{
-    onBuf_ctx = ctx;
-    onBuf_cb = cb;
-
-    return 0;
-}
-
-int TFlowBufSrv::registerOnCustomMsg(void* ctx, std::function<int(void* ctx, const TFlowBuf::pck_t &in_msg)> cb)
-{
-    onCustomMsg_ctx = ctx;
-    onCustomMsg_cb = cb;
-
-    return 0;
-}
-
 TFlowBufCliPort::~TFlowBufCliPort()
 {
     if (sck_fd != -1) {
@@ -145,9 +128,11 @@ TFlowBufSrv::~TFlowBufSrv()
     }
 }
 
-TFlowBufSrv::TFlowBufSrv(MainContextPtr app_context)
+TFlowBufSrv::TFlowBufSrv(MainContextPtr app_context, 
+    std::function<int(const TFlowBufPck::pck& in_msg)> _onCustomMsg_cb)
 {
     context = app_context;
+    onCustomMsg = _onCustomMsg_cb;
 
     last_idle_check_ts.tv_nsec = 0;
     last_idle_check_ts.tv_sec = 0;
@@ -158,8 +143,15 @@ TFlowBufSrv::TFlowBufSrv(MainContextPtr app_context)
     cam = nullptr;
     player = nullptr;
 
-    onBuf_ctx = nullptr;
-    onBuf_cb = nullptr;
+    onBuf = nullptr;
+}
+
+void TFlowBufSrv::onCamFD()
+{
+    // Camer connected
+    for (auto cli : cli_ports) {
+        if (cli) cli->SendCamFD();
+    }
 }
 
 void TFlowBufSrv::buf_create(int buf_num)
@@ -210,11 +202,11 @@ int TFlowBufSrv::buf_consume(v4l2_buffer &v4l2_buf)
     tflow_buf.sequence = v4l2_buf.sequence;
 
     // call owner's callback to update buffer's aux_data
-    if (onBuf_cb) {
-        onBuf_cb(onBuf_ctx, tflow_buf);
+    if (onBuf) {
+        onBuf(tflow_buf);
 #if CODE_BROWSE
-        static int _onBufAP();
         TFlowCapture::onBufAP(tflow_buf);
+        TFlowMilesi::onBuf(TFlowBuf &buf);
         TFlowCapture::onBufPlayer(tflow_buf);
 #endif
     }
@@ -245,9 +237,9 @@ int TFlowBufCliPort::SendConsume(TFlowBuf &tflow_buf)
     }
 
     ssize_t res;
-    TFlowBuf::pck_t tflow_pck{};
+    TFlowBufPck::pck tflow_pck{};
 
-    tflow_pck.hdr.id = TFLOWBUF_MSG_CONSUME;
+    tflow_pck.hdr.id = TFlowBufPck::TFLOWBUF_MSG_CONSUME;
     tflow_pck.hdr.seq = msg_seq_num++;
 
     tflow_pck.consume.buff_index = tflow_buf.index;
@@ -260,7 +252,7 @@ int TFlowBufCliPort::SendConsume(TFlowBuf &tflow_buf)
         memcpy(tflow_pck.consume.aux_data, tflow_buf.aux_data, tflow_buf.aux_data_len);
     }
 
-    res = send(sck_fd, &tflow_pck, offsetof(TFlowBuf::pck_consume, aux_data) + tflow_buf.aux_data_len, 0);
+    res = send(sck_fd, &tflow_pck, offsetof(TFlowBufPck::pck_consume, aux_data) + tflow_buf.aux_data_len, 0);
     int err = errno;
 
     if (res == -1) {
@@ -281,30 +273,31 @@ int TFlowBufCliPort::SendConsume(TFlowBuf &tflow_buf)
 
     return 0;
 }
+
 int TFlowBufCliPort::SendCamFD()
 {
     struct msghdr   msg;
     struct iovec    iov[1];
     ssize_t res;
 
-    TFlowBuf::pck_t tflow_pck {};
+    TFlowBufPck::pck tflow_pck {};
 
-    tflow_pck.hdr.id = TFLOWBUF_MSG_CAM_FD;
+    tflow_pck.hdr.id = TFlowBufPck::TFLOWBUF_MSG_CAM_FD;
     tflow_pck.hdr.seq = msg_seq_num++;
 
     if (srv->cam) {
-        tflow_pck.cam_fd.planes_num = srv->cam->planes_num;
-        tflow_pck.cam_fd.buffs_num  = srv->cam->buffs_num;
-        tflow_pck.cam_fd.width      = srv->cam->stream_fmt->width;
-        tflow_pck.cam_fd.height     = srv->cam->stream_fmt->height;
-        tflow_pck.cam_fd.format     = srv->cam->stream_fmt->fmt_cc.u32;
+        tflow_pck.fd.planes_num = srv->cam->planes_num;
+        tflow_pck.fd.buffs_num  = srv->cam->buffs_num;
+        tflow_pck.fd.width      = srv->cam->stream_fmt->width;
+        tflow_pck.fd.height     = srv->cam->stream_fmt->height;
+        tflow_pck.fd.format     = srv->cam->stream_fmt->fmt_cc.u32;
     } else if (srv->player) {
-        tflow_pck.cam_fd.planes_num = 0;
-        tflow_pck.cam_fd.buffs_num  = srv->player->buffs_num;
+        tflow_pck.fd.planes_num = 0;
+        tflow_pck.fd.buffs_num  = srv->player->buffs_num;
         // WxH from config file of file meta info
-        tflow_pck.cam_fd.width      = srv->player->frame_width;
-        tflow_pck.cam_fd.height     = srv->player->frame_height;
-        tflow_pck.cam_fd.format     = srv->player->frame_format;
+        tflow_pck.fd.width      = srv->player->frame_width;
+        tflow_pck.fd.height     = srv->player->frame_height;
+        tflow_pck.fd.format     = srv->player->frame_format;
     }
     else {
         assert(0);
@@ -338,7 +331,7 @@ int TFlowBufCliPort::SendCamFD()
     msg.msg_controllen = cmsg->cmsg_len;
 
     iov[0].iov_base = (void*)&tflow_pck;
-    iov[0].iov_len = sizeof(tflow_pck.cam_fd);
+    iov[0].iov_len = sizeof(tflow_pck.fd);
 
     msg.msg_iov = iov;
     msg.msg_iovlen = 1;
@@ -359,7 +352,7 @@ int TFlowBufCliPort::SendCamFD()
     return 0;
 
 }
-int TFlowBufCliPort::onRedeem(TFlowBuf::pck_redeem* pck_redeem)
+int TFlowBufCliPort::onRedeem(TFlowBufPck::pck_redeem* pck_redeem)
 {
     if (pck_redeem->buff_index != -1) {
         srv->buf_redeem(pck_redeem->buff_index, cli_port_mask);
@@ -372,7 +365,7 @@ int TFlowBufCliPort::onRedeem(TFlowBuf::pck_redeem* pck_redeem)
     return 0;
 }
 
-int TFlowBufCliPort::onPing(TFlowBuf::pck_ping* pck_ping)
+int TFlowBufCliPort::onPing(TFlowBufPck::pck_ping* pck_ping)
 {
     int rc = 0;
 
@@ -385,7 +378,7 @@ int TFlowBufCliPort::onPing(TFlowBuf::pck_ping* pck_ping)
     return rc;
 }
 
-int TFlowBufCliPort::onSign(TFlowBuf::pck_sign *pck_sign)
+int TFlowBufCliPort::onSign(TFlowBufPck::pck_sign *pck_sign)
 {
     int rc;
 
@@ -393,14 +386,16 @@ int TFlowBufCliPort::onSign(TFlowBuf::pck_sign *pck_sign)
     g_warning("TFlowBufCliPort: Signature for port %d - [%s]",
         this->cli_port_mask, this->signature.c_str());
 
-    rc = SendCamFD();
+    if (srv->cam->dev_fd != -1) {
+        rc = SendCamFD();
+    }
 
     return rc;
 }
 
 int TFlowBufCliPort::onMsgRcv()
 {
-    TFlowBuf::pck_t in_msg;
+    TFlowBufPck::pck in_msg;
 
     int res = recv(sck_fd, &in_msg, sizeof(in_msg), 0); //MSG_DONTWAIT 
 
@@ -418,18 +413,16 @@ int TFlowBufCliPort::onMsgRcv()
     }
 
     switch (in_msg.hdr.id) {
-        case TFLOWBUF_MSG_SIGN_ID:  
-            return onSign((TFlowBuf::pck_sign*)&in_msg);
-        case TFLOWBUF_MSG_PING:
-            return onPing((TFlowBuf::pck_ping*)&in_msg);
-        case TFLOWBUF_MSG_REDEEM:
-            return onRedeem((TFlowBuf::pck_redeem*)&in_msg);
+        case TFlowBufPck::TFLOWBUF_MSG_SIGN:  
+            return onSign((TFlowBufPck::pck_sign*)&in_msg);
+        case TFlowBufPck::TFLOWBUF_MSG_PING:
+            return onPing((TFlowBufPck::pck_ping*)&in_msg);
+        case TFlowBufPck::TFLOWBUF_MSG_REDEEM:
+            return onRedeem((TFlowBufPck::pck_redeem*)&in_msg);
         default:
-            if ((in_msg.hdr.id > TFLOWBUF_MSG_CUSTOM_) && srv->onCustomMsg_cb) {
-                return srv->onCustomMsg_cb(srv->onCustomMsg_ctx, in_msg);
+            if ((in_msg.hdr.id > TFlowBufPck::TFLOWBUF_MSG_CUSTOM_) && srv->onCustomMsg) {
+                return srv->onCustomMsg(in_msg);
 #if CODE_BROWSE
-    static int _onCustomMsg(void* ctx, const TFlowBuf::pck_t & in_msg);
-    int TFlowCapture::onCustomMsg(const TFlowBuf::pck_t & in_msg);
     int TFlowCapture::onCustomMsgNavigator(const struct pck_navigator& in_msg_nav);
 #endif
             }
@@ -478,7 +471,7 @@ gboolean TFlowBufSrv::onConnect(Glib::IOCondition io_cond)
     auto cli_port = new TFlowBufCliPort(this, mask, cli_port_fd);
     *cli_port_empty_pp = cli_port;
 
-    g_warning("TFlowBufSrv: TFlow Buffer Client %d (%d) is connected",
+    g_info("TFlowBufSrv: TFlow Buffer Client %d (%d) is connected",
         cli_port->cli_port_mask, cli_port->sck_fd);
 
     return G_SOURCE_CONTINUE;

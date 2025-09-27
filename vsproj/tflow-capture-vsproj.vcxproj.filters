@@ -16,12 +16,18 @@
     <ClCompile Include="..\tflow-ctrl-cli-port.cpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClCompile>
-    <ClCompile Include="..\tflow-ap.cpp" />
-    <ClCompile Include="..\tflow-ap-fixar.cpp" />
     <ClCompile Include="..\tflow-buf-srv.cpp">
       <Filter>tflow-buf</Filter>
     </ClCompile>
     <ClCompile Include="..\tflow-player.cpp" />
+    <ClCompile Include="..\tflow-udp.cpp" />
+    <ClCompile Include="..\AP-Milesi\tflow-ap-milesi.cpp">
+      <Filter>AP-Milesi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\AP-Milesi\tflow-ap-milesi-if.cpp">
+      <Filter>AP-Milesi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\tflow-serial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
@@ -42,8 +48,6 @@
     <ClInclude Include="..\tflow-ctrl-cli-port.hpp">
       <Filter>tlow-ctrl-lib</Filter>
     </ClInclude>
-    <ClInclude Include="..\tflow-ap.h" />
-    <ClInclude Include="..\tflow-ap-fixar.h" />
     <ClInclude Include="..\tflow-buf.hpp">
       <Filter>tflow-buf</Filter>
     </ClInclude>
@@ -55,6 +59,762 @@
     <ClInclude Include="buildin.h" />
     <ClInclude Include="..\tflow-build-cfg.hpp" />
     <ClInclude Include="..\tflow-ctrl-capture-ui.hpp" />
+    <ClInclude Include="..\mavlink\checksum.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\mavlink_conversions.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\mavlink_get_info.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\mavlink_helpers.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\mavlink_sha256.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\mavlink_types.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\protocol.h">
+      <Filter>AP-Milesi\mavlink</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\common.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_actuator_control_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_actuator_output_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_adsb_vehicle.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_ais_vessel.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_altitude.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_att_pos_mocap.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude_quaternion.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude_quaternion_cov.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_auth_key.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_autopilot_state_for_gimbal_device.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_autopilot_version.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_available_modes.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_available_modes_monitor.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_battery_info.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_battery_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_button_change.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_capture_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_fov_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_image_captured.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_settings.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_thermal_range.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_tracking_geo_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_tracking_image_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_trigger.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_can_filter_modify.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_can_frame.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_canfd_frame.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_cellular_config.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_cellular_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_change_operator_control.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_change_operator_control_ack.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_collision.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_ack.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_cancel.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_long.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_component_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_component_information_basic.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_component_metadata.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_control_system_state.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_current_event_sequence.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_current_mode.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_data_stream.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_data_transmission_handshake.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_debug.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_debug_float_array.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_debug_vect.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_distance_sensor.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_efi_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_encapsulated_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_esc_info.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_esc_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_estimator_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_event.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_extended_sys_state.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_fence_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_file_transfer_protocol.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_flight_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_follow_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_fuel_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_generator_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_device_attitude_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_device_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_device_set_attitude.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_set_attitude.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_set_manual_control.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_set_pitchyaw.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_global_position_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_global_position_int_cov.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_global_vision_position_estimate.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_global_origin.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_inject_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_input.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_raw_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_rtcm_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_rtk.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps2_raw.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps2_rtk.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_high_latency.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_high_latency2.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_highres_imu.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_actuator_controls.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_controls.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_gps.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_optical_flow.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_rc_inputs_raw.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_sensor.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_state.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_state_quaternion.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_home_position.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hygrometer_sensor.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_illuminator_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_isbd_link_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_landing_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_link_node_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_local_position_ned.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_local_position_ned_cov.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_local_position_ned_system_global_offset.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_entry.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_erase.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_request_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_request_end.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_request_list.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_logging_ack.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_logging_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_logging_data_acked.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mag_cal_report.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_manual_control.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_manual_setpoint.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_memory_vect.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_message_interval.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_ack.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_clear_all.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_count.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_current.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_item.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_item_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_item_reached.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request_list.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request_partial_list.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_set_current.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_write_partial_list.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mount_orientation.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_named_value_float.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_named_value_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_nav_controller_output.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_obstacle_distance.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_odometry.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_onboard_computer_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_arm_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_authentication.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_basic_id.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_location.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_message_pack.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_operator_id.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_self_id.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_system.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_system_update.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_optical_flow.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_optical_flow_rad.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_orbit_execution_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_ack.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_request_list.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_request_read.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_set.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_value.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_map_rc.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_request_list.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_request_read.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_set.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_value.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_ping.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_play_tune.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_play_tune_v2.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_position_target_global_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_position_target_local_ned.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_power_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_radio_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_raw_imu.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_raw_pressure.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_raw_rpm.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels_override.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels_raw.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels_scaled.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_request_data_stream.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_request_event.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_resource_request.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_response_event_error.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_safety_allowed_area.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_safety_set_allowed_area.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_imu.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_imu2.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_imu3.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_pressure.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_pressure2.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_pressure3.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_serial_control.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_servo_output_raw.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_actuator_control_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_attitude_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_gps_global_origin.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_home_position.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_mode.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_position_target_global_int.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_position_target_local_ned.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_setup_signing.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_sim_state.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_smart_battery_info.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_statustext.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_storage_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_supported_tunes.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_sys_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_system_time.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_check.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_data.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_report.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_request.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_time_estimate_to_target.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_timesync.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_trajectory_representation_bezier.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_trajectory_representation_waypoints.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_tunnel.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_uavcan_node_info.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_uavcan_node_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_utm_global_position.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_v2_extension.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vfr_hud.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vibration.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vicon_position_estimate.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_video_stream_information.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_video_stream_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vision_position_estimate.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vision_speed_estimate.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_wheel_distance.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_wifi_config_ap.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_winch_status.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\mavlink_msg_wind_cov.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\testsuite.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\common\version.h">
+      <Filter>AP-Milesi\mavlink\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\minimal\mavlink.h">
+      <Filter>AP-Milesi\mavlink\minimal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\minimal\mavlink_msg_heartbeat.h">
+      <Filter>AP-Milesi\mavlink\minimal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\minimal\mavlink_msg_protocol_version.h">
+      <Filter>AP-Milesi\mavlink\minimal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\minimal\minimal.h">
+      <Filter>AP-Milesi\mavlink\minimal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\minimal\testsuite.h">
+      <Filter>AP-Milesi\mavlink\minimal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\minimal\version.h">
+      <Filter>AP-Milesi\mavlink\minimal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\standard\mavlink.h">
+      <Filter>AP-Milesi\mavlink\standard</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\standard\standard.h">
+      <Filter>AP-Milesi\mavlink\standard</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\standard\testsuite.h">
+      <Filter>AP-Milesi\mavlink\standard</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mavlink\standard\version.h">
+      <Filter>AP-Milesi\mavlink\standard</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tflow-udp.hpp" />
+    <ClInclude Include="..\AP-Milesi\tflow-ap-milesi.hpp">
+      <Filter>AP-Milesi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\AP-Milesi\tflow-ap-milesi-cfg.hpp">
+      <Filter>AP-Milesi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tflow-serial.hpp" />
+    <ClInclude Include="..\tflow-buf-pck.hpp">
+      <Filter>tflow-buf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\tflow-ap.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">
@@ -66,9 +826,25 @@
     <Filter Include="tflow-buf">
       <UniqueIdentifier>{d398b6a2-97a6-40ca-a146-61c8cf020ddd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="AP-Milesi">
+      <UniqueIdentifier>{c8182143-8f39-4dd8-bdce-a36867d49dce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AP-Milesi\mavlink">
+      <UniqueIdentifier>{3965bc1b-d9eb-450d-bca3-248242045631}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AP-Milesi\mavlink\common">
+      <UniqueIdentifier>{02def37a-0f53-4ce7-a618-e747ce2468c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AP-Milesi\mavlink\minimal">
+      <UniqueIdentifier>{54d50ad3-10cc-46e0-8c63-823d9c2895f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AP-Milesi\mavlink\standard">
+      <UniqueIdentifier>{6edfe0e7-493c-4bda-8166-8c28b5cb17c9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.editorconfig" />
+    <None Include="..\.editorconfig_" />
     <None Include="..\tflow-capture-config.json" />
+    <None Include=".editorconfig" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="6.6-8dev|ARM">
+      <Configuration>6.6-8dev</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="6.6-8dev|ARM64">
+      <Configuration>6.6-8dev</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="6.6-8dev|x64">
+      <Configuration>6.6-8dev</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="6.6-8dev|x86">
+      <Configuration>6.6-8dev</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="8dev_scarthgap|ARM">
       <Configuration>8dev_scarthgap</Configuration>
       <Platform>ARM</Platform>
@@ -17,32 +33,48 @@
       <Configuration>8dev_scarthgap</Configuration>
       <Platform>x86</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|ARM">
-      <Configuration>Debug</Configuration>
+    <ProjectConfiguration Include="imx-Mickledore|ARM">
+      <Configuration>imx-Mickledore</Configuration>
       <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Mickledore-Milesi|ARM">
+      <Configuration>Mickledore-Milesi</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Mickledore-Milesi|ARM64">
+      <Configuration>Mickledore-Milesi</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Mickledore-Milesi|x64">
+      <Configuration>Mickledore-Milesi</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Mickledore-Milesi|x86">
+      <Configuration>Mickledore-Milesi</Configuration>
+      <Platform>x86</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|ARM">
       <Configuration>Release</Configuration>
       <Platform>ARM</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|ARM64">
-      <Configuration>Debug</Configuration>
+    <ProjectConfiguration Include="imx-Mickledore|ARM64">
+      <Configuration>imx-Mickledore</Configuration>
       <Platform>ARM64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|ARM64">
       <Configuration>Release</Configuration>
       <Platform>ARM64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x86">
-      <Configuration>Debug</Configuration>
+    <ProjectConfiguration Include="imx-Mickledore|x86">
+      <Configuration>imx-Mickledore</Configuration>
       <Platform>x86</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x86">
       <Configuration>Release</Configuration>
       <Platform>x86</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
+    <ProjectConfiguration Include="imx-Mickledore|x64">
+      <Configuration>imx-Mickledore</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
@@ -51,12 +83,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\AP-Milesi\tflow-ap-milesi-if.cpp" />
+    <ClCompile Include="..\AP-Milesi\tflow-ap-milesi.cpp" />
     <ClCompile Include="..\main.cpp">
-      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</RemoteCopyFile>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='imx-Mickledore|ARM64'">true</RemoteCopyFile>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'">true</RemoteCopyFile>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'">true</RemoteCopyFile>
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">true</RemoteCopyFile>
     </ClCompile>
-    <ClCompile Include="..\tflow-ap-fixar.cpp" />
-    <ClCompile Include="..\tflow-ap.cpp" />
     <ClCompile Include="..\tflow-buf-srv.cpp" />
     <ClCompile Include="..\tflow-capture.cpp" />
     <ClCompile Include="..\tflow-ctrl-capture.cpp" />
@@ -65,13 +99,265 @@
     <ClCompile Include="..\tflow-ctrl.cpp" />
     <ClCompile Include="..\tflow-player.cpp" />
     <ClCompile Include="..\tflow-capture-v4l2.cpp" />
+    <ClCompile Include="..\tflow-serial.cpp" />
+    <ClCompile Include="..\tflow-udp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\tflow-ap-fixar.h" />
-    <ClInclude Include="..\tflow-ap.h" />
+    <ClInclude Include="..\AP-Milesi\tflow-ap-milesi-cfg.hpp" />
+    <ClInclude Include="..\AP-Milesi\tflow-ap-milesi.hpp" />
+    <ClInclude Include="..\mavlink\checksum.h" />
+    <ClInclude Include="..\mavlink\common\common.h" />
+    <ClInclude Include="..\mavlink\common\mavlink.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_actuator_control_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_actuator_output_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_adsb_vehicle.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_ais_vessel.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_altitude.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude_quaternion.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude_quaternion_cov.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_attitude_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_att_pos_mocap.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_auth_key.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_autopilot_state_for_gimbal_device.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_autopilot_version.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_available_modes.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_available_modes_monitor.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_battery_info.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_battery_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_button_change.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_capture_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_fov_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_image_captured.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_settings.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_thermal_range.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_tracking_geo_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_tracking_image_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_camera_trigger.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_canfd_frame.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_can_filter_modify.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_can_frame.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_cellular_config.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_cellular_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_change_operator_control.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_change_operator_control_ack.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_collision.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_ack.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_cancel.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_command_long.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_component_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_component_information_basic.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_component_metadata.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_control_system_state.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_current_event_sequence.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_current_mode.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_data_stream.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_data_transmission_handshake.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_debug.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_debug_float_array.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_debug_vect.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_distance_sensor.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_efi_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_encapsulated_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_esc_info.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_esc_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_estimator_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_event.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_extended_sys_state.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_fence_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_file_transfer_protocol.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_flight_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_follow_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_fuel_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_generator_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_device_attitude_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_device_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_device_set_attitude.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_set_attitude.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_set_manual_control.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_set_pitchyaw.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gimbal_manager_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_global_position_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_global_position_int_cov.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_global_vision_position_estimate.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps2_raw.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps2_rtk.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_global_origin.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_inject_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_input.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_raw_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_rtcm_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_rtk.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_gps_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_highres_imu.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_high_latency.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_high_latency2.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_actuator_controls.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_controls.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_gps.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_optical_flow.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_rc_inputs_raw.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_sensor.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_state.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hil_state_quaternion.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_home_position.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_hygrometer_sensor.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_illuminator_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_isbd_link_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_landing_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_link_node_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_local_position_ned.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_local_position_ned_cov.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_local_position_ned_system_global_offset.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_logging_ack.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_logging_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_logging_data_acked.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_entry.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_erase.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_request_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_request_end.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_log_request_list.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mag_cal_report.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_manual_control.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_manual_setpoint.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_memory_vect.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_message_interval.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_ack.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_clear_all.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_count.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_current.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_item.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_item_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_item_reached.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request_list.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_request_partial_list.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_set_current.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mission_write_partial_list.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_mount_orientation.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_named_value_float.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_named_value_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_nav_controller_output.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_obstacle_distance.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_odometry.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_onboard_computer_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_arm_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_authentication.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_basic_id.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_location.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_message_pack.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_operator_id.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_self_id.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_system.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_open_drone_id_system_update.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_optical_flow.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_optical_flow_rad.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_orbit_execution_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_ack.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_request_list.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_request_read.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_set.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_ext_value.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_map_rc.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_request_list.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_request_read.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_set.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_param_value.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_ping.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_play_tune.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_play_tune_v2.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_position_target_global_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_position_target_local_ned.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_power_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_radio_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_raw_imu.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_raw_pressure.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_raw_rpm.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels_override.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels_raw.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_rc_channels_scaled.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_request_data_stream.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_request_event.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_resource_request.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_response_event_error.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_safety_allowed_area.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_safety_set_allowed_area.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_imu.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_imu2.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_imu3.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_pressure.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_pressure2.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_scaled_pressure3.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_serial_control.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_servo_output_raw.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_setup_signing.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_actuator_control_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_attitude_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_gps_global_origin.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_home_position.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_mode.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_position_target_global_int.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_set_position_target_local_ned.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_sim_state.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_smart_battery_info.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_statustext.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_storage_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_supported_tunes.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_system_time.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_sys_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_check.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_data.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_report.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_terrain_request.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_timesync.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_time_estimate_to_target.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_trajectory_representation_bezier.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_trajectory_representation_waypoints.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_tunnel.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_uavcan_node_info.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_uavcan_node_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_utm_global_position.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_v2_extension.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vfr_hud.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vibration.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vicon_position_estimate.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_video_stream_information.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_video_stream_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vision_position_estimate.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_vision_speed_estimate.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_wheel_distance.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_wifi_config_ap.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_winch_status.h" />
+    <ClInclude Include="..\mavlink\common\mavlink_msg_wind_cov.h" />
+    <ClInclude Include="..\mavlink\common\testsuite.h" />
+    <ClInclude Include="..\mavlink\common\version.h" />
+    <ClInclude Include="..\mavlink\mavlink_conversions.h" />
+    <ClInclude Include="..\mavlink\mavlink_get_info.h" />
+    <ClInclude Include="..\mavlink\mavlink_helpers.h" />
+    <ClInclude Include="..\mavlink\mavlink_sha256.h" />
+    <ClInclude Include="..\mavlink\mavlink_types.h" />
+    <ClInclude Include="..\mavlink\minimal\mavlink.h" />
+    <ClInclude Include="..\mavlink\minimal\mavlink_msg_heartbeat.h" />
+    <ClInclude Include="..\mavlink\minimal\mavlink_msg_protocol_version.h" />
+    <ClInclude Include="..\mavlink\minimal\minimal.h" />
+    <ClInclude Include="..\mavlink\minimal\testsuite.h" />
+    <ClInclude Include="..\mavlink\minimal\version.h" />
+    <ClInclude Include="..\mavlink\protocol.h" />
+    <ClInclude Include="..\mavlink\standard\mavlink.h" />
+    <ClInclude Include="..\mavlink\standard\standard.h" />
+    <ClInclude Include="..\mavlink\standard\testsuite.h" />
+    <ClInclude Include="..\mavlink\standard\version.h" />
+    <ClInclude Include="..\tflow-ap.hpp" />
+    <ClInclude Include="..\tflow-buf-pck.hpp" />
     <ClInclude Include="..\tflow-buf-srv.hpp" />
     <ClInclude Include="..\tflow-buf.hpp" />
     <ClInclude Include="..\tflow-build-cfg.hpp" />
@@ -85,11 +371,14 @@
     <ClInclude Include="..\tflow-glib.hpp" />
     <ClInclude Include="..\tflow-player.h" />
     <ClInclude Include="..\tflow-capture-v4l2.hpp" />
+    <ClInclude Include="..\tflow-serial.hpp" />
+    <ClInclude Include="..\tflow-udp.hpp" />
     <ClInclude Include="buildin.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.editorconfig" />
+    <None Include="..\.editorconfig_" />
     <None Include="..\tflow-capture-config.json" />
+    <None Include=".editorconfig" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{DC68093C-D98F-4AED-8EBB-B8C7EAFB91DA}</ProjectGuid>
@@ -108,7 +397,7 @@
     <ConfigurationType>Makefile</ConfigurationType>
     <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/</RemoteRootDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='imx-Mickledore|ARM64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
     <ConfigurationType>Makefile</ConfigurationType>
     <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/tflow-capture</RemoteRootDir>
@@ -116,10 +405,24 @@
     </RemoteProjectRelDir>
     <UseCompiler>true</UseCompiler>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
     <ConfigurationType>Makefile</ConfigurationType>
     <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/tflow-capture</RemoteRootDir>
+    <RemoteProjectRelDir />
+    <UseCompiler>true</UseCompiler>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <RemoteRootDir>~/compulab-nxp-bsp/build-ucm-imx8m-plus/workspace/sources/tflow-capture</RemoteRootDir>
+    <RemoteProjectRelDir />
+    <UseCompiler>true</UseCompiler>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <RemoteRootDir>~/8dev-Scarthgap/compulab-nxp-bsp/build-ucm-imx8m-plus-bubo/workspace/sources/tflow-capture</RemoteRootDir>
     <RemoteProjectRelDir />
     <UseCompiler>true</UseCompiler>
   </PropertyGroup>
@@ -128,11 +431,29 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='imx-Mickledore|ARM64'">
     <OutDir>
     </OutDir>
     <RemoteDeployDir>
     </RemoteDeployDir>
+    <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
+    <RemoteCleanCommandLine>pwd &amp;&amp; ./build.sh cleanstate</RemoteCleanCommandLine>
+    <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
+    <NMakeIncludeSearchPath>.;..;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'">
+    <OutDir />
+    <RemoteDeployDir />
+    <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
+    <RemoteCleanCommandLine>pwd &amp;&amp; ./build.sh cleanstate</RemoteCleanCommandLine>
+    <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
+    <NMakeIncludeSearchPath>.;..;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'">
+    <OutDir />
+    <RemoteDeployDir />
     <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
     <RemoteCleanCommandLine>pwd &amp;&amp; ./build.sh cleanstate</RemoteCleanCommandLine>
     <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
@@ -152,9 +473,25 @@
     <RemoteBuildCommandLine>pwd</RemoteBuildCommandLine>
     <RemoteCopySourceMethod>rsync</RemoteCopySourceMethod>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='imx-Mickledore|ARM64'">
     <PostBuildEvent>
-      <Command>pscp $(OutDir)tflow-capture root@bubo-bubo-001:/home/root</Command>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
+    </PostBuildEvent>
+    <ClCompile>
+      <CppLanguageStandard>gnu++11</CppLanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'">
+    <PostBuildEvent>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
+    </PostBuildEvent>
+    <ClCompile>
+      <CppLanguageStandard>gnu++11</CppLanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'">
+    <PostBuildEvent>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
     </PostBuildEvent>
     <ClCompile>
       <CppLanguageStandard>gnu++11</CppLanguageStandard>
@@ -162,7 +499,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">
     <PostBuildEvent>
-      <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.3:/root</Command>
     </PostBuildEvent>
     <ClCompile>
       <CppLanguageStandard>gnu++11</CppLanguageStandard>

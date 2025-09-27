@@ -1,8 +1,8 @@
+#include "tflow-build-cfg.hpp"
 #include <iostream>
 #include <functional>
 
-#include <giomm.h>
-#include <glib-unix.h>
+#include "tflow-glib.hpp"
 
 #include <json11.hpp>
 
@@ -11,8 +11,6 @@
 using namespace json11;
 
 v4l2_buffer g_buf;
-
-//int g_first_boot = 1;
 
 #define IDLE_INTERVAL_MSEC 300
 
@@ -42,18 +40,24 @@ static double diff_timespec_msec(
 
 TFlowBuf::TFlowBuf()
 {
-    this->index = -1;
-    this->length = 0;
-    this->start = MAP_FAILED;
 
     memset(&ts, 0, sizeof(ts));
     sequence = 0;
 
     /* Parameters obtained from Kernel on the Client side */
-    start = nullptr;        // Not used on Server side
-    length = -1;            // Not used on Server side
+    index = -1;
+    length = 0;
+    start = MAP_FAILED;
 
     owners = 0;             // Bit mask of TFlowBufCli. Bit 0 - means buffer is in user space
+}
+
+TFlowBuf::~TFlowBuf()
+{
+    if (start != MAP_FAILED) {
+        munmap(start, length);
+        start = MAP_FAILED;
+    }
 }
 
 int TFlowBuf::age() {
@@ -68,12 +72,6 @@ int TFlowBuf::age() {
     return (now_ms - proc_frame_ms);
 }
 
-static int _onCustomMsg(void* ctx, const TFlowBuf::pck_t& in_msg)
-{
-    TFlowCapture* m = (TFlowCapture*)ctx;
-    return m->onCustomMsg(in_msg);
-}
-
 #if CAPTURE_PLAYER
 static int _onBufPlayer(void* ctx, TFlowBuf& buf)
 {
@@ -81,81 +79,20 @@ static int _onBufPlayer(void* ctx, TFlowBuf& buf)
     return m->onBufPlayer(buf);
 }
 #endif
-static int _onBufAP(void* ctx, TFlowBuf &buf)
+
+int TFlowCapture::onCustomMsg(const TFlowBufPck::pck& in_msg)
 {
-    TFlowCapture* m = (TFlowCapture*)ctx;
-    return m->onBufAP(buf);
-}
+    if (in_msg.hdr.id <= TFlowBufPck::TFLOWBUF_MSG_CUSTOM_) return 0;
 
-
-int TFlowCapture::onCustomMsgNavigator(const struct pck_navigator& in_msg_nav)
-{
-    // No logic here - just repack data to AP message
-
-    static TFLOW_AP::out_msg msg = {
-        .positioning = {
-            .hdr = {
-                .mark = 'T', 
-                .src = 0, 
-                .len = sizeof(TFLOW_AP::positioning) - sizeof(TFLOW_AP::hdr) 
-            },
-            .msg_id = 0x01
-        }
-    };
-
-    msg.positioning.position_x        = in_msg_nav.position_x;
-    msg.positioning.position_y        = in_msg_nav.position_y;
-    msg.positioning.north_azimuth     = in_msg_nav.north_azimuth;
-    msg.positioning.position_quality  = in_msg_nav.position_quality;
-    msg.positioning.velocity_x        = in_msg_nav.velocity_x;
-    msg.positioning.velocity_y        = in_msg_nav.velocity_y;
-    msg.positioning.velocity_heading  = in_msg_nav.velocity_heading;
-    msg.positioning.velocity_is_valid = in_msg_nav.velocity_is_valid;
-    msg.positioning.sync_time         = in_msg_nav.sync_time;
-    msg.positioning.video_quality     = in_msg_nav.video_quality;
-    msg.positioning.sync_mode         = in_msg_nav.sync_mode;
-
-#if 0
-    msg.positioning.position_x       = in_msg_nav.position_x;
-    msg.positioning.position_y       = in_msg_nav.position_y;
-    msg.positioning.north_azimuth    = in_msg_nav.north_azimuth;
-    msg.positioning.sync_time        = in_msg_nav.sync_time;
-    msg.positioning.position_quality = in_msg_nav.position_quality;
-    msg.positioning.video_quality    = in_msg_nav.video_quality;
-    msg.positioning.sync_mode        = in_msg_nav.sync_mode;
+    // Return -1 to close the cli_port
+#if WITH_AP
+    return autopilot->onCaptureMsgRcv(in_msg);
 #endif
 
-    {
-        static int presc = 0;
-        if ( ( presc++ & 0x7f ) == 0 ) {
-            g_warning("TFlowAP: Pos[%d]: x=%5.1f(%5.1f) z=%5.1f(%5.1f) az=%5.1f Vel[%d]: x=%5.1f z=%5.1f, az=%5f", 
-                msg.positioning.position_quality,
-                ( float ) autopilot->last_sensors.position_x/100, ( float ) msg.positioning.position_x / 100,
-                ( float ) autopilot->last_sensors.position_z/100, ( float ) msg.positioning.position_y / 100,
-                ( float ) msg.positioning.north_azimuth / 100,
-                msg.positioning.velocity_is_valid,
-                ( float ) msg.positioning.velocity_x/ 100, 
-                ( float ) msg.positioning.velocity_y / 100, 
-                ( float ) msg.positioning.velocity_heading / 100);
-        }
-    }
-
-    if (autopilot) autopilot->serialDataSend(msg);
-    return 0;
-}
-
-int TFlowCapture::onCustomMsg(const TFlowBuf::pck_t& in_msg)
-{
-    if (in_msg.hdr.id <= TFLOWBUF_MSG_CUSTOM_) return 0;
-
-    switch (in_msg.hdr.id) {
-    case TFLOWBUF_MSG_CUSTOM_NAVIGATOR:
-        onCustomMsgNavigator((const struct pck_navigator&)in_msg);
-        break;
-    default:
-        break;
-    }
-    // Return -1 to close the cli_port
+#if CODE_BROWSE
+        TFlowMilesi::onCaptureMsgRcv(in_msg);
+        TFlowFixar::onCaptureMsgRcv(in_msg);
+#endif
     return 0;
 }
 
@@ -179,102 +116,6 @@ int TFlowCapture::onBufPlayer(TFlowBuf& buf)
     return 0;
 }
 #endif
-/* Add data from Autopilot to the temporary aux buffer */
-int TFlowCapture::onBufAP(TFlowBuf& buf) 
-{
-#if CODE_BROWSE
-    // caled from 
-    TFlowBufSrv::buf_consume();
-#endif
-
-    // Frame time normally is ahead of AP time
-    struct timeval dt;
-
-    if (!autopilot) return 0;
-
-    if (autopilot->last_sensors_ts_obsolete.tv_usec == autopilot->last_sensors_ts.tv_usec) {
-        static int presc = 0;
-        // sensors still not updated
-        if ((presc++ & 0xff) == 0) {
-            timersub(&buf.ts, &autopilot->last_sensors_ts_obsolete, &dt);
-            g_warning("IMU isn't updated for %ldsec", dt.tv_sec);
-        }
-        return 0;
-    }
-    else {
-        timersub(&buf.ts, &autopilot->last_sensors_ts, &dt);
-        if ( dt.tv_sec > 0 || (dt.tv_sec == 0 && dt.tv_usec > (200 * 1000))) {
-            // IMU data is too old - do not add them 
-            buf.aux_data = nullptr;
-            buf.aux_data_len = 0;
-            g_warning("IMU too old - dt = %ldsec %ldusec",
-                dt.tv_sec, dt.tv_usec);
-
-            autopilot->last_sensors_ts_obsolete = autopilot->last_sensors_ts;
-            return 0;
-        }
-        else if (autopilot->last_sensors_ts_obsolete.tv_usec != -1) {
-            autopilot->last_sensors_ts_obsolete.tv_usec = -1;
-            g_warning("IMU restored - dt = %ldsec %ldusec",
-                dt.tv_sec, dt.tv_usec);
-        }
-    }     
-
-    //aux_ap_data.sign      = 0x32554D49;                          // "IMU2" -> IMU v.2
-    aux_ap_data.sign      = 0x33554D49;                            // "IMU3" -> IMU v.3 added GPS data
-    aux_ap_data.tv_sec    = autopilot->last_sensors_ts.tv_sec;     // Local time
-    aux_ap_data.tv_usec   = autopilot->last_sensors_ts.tv_usec;    // Local time
-
-    aux_ap_data.hwHealthStatus       = autopilot->last_sensors.hwHealthStatus;
-    aux_ap_data.rangefinder_val_cm   = autopilot->last_sensors.rangefinder_val_cm;
-    aux_ap_data.rangefinder_type     = autopilot->last_sensors.rangefinder_type;
-    aux_ap_data.stabilization_mode   = autopilot->last_sensors.stabilization_mode;
-    aux_ap_data.board_attitude_roll  = autopilot->last_sensors.board_attitude_roll;
-    aux_ap_data.board_attitude_yaw   = autopilot->last_sensors.board_attitude_yaw;
-    aux_ap_data.board_attitude_pitch = autopilot->last_sensors.board_attitude_pitch;
-    aux_ap_data.uav_attitude_roll    = autopilot->last_sensors.uav_attitude_roll;
-    aux_ap_data.uav_attitude_yaw     = autopilot->last_sensors.uav_attitude_yaw;
-    aux_ap_data.uav_attitude_pitch   = autopilot->last_sensors.uav_attitude_pitch;
-    aux_ap_data.pe_baro_alt          = autopilot->last_sensors.pe_baro_alt;
-    aux_ap_data.curr_pos_height      = autopilot->last_sensors.curr_pos_height;
-    aux_ap_data.position_x           = autopilot->last_sensors.position_x;
-    aux_ap_data.position_y           = autopilot->last_sensors.position_y;
-    aux_ap_data.position_z           = autopilot->last_sensors.position_z;
-    aux_ap_data.raw_yaw              = autopilot->last_sensors.raw_yaw;
-    /* GPS raw data (since v3) */
-    aux_ap_data.gps_flags            = autopilot->last_sensors.gps_flags;
-    aux_ap_data.gps_fix_type         = autopilot->last_sensors.gps_fix_type;
-    aux_ap_data.gps_numSat           = autopilot->last_sensors.gps_numSat;
-    aux_ap_data.gps_is_new           = autopilot->last_sensors.gps_is_new;
-    aux_ap_data.gps_hdop             = autopilot->last_sensors.gps_hdop;
-    aux_ap_data.gps_eph              = autopilot->last_sensors.gps_eph;
-    aux_ap_data.gps_epv              = autopilot->last_sensors.gps_epv;
-    aux_ap_data.gps_groundCourse     = autopilot->last_sensors.gps_groundCourse;
-    aux_ap_data.gps_groundSpeed      = autopilot->last_sensors.gps_groundSpeed;
-    aux_ap_data.gps_lat              = autopilot->last_sensors.gps_lat;
-    aux_ap_data.gps_lon              = autopilot->last_sensors.gps_lon;
-    aux_ap_data.gps_alt              = autopilot->last_sensors.gps_alt;
-
-    buf.aux_data = (uint8_t*)&aux_ap_data;
-    buf.aux_data_len = sizeof(aux_ap_data);
-#if 0   
-    {
-        static int presc = 0;
-        if ((presc++ & 0x7f) == 0) {
-            g_warning("TFlowAP[%d]: Health=0x%08X ROLL=%5.1f PITCH=%5.1f YAW=%5.1f Alt=%f (rf=%d) Mode=%d",
-                autopilot->last_sensor_cnt,
-                autopilot->last_sensors.hwHealthStatus,
-                (float)autopilot->last_sensors.board_attitude_roll / 100,
-                (float)autopilot->last_sensors.board_attitude_pitch / 100,
-                (float)autopilot->last_sensors.board_attitude_yaw / 100,
-                (float)autopilot->last_sensors.curr_pos_height / 100,
-                autopilot->last_sensors.rangefinder_val_cm,
-                autopilot->last_sensors.stabilization_mode);
-        }
-    }
-#endif
-    return 0;
-}
 
 TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname) :
     context(_context),
@@ -284,9 +125,8 @@ TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname)
 
     Glib::signal_timeout().connect(sigc::mem_fun(*this, &TFlowCapture::onIdle), IDLE_INTERVAL_MSEC);
 
-    buf_srv = new TFlowBufSrv(context);
-
-    buf_srv->registerOnCustomMsg(this, _onCustomMsg);
+    buf_srv = new TFlowBufSrv(context,
+        std::bind(&TFlowCapture::onCustomMsg, this, std::placeholders::_1));
 
     cam = nullptr;
     cam_last_check_ts.tv_sec = 0;
@@ -298,21 +138,23 @@ TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname)
     player_last_check_ts.tv_nsec = 0;
 #endif
 
-    if (ctrl.serial_name_is_valid()) {
-        autopilot = new TFlowAutopilot(context, ctrl.serial_name_get(), ctrl.serial_baud_get());
-    } else {
-        g_info("TFlowAP: Disabled - Serial port name not configured");
-        autopilot = nullptr;
-    }
+#if WITH_AP
+    autopilot = TFlowAP::createAPInstance(context);
+#elif 
+    autopilot = nullptr;
+#endif
+
 }
 
 TFlowCapture::~TFlowCapture()
 {
     delete buf_srv;
 
+#if WITH_AP
     if (autopilot) {
         delete autopilot;
     }
+#endif
 }
 
 #if CAPTURE_PLAYER
@@ -477,6 +319,20 @@ const struct fmt_info* TFlowCapture::getCamFmt()
     return nullptr;
 }
 
+int TFlowCapture::onBufAP(TFlowBuf &buf)
+{
+    // Called on every received video frame.
+    // Custom submodules can do some work here.
+    // For ex. add custom data to frame's AUX section.
+
+#if WITH_AP
+    autopilot->onBuf(buf);
+#endif
+    // player->onBuf
+
+    return 0;
+}
+
 void TFlowCapture::checkCamState(struct timespec* now_ts)
 {
     if (cam_state_flag.v == Flag::SET) {
@@ -490,7 +346,6 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
 
         /* Don't try connect to camera to often */
         if (diff_timespec_msec(now_ts, &cam_last_check_ts) > 5000) {
-            cam_last_check_ts = *now_ts;
             cam_state_flag.v = Flag::RISE;
         }
         return;
@@ -505,37 +360,58 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         //       The Ctrl configuration stores number of Format in enumeration list.
         //       If index is valid then use this format to start the stream
         do {
-            int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
-            cam = new TFlowCaptureV4L2(context, cfg_buffs_num, 1, 
-                (const TFlowCtrlCapture::cfg_v4l2_ctrls*)ctrl.cmd_flds_config.v4l2.v.ref);
+            cam_last_check_ts = *now_ts;
 
+            int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
+            
+            TFlowCtrlCapture::cfg_v4l2_ctrls *cfg_v4l2 = 
+                (TFlowCtrlCapture::cfg_v4l2_ctrls *)ctrl.cmd_flds_config.v4l2.v.ref;
+
+            cam = new TFlowCaptureV4L2(context, cfg_buffs_num, 1, cfg_v4l2);
+            
             /* Link Camera and TFlowBufferServer*/
             cam->buf_srv = buf_srv;
 
             buf_srv->cam = cam;
-            buf_srv->registerOnBuf(this, _onBufAP);
+            buf_srv->onBuf = std::bind(&TFlowCapture::onBufAP, this, std::placeholders::_1);
 
             rc = cam->Init(); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
             if (rc) break;
 
-            rc = cam->StreamOn(getCamFmt());
+            if (cam->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_COIN417G2) {
+                cfg_v4l2->flyn384.ui_ctrl = &ui_group_def;
+            }
+            else if (cam->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_TWIN412) {
+                cfg_v4l2->flyn384.ui_ctrl = &ui_group_def;
+            }
+            else if (cam->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_TWIN412G2) {
+                cfg_v4l2->twin412g2.ui_ctrl = &ui_group_def;
+            }
 
+            rc = cam->StreamOn(getCamFmt());
             if (rc) break;
+
+            // Loop over all connected clients and advertise Camera's FD
+            if (buf_srv) {
+                buf_srv->onCamFD();
+            }
 
             cam_state_flag.v = Flag::SET;
 
         } while (0);
 
         if (rc) {
+            cam_state_flag.v = Flag::FALL;
+#if 0
             if ( cam->dev_fd != -1 || cam->sub_dev_fd != -1 ) {
                 // Camera was opened but something goes wrong
                 // TODO: Don't try to open camera again until config changed
-                cam_state_flag.v = Flag::FALL;
             } 
             else {
                 // Can't open camera - try again later 
                 cam_state_flag.v = Flag::CLR;
             }
+#endif
         }
         else {
             /* Camera is open. Now we can advertise video buffers */
@@ -549,9 +425,7 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         // prior the camera close
         if (buf_srv->sck_state_flag.v != Flag::CLR) {
             buf_srv->sck_state_flag.v = Flag::FALL;
-        }
-
-        if (buf_srv->sck_state_flag.v == Flag::CLR) {
+        } else {
             // close the camera
             delete cam;
             cam = NULL;
@@ -571,31 +445,22 @@ int TFlowCapture::onIdle()
     if (1) {
         checkCamState(&now_ts);
     }
+
 #if CAPTURE_PLAYER
     else {
         // Draft - not tested
         checkPlayerState(&now_ts);
     }
 #endif
+
     if (autopilot) {
-        autopilot->onIdle(&now_ts);
-#if 0
-        // FLYN384 is a SHUTTER camera, thus the calibration needs to be
-        // disabled or controled directly by capture during the flight.
-        if (autopilot->last_sensors_ts_obsolete.tv_usec != autopilot->last_sensors_ts.tv_usec) {
-            if (cam && (0 == cam->driver_name.compare("flyn384"))) {
-                // TODO: Set calibration OFF on disarm and 
-                //       ON on "Copter" or "Plane" stabilization mode.
-                //       Stabilization mode isn't valid so far, thus let's use altitude with 
-                //       some hysteresis as a workaround.
-                if (autopilot->last_sensors.curr_pos_height < 5 && !cam->flyn_calib_is_on) {
-                    cam->ioctlSetControls_flyn_calib(1);
-                } 
-                else if (autopilot->last_sensors.curr_pos_height > 10 && cam->flyn_calib_is_on) {
-                    cam->ioctlSetControls_flyn_calib(0);
-                }
-            }
-        }
+        autopilot->onIdle(now_ts);
+#if CODE_BROWSE
+            // Milesi
+            TFlowSerial::onIdle(now_ts);
+            TFlowUDP::onIdle(now_ts);
+            // Fixar
+            TFlowSerial::onIdle(now_ts);
 #endif
 
     }

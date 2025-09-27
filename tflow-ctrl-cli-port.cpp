@@ -26,7 +26,7 @@ TFlowCtrlCliPort::~TFlowCtrlCliPort()
 
 }
 
-TFlowCtrlCliPort::TFlowCtrlCliPort(MainContextPtr context, TFlowCtrlSrv &_srv, int fd) :
+TFlowCtrlCliPort::TFlowCtrlCliPort (MainContextPtr context, TFlowCtrlSrv &_srv, int fd) :
     srv(_srv)
 {
     sck_fd = fd;
@@ -182,7 +182,7 @@ int TFlowCtrlCliPort::onMsgRcv()
                     TFlowCtrlProcess::cmd_cb_player_dir();
 #endif
     }
-    
+
     return sendResp(in_cmd.c_str(), resp_err, j_resp_params);
 
 }

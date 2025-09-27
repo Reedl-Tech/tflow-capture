@@ -16,8 +16,7 @@
 #include <sys/stat.h> /* For mode constants */
 #include <sys/types.h>
 
-#include <giomm.h>
-#include <glib-unix.h>
+#include "tflow-glib.hpp"
 
 using namespace std;
 
