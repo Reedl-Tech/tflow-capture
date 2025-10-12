@@ -173,7 +173,7 @@ int TFlowCtrlCliPort::onMsgRcv()
 #if CODE_BROWSE
         TFlowCtrlSrvCapture::onTFlowCtrlMsg();
             TFlowCtrlCapture::cmd_cb_config();
-            TFlowCtrlCapture::cmd_cb_controls();
+            TFlowCtrlCapture::cmd_cb_ui_sign();
 
         TFlowCtrlSrvProcess::onTFlowCtrlMsg();
             TFlowCtrlProcess::cmd_cb_cfg_player();      // for in_cmd == "player"

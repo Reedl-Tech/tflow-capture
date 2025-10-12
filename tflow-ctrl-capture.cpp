@@ -568,6 +568,7 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
 
     g_info("Config command: %s", j_in_params.dump().c_str());
 
+    cmd_flds_config.buffs_num.v.num = 4;
     // Fill config fields with values from Json input object
     int was_changed = 0;
     int rc = setCmdFields(flds, j_in_params, was_changed);

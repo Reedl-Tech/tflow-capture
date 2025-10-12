@@ -28,6 +28,7 @@
       <Filter>AP-Milesi</Filter>
     </ClCompile>
     <ClCompile Include="..\tflow-serial.cpp" />
+    <ClCompile Include="..\mongoose.c" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\CMakeLists.txt" />
@@ -815,6 +816,7 @@
       <Filter>tflow-buf</Filter>
     </ClInclude>
     <ClInclude Include="..\tflow-ap.hpp" />
+    <ClInclude Include="..\mongoose.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="V4L2Device">

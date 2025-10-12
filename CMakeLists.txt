@@ -42,6 +42,8 @@ add_executable (tflow-capture
     "tflow-player.cpp"
     "tflow-player.h"
     "tflow-ap.hpp"
+    "mongoose.c"
+    "mongoose.h"
     "AP-Milesi/tflow-ap-milesi-if.cpp"
     "AP-Milesi/tflow-ap-milesi.cpp"
     "AP-Milesi/tflow-ap-milesi.hpp"

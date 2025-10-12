@@ -91,6 +91,7 @@
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'">true</RemoteCopyFile>
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">true</RemoteCopyFile>
     </ClCompile>
+    <ClCompile Include="..\mongoose.c" />
     <ClCompile Include="..\tflow-buf-srv.cpp" />
     <ClCompile Include="..\tflow-capture.cpp" />
     <ClCompile Include="..\tflow-ctrl-capture.cpp" />
@@ -356,6 +357,7 @@
     <ClInclude Include="..\mavlink\standard\standard.h" />
     <ClInclude Include="..\mavlink\standard\testsuite.h" />
     <ClInclude Include="..\mavlink\standard\version.h" />
+    <ClInclude Include="..\mongoose.h" />
     <ClInclude Include="..\tflow-ap.hpp" />
     <ClInclude Include="..\tflow-buf-pck.hpp" />
     <ClInclude Include="..\tflow-buf-srv.hpp" />
@@ -463,8 +465,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">
     <OutDir />
     <RemoteDeployDir />
-    <RemoteBuildCommandLine>pwd &amp;&amp; ./build.sh compile</RemoteBuildCommandLine>
-    <RemoteCleanCommandLine>pwd &amp;&amp; ./build.sh cleanstate</RemoteCleanCommandLine>
+    <RemoteBuildCommandLine>pwd &amp;&amp; ./build-8dev-Scarthgap.sh compile</RemoteBuildCommandLine>
+    <RemoteCleanCommandLine>pwd &amp;&amp; ./build-8dev-Scarthgap.sh cleanstate</RemoteCleanCommandLine>
     <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
     <NMakeIncludeSearchPath>.;..;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
