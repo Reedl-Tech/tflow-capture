@@ -233,7 +233,7 @@ public:
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
         .state        = { "state",        CFT_NUM, 0, {.num =  0}      },
-        .buffs_num    = { "buffs_num",    CFT_NUM, 0, {.num =  0}      },
+        .buffs_num    = { "buffs_num",    CFT_NUM, 0, {.num =  4}      },
         .fmt_enum     = { "fmt_enum",     CFT_STR, 0, {.str = nullptr} },     // WxH CCCC, ...
         .fmt_idx      = { "fmt_idx",      CFT_NUM, 0, {.num = -1}      },     // Invalidate index
         .preffered_w  = { "pref_width",   CFT_NUM, 0, {.num = -1}      },     // 
@@ -262,7 +262,7 @@ public:
     int cmd_cb_set_as_def(const json11::Json& j_in_params, json11::Json::object& j_out_params);
 
 #define TFLOW_CAPTURE_RPC_CMD_VERSION    0
-#define TFLOW_CAPTURE_RPC_CMD_UI_SIGN   1
+#define TFLOW_CAPTURE_RPC_CMD_UI_SIGN    1
 #define TFLOW_CAPTURE_RPC_CMD_SET_AS_DEF 2
 #define TFLOW_CAPTURE_RPC_CMD_CONFIG     3
 #define TFLOW_CAPTURE_RPC_CMD_LAST       4

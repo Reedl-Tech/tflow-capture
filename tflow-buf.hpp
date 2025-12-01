@@ -2,16 +2,17 @@
 
 #include <glib-unix.h>
 
+#include <linux/videodev2.h> //V4L2 stuff
+
 /* Class shared between client and server */
 
 class TFlowBuf {
 public:
+    const char sign[9] = "TFlowBuf";
 
     TFlowBuf();
     ~TFlowBuf();
      
-    const char* sign = "TFlowBuf";
-
     /* Parameters passed from server */
     int index;
     struct timeval ts;

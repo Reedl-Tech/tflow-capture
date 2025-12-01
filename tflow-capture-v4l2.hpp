@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <memory.h>
 #include <string.h>
+#include <functional>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -14,6 +15,9 @@
 #include <linux/videodev2.h> //V4L2 stuff
 
 #include "tflow-glib.hpp"
+
+#include "tflow-buf-srv.hpp"
+#include "tflow-buf-pck.hpp"
 
 // Att: Keep the following in sync with kernel defines in 
 //      kernel/drivers/staging/media/reedl-flyn384/flyn384.c
@@ -62,13 +66,21 @@
 
 struct fmt_info;
 
-class TFlowCaptureV4L2 {
+class TFlowCaptureV4L2 : public TFlowBufSrv {
 public:
 
-    TFlowCaptureV4L2(MainContextPtr context, int buffs_num, int planes_num,
-        const TFlowCtrlCapture::cfg_v4l2_ctrls* cfg);
+    TFlowCaptureV4L2(MainContextPtr context,
+        const std::string& _buf_srv_name,
+        const std::string& _buf_sck_name,
+        int buffs_num, int planes_num,
+        const TFlowCtrlCapture::cfg_v4l2_ctrls* cfg,
+        std::function<int(TFlowBuf &buf)> _app_onBuf_cb,
+        std::function<int(const TFlowBufPck::pck& in_msg)> _app_onCustomMsg_cb);
 
     ~TFlowCaptureV4L2();
+
+    // Str
+    int onCustomMsg(const TFlowBufPck::pck& in_msg);
 
     int Init();
     void Deinit();
@@ -112,6 +124,11 @@ public:
     
     int onBuff(Glib::IOCondition io_cond);       // Called at new buffer available from the driver
 
+    // Interface to TFlowBufSrv 
+    void buf_queue(int index) override;
+    int  buf_dev_fd() override;
+    void buf_dev_fmt(TFlowBufPck::pck_fd* pck_fd) override;
+
     int is_stall();                              //  Should be called periodiacally. For ex. from the idle loop.
 
     enum class SENSOR_API_TYPE {
@@ -128,7 +145,6 @@ public:
 
     int f_in_fd;
 
-    TFlowBufSrv *buf_srv;   // Server to pass V4L2 buffers
     int buffs_num;          // Initialized on creation by callee 
     int planes_num;         // Initialized on creation by callee 
 

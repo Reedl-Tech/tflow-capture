@@ -480,7 +480,7 @@
       <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
     </PostBuildEvent>
     <ClCompile>
-      <CppLanguageStandard>gnu++11</CppLanguageStandard>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'">
@@ -488,7 +488,7 @@
       <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
     </PostBuildEvent>
     <ClCompile>
-      <CppLanguageStandard>gnu++11</CppLanguageStandard>
+      <CppLanguageStandard>gnu++20</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'">

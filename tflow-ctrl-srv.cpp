@@ -5,8 +5,6 @@
 using namespace json11;
 
 #include "tflow-common.hpp"
-
-//#include "tflow-perfmon.hpp"
 #include "tflow-ctrl-srv.hpp"
 
 static struct timespec diff_timespec(
@@ -131,7 +129,7 @@ int TFlowCtrlSrv::StartListening()
     return 0;
 }
 
-void TFlowCtrlSrv::onIdle(struct timespec now_ts)
+void TFlowCtrlSrv::onIdle(const struct timespec &now_ts)
 {
     if (sck_state_flag.v == Flag::SET) {
         return;

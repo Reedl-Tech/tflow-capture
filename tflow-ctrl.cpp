@@ -415,7 +415,6 @@ void  TFlowCtrl::collectRequestedChanges(tflow_cmd_field_t* in_cmd_fields,
 
             switch (cmd_field->type) {
             case CFT_NUM:
-                
                 // For Numbered Dropdown items put string value instead of number
                 if (cmd_field->ui_ctrl &&
                     cmd_field->ui_ctrl->type == TFlowCtrlUI::DROPDOWN &&
@@ -434,7 +433,6 @@ void  TFlowCtrl::collectRequestedChanges(tflow_cmd_field_t* in_cmd_fields,
                 else {
                     j_params.emplace(cmd_field->name, cmd_field->v.num);
                 }
-
                 break;
             case CFT_VNUM: {
                 Json::array j_val_arr;
@@ -545,7 +543,6 @@ void  TFlowCtrl::clrFieldChanged(tflow_cmd_field_t* in_cmd_fields)
     }
 }
 
-
 int TFlowCtrl::setCmdFields(tflow_cmd_field_t* in_cmd_fields, const Json& j_in_params, int &was_changed)
 {
     // Loop over all config command fields and check json_cfg
@@ -553,7 +550,7 @@ int TFlowCtrl::setCmdFields(tflow_cmd_field_t* in_cmd_fields, const Json& j_in_p
 
     // std::string del_me = j_in_params.dump();
     while (cmd_field->name != nullptr) {
-        
+
         const Json& in_field_param = j_in_params[cmd_field->name];
         // std::string del_me2 = in_field_param.dump();
 

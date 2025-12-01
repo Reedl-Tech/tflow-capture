@@ -269,7 +269,7 @@ int TFlowSerial::set_baudrate()
     tio.c_cc[VTIME] = 0;
     tio.c_cc[VMIN] = 0;
 
-    g_warning("Baudrate: %x-%X (%d)", cfgetispeed(&tio), tio.c_cflag, baud_rate);
+    g_info("Baudrate: %x-%X (%d)", cfgetispeed(&tio), tio.c_cflag, baud_rate);
     ret = tcsetattr(serial_sck_fd, TCSANOW, &tio);
     if (ret) {
         g_warning("Baudrate: ERROR during tcsetattr(): %d", errno);
@@ -309,6 +309,8 @@ int TFlowSerial::open_dev()
     if (0 != set_baudrate()) {
         goto on_error;
     }
+
+    g_info("TflowSerial on %s", serial_name.c_str());
 
     serial_sck_src = Glib::IOSource::create(serial_sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
     serial_sck_src->connect(sigc::mem_fun(*this, &TFlowSerial::onSerialData));

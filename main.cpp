@@ -39,7 +39,7 @@ int main(int argc, char** argv)
 
     Gio::init();
 
-    g_info("TFlow Capture (Milesi) started");
+    g_info("TFlow Capture (Bubo-Bubo) started");
 
     std::string cfg_fname("/etc/tflow/tflow-capture-config.json");
     getConfigFilename(argc, argv[1], cfg_fname);

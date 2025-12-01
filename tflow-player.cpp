@@ -333,8 +333,6 @@ int TFlowPlayer::onTick()
     v4l2_buf.sequence = 0;
     v4l2_buf.index = free_buff_idx;
 
-    buf_srv->buf_consume(v4l2_buf);
-
     return 0;
 }
 

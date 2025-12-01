@@ -48,7 +48,7 @@ public:
     } cmd_flds_cfg_milesi = {
         TFLOW_CMD_HEAD("Milesi"),
         .serial_name     = { "serial_name", TFlowCtrl::CFT_STR, 0, {.str = strdup("/dev/ttymxc0")},  &ui_edit_serial_name },
-        .serial_baud     = { "serial_baud", TFlowCtrl::CFT_NUM, 0, {.num = 921600},                  &ui_edit_serial_baud },
+        .serial_baud     = { "serial_baud", TFlowCtrl::CFT_NUM, 0, {.num = 115200},                  &ui_edit_serial_baud },
         .udp_local_addr  = { "local_addr",  TFlowCtrl::CFT_STR, 0, {.str = strdup("0.0.0.0:14550")}, &ui_edit_udp_local_addr},
         .udp_remote_addr = { "remote_addr", TFlowCtrl::CFT_STR, 0, {.str = strdup("192.168.2.10:14550")}, &ui_edit_udp_remote_addr},
         TFLOW_CMD_EOMSG

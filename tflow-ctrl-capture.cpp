@@ -406,13 +406,13 @@ int TFlowCtrlCapture::onConfigFLYN_TWIN412G2()
     cfg_v4l2_ctrls_twin412g2 *cfg_twin412g2 = &cmd_flds_cfg_v4l2_ctrls_twin412g2;
 
     if (cfg_twin412g2->comp_en.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_comp_en(cfg_twin412g2->comp_en.v.num);
+        app.cam0->ioctlSetControls_flyn_comp_en(cfg_twin412g2->comp_en.v.num);
     
     if (cfg_twin412g2->comp_time.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_comp_time(cfg_twin412g2->comp_time.v.num);
+        app.cam0->ioctlSetControls_flyn_comp_time(cfg_twin412g2->comp_time.v.num);
 
     if (cfg_twin412g2->comp_trig.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_comp_trig();
+        app.cam0->ioctlSetControls_flyn_comp_trig();
 
     if ( cfg_twin412g2->test_patt.flags & FIELD_FLAG::CHANGED ) {
         // on the FLYN the test patterns can be triggered either on FPGA 
@@ -426,40 +426,40 @@ int TFlowCtrlCapture::onConfigFLYN_TWIN412G2()
             (struct cfg_v4l2_ctrls_flyn_testpatt *)cfg_twin412g2->test_patt.v.ref;
 
         if ( flyn_testpatt->mipi_testpatt.flags & FIELD_FLAG::CHANGED) {
-            app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->mipi_testpatt, V4L2_CID_TEST_PATTERN);
+            app.cam0->ioctlSetControls_flyn_int(&flyn_testpatt->mipi_testpatt, V4L2_CID_TEST_PATTERN);
         }
 
         if ( flyn_testpatt->gst_testpatt.flags & FIELD_FLAG::CHANGED) {
             if ( flyn_testpatt->gst_testpatt.v.num ) {
                 // Disable calibration (compensation).
                 // Enable test pattern
-                app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->comp_en, 0, V4L2_CID_FLYN384_TEMP_CALIB);
-                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, V4L2_CID_TEST_PATTERN);
+                app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->comp_en, 0, V4L2_CID_FLYN384_TEMP_CALIB);
+                app.cam0->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, V4L2_CID_TEST_PATTERN);
             }
             else {
                 // Disable test patterm. Restore calib settings from config
-                app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->comp_en, V4L2_CID_FLYN384_TEMP_CALIB);
-                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, 0, V4L2_CID_TEST_PATTERN);
+                app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->comp_en, V4L2_CID_FLYN384_TEMP_CALIB);
+                app.cam0->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, 0, V4L2_CID_TEST_PATTERN);
             }
         }
     }
 
     if ( cfg_twin412g2->image_mode.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->image_mode, V4L2_CID_FLYN384_IMG_MODE);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->image_mode, V4L2_CID_FLYN384_IMG_MODE);
     }
 
     if ( cfg_twin412g2->contrast.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->contrast, V4L2_CID_CONTRAST);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->contrast, V4L2_CID_CONTRAST);
     }
     if ( cfg_twin412g2->brightness.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->brightness, V4L2_CID_BRIGHTNESS);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->brightness, V4L2_CID_BRIGHTNESS);
     }
     if ( cfg_twin412g2->enh_detail.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->enh_detail, V4L2_CID_FLYN384_ENH_DETAIL);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->enh_detail, V4L2_CID_FLYN384_ENH_DETAIL);
     }
 
     if ( cfg_twin412g2->denoise2d.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_twin412g2->denoise2d, V4L2_CID_FLYN384_DENOISE_2D);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_twin412g2->denoise2d, V4L2_CID_FLYN384_DENOISE_2D);
     }
 
     tflow_cmd_field_t   enh_detail;
@@ -473,13 +473,13 @@ int TFlowCtrlCapture::onConfigFLYN()
     cfg_v4l2_ctrls_flyn *cfg_flyn = &cmd_flds_cfg_v4l2_ctrls_flyn;
 
     if (cfg_flyn->comp_en.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_comp_en(cfg_flyn->comp_en.v.num);
+        app.cam0->ioctlSetControls_flyn_comp_en(cfg_flyn->comp_en.v.num);
     
     if (cfg_flyn->comp_time.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_comp_time(cfg_flyn->comp_time.v.num);
+        app.cam0->ioctlSetControls_flyn_comp_time(cfg_flyn->comp_time.v.num);
 
     if (cfg_flyn->comp_trig.flags & FIELD_FLAG::CHANGED) 
-        app.cam->ioctlSetControls_flyn_comp_trig();
+        app.cam0->ioctlSetControls_flyn_comp_trig();
 
     if ( cfg_flyn->test_patt.flags & FIELD_FLAG::CHANGED ) {
         // on the FLYN the test patterns can be triggered either on FPGA or
@@ -493,40 +493,40 @@ int TFlowCtrlCapture::onConfigFLYN()
             (struct cfg_v4l2_ctrls_flyn_testpatt *)cfg_flyn->test_patt.v.ref;
 
         if ( flyn_testpatt->mipi_testpatt.flags & FIELD_FLAG::CHANGED) {
-            app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->mipi_testpatt, V4L2_CID_TEST_PATTERN);
+            app.cam0->ioctlSetControls_flyn_int(&flyn_testpatt->mipi_testpatt, V4L2_CID_TEST_PATTERN);
         }
 
         if ( flyn_testpatt->gst_testpatt.flags & FIELD_FLAG::CHANGED) {
             if ( flyn_testpatt->gst_testpatt.v.num ) {
                 // Enable. Preserve calibration setting and disable it
-                app.cam->ioctlSetControls_flyn_comp_en(0);
-                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, V4L2_CID_TEST_PATTERN);
+                app.cam0->ioctlSetControls_flyn_comp_en(0);
+                app.cam0->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, V4L2_CID_TEST_PATTERN);
             }
             else {
                 // Disable. Restore calib settings
-                app.cam->ioctlSetControls_flyn_comp_en(cfg_flyn->comp_en.v.num);
-                app.cam->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, 0, V4L2_CID_TEST_PATTERN);
+                app.cam0->ioctlSetControls_flyn_comp_en(cfg_flyn->comp_en.v.num);
+                app.cam0->ioctlSetControls_flyn_int(&flyn_testpatt->gst_testpatt, 0, V4L2_CID_TEST_PATTERN);
             }
         }
     }
 
     if ( cfg_flyn->contrast.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->contrast, V4L2_CID_CONTRAST);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_flyn->contrast, V4L2_CID_CONTRAST);
     }
     if ( cfg_flyn->brightness.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->brightness, V4L2_CID_BRIGHTNESS);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_flyn->brightness, V4L2_CID_BRIGHTNESS);
     }
 
     if ( cfg_flyn->filter.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->filter, V4L2_CID_FLYN384_FILTER);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_flyn->filter, V4L2_CID_FLYN384_FILTER);
     }
 
     if ( cfg_flyn->denoise.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->denoise, V4L2_CID_FLYN384_DENOISE);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_flyn->denoise, V4L2_CID_FLYN384_DENOISE);
     }
 
     if ( cfg_flyn->gain.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_flyn_int(&cfg_flyn->gain, V4L2_CID_AUTOGAIN);
+        app.cam0->ioctlSetControls_flyn_int(&cfg_flyn->gain, V4L2_CID_AUTOGAIN);
     }
 
     return 0;
@@ -550,7 +550,7 @@ int TFlowCtrlCapture::onConfigV4L2()
     }
 
     if ( cfg_v4l2->flip.flags & FIELD_FLAG::CHANGED ) {
-        app.cam->ioctlSetControls_ISI();
+        app.cam0->ioctlSetControls_ISI();
     }
 
     if ( cfg_v4l2->flyn384.flags & FIELD_FLAG::CHANGED ) onConfigFLYN();
@@ -568,7 +568,6 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
 
     g_info("Config command: %s", j_in_params.dump().c_str());
 
-    cmd_flds_config.buffs_num.v.num = 4;
     // Fill config fields with values from Json input object
     int was_changed = 0;
     int rc = setCmdFields(flds, j_in_params, was_changed);

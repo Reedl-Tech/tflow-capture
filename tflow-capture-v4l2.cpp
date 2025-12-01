@@ -1,18 +1,31 @@
 // 2) Consider usage TFlowBuf[] inside of V4L2_Device
+#include "tflow-build-cfg.hpp"
 #include <thread>
 #include <iostream>
 #include <fcntl.h>
 
 #include "tflow-glib.hpp"
 
+#include "tflow-buf-srv.hpp"
+#include "tflow-buf-pck.hpp"
+
 #include "tflow-capture.hpp"
 #include "tflow-capture-v4l2.hpp"
 
-#define CAM_DESCR 1
-
 TFlowCaptureV4L2::TFlowCaptureV4L2(MainContextPtr _context, 
+    const std::string& _buf_srv_name,
+    const std::string& _buf_sck_name,
     int _buffs_num, int _planes_num,
-    const TFlowCtrlCapture::cfg_v4l2_ctrls* _cfg)
+    const TFlowCtrlCapture::cfg_v4l2_ctrls* _cfg,
+    std::function<int(TFlowBuf& buf)> _app_onBuf_cb,
+    std::function<int(const TFlowBufPck::pck& in_msg)> _app_onCustomMsg_cb)
+    :
+    TFlowBufSrv(
+        _buf_srv_name,
+        _buf_sck_name,
+        _context,
+        _app_onBuf_cb,
+        _app_onCustomMsg_cb)
 {
     context = _context;
     buffs_num = _buffs_num;
@@ -20,8 +33,6 @@ TFlowCaptureV4L2::TFlowCaptureV4L2(MainContextPtr _context,
     cfg = _cfg;
 
     is_streaming = false;
-
-    buf_srv = NULL;
 
     CLEAR(v4l2_buf_template);
     
@@ -60,6 +71,9 @@ TFlowCaptureV4L2::~TFlowCaptureV4L2()
  */
 int TFlowCaptureV4L2::onBuff(Glib::IOCondition io_cond)
 {
+    struct timespec tp;
+    struct timeval  now_ts;
+
     // TODO: Check camera state 
     // ... 
    
@@ -76,7 +90,12 @@ int TFlowCaptureV4L2::onBuff(Glib::IOCondition io_cond)
             //       case of buffer not enqueued back for a long time?
             //       If yes, the obsolete buffers need to be dropped.
 
-            rc = buf_srv->buf_consume(v4l2_buf);
+            clock_gettime(CLOCK_MONOTONIC, &tp);
+            now_ts.tv_sec = tp.tv_sec;
+            now_ts.tv_usec = tp.tv_nsec / 1000;
+
+
+            rc = buf_consume(v4l2_buf.index, 0, now_ts);
         }
 
         if (rc) {
@@ -88,6 +107,26 @@ int TFlowCaptureV4L2::onBuff(Glib::IOCondition io_cond)
     return G_SOURCE_CONTINUE;
 
 }
+
+
+void TFlowCaptureV4L2::buf_queue(int index) 
+{
+    ioctlQueueBuffer(index);
+}
+
+int  TFlowCaptureV4L2::buf_dev_fd()
+{ 
+    return dev_fd; 
+}
+void TFlowCaptureV4L2::buf_dev_fmt(TFlowBufPck::pck_fd* pck_fd)
+{
+    pck_fd->planes_num = planes_num;
+    pck_fd->buffs_num  = buffs_num;
+    pck_fd->width      = stream_fmt->width;
+    pck_fd->height     = stream_fmt->height;
+    pck_fd->format     = stream_fmt->fmt_cc.u32;
+}
+
 // Open video device
 int TFlowCaptureV4L2::Open()
 {
@@ -149,7 +188,6 @@ int TFlowCaptureV4L2::Open()
             if ( _sub_dev_fd == -1 ) continue;
 
             if ( 0 == ioctl(_sub_dev_fd, VIDIOC_QUERYCAP, &capa) ) {
-
 
                 // TFlow thermal cameras uses ISI interface, thus try to match
                 // it by name
@@ -305,6 +343,7 @@ void TFlowCaptureV4L2::getSensorType()
     int rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
     if (rc) {
         g_critical("Ooops, can't get sensor type (%d) - %s", errno, strerror(errno));
+        // return; Tempororary to support old FLYN sensors on kernel 6.1
     }
 
 // 0x0A COIN417G2/TWIN412 Observation
@@ -328,7 +367,6 @@ void TFlowCaptureV4L2::getSensorType()
         default:
             sensor_api_type = SENSOR_API_TYPE::FLYN_COIN417G2;  // Temporary for kernel 6.1 and old sensors FW
             //sensor_api_type = SENSOR_API_TYPE::UNDEF;
-            // return;
     }
 
     g_info("FLYN384: API TYPE - %s",
@@ -566,7 +604,7 @@ int TFlowCaptureV4L2::InitBuffers()
         return -1;
     }
 
-    buf_srv->buf_create(buffs_num);
+    buf_create(buffs_num);
 
     return rc;
 }

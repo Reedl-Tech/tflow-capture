@@ -35,7 +35,6 @@ public:
     MainContextPtr context;
     MainLoopPtr main_loop;
     
-    void AttachIdle();
     int onIdle();
 
     // Functions that fill aux_ap_data from the proper source - AP or media file
@@ -44,22 +43,21 @@ public:
     int onBufPlayer(TFlowBuf& buf);
 #endif
 
-
     // Custom messages handler from buffer server's clients.
     // For instance, the tflow-process->navigator returns result of algorithm 
     // processing to send it back to the Auto Pilot.
     int onCustomMsg(const TFlowBufPck::pck &in_msg);
 
-    TFlowBufSrv *buf_srv;
+    TFlowCaptureV4L2 *cam0;
+    //TFlowCaptureV4L2 *cam1;
 
-    TFlowCaptureV4L2 *cam;
 private:
     void checkCamState(struct timespec *now_tp);
 
     TFlowCtrlCapture ctrl;
 
-    Flag   cam_state_flag;     // FL_SET -> camera opened; FL_CLR -> camera closed
-    struct timespec cam_last_check_ts;
+    Flag   cam0_state_flag;     // FL_SET -> camera opened; FL_CLR -> camera closed
+    struct timespec cam0_last_check_ts;
 
 #if CAPTURE_PLAYER
     void checkPlayerState(struct timespec* now_tp);

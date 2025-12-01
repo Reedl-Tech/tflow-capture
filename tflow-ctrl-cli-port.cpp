@@ -56,8 +56,8 @@ int TFlowCtrlCliPort::sendResp(const char *cmd, int resp_err, const Json::object
         } 
 
         j_resp = Json::object{
-            { "cmd"    , cmd           },
-            { "dir"    , "response"    },        // For better log readability only
+            { "cmd"     , cmd           },
+            { "dir"     , "response"    },        // For better log readability only
             { "err"     , resp_err      },
             { "err_msg" , *err_msg      }
         };

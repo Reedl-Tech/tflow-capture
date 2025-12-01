@@ -1,10 +1,12 @@
-﻿#include <cassert>
+﻿#include "../tflow-build-cfg.hpp"
+
+#include <cassert>
 #include <string>
 
 #include <json11.hpp>
 
-#include "../tflow-build-cfg.hpp"
 
+#include "../tflow-common.hpp"
 #include "../tflow-buf-pck.hpp"
 
 #include "tflow-ap-milesi-cfg.hpp"
@@ -67,7 +69,9 @@ TFlowMilesi::TFlowMilesi(MainContextPtr _context, const TFlowMilesiCfg::cfg_mile
     aux_data_buf = (uint8_t*)calloc(1, aux_data_size);
 
     ap_imu.sign = 0x494D5531;           // IMU1
+    
     user_jstk_ctrl.sign = 0x4A53544B;   // JSTK
+    user_jstk_ctrl_updated = 0;
 
     OpenMg();
 }
@@ -109,8 +113,12 @@ int TFlowMilesi::onBufTargeting(uint8_t* buf)
 
 int TFlowMilesi::onBufUserctrl(uint8_t* buf)
 {
-    memcpy(buf, &user_jstk_ctrl, sizeof(jstk_ctrl));
-    return sizeof(jstk_ctrl);
+    if (user_jstk_ctrl_updated) {
+        user_jstk_ctrl_updated = 0;
+        memcpy(buf, &user_jstk_ctrl, sizeof(jstk_ctrl));
+        return sizeof(jstk_ctrl);
+    }
+    return 0;
 }
 
 int TFlowMilesi::onBufAPIMU(uint8_t* buf)
@@ -162,8 +170,15 @@ inline float quaternion_roll(float q_w, float q_x, float q_y, float q_z)
     return (float)atan2(2 * (q_w * q_x + q_y * q_z), 1 - 2 * (q_x * q_x + q_y*q_y));
 }
 
+void TFlowMilesi::onMavlinkAP_GimbalAttitude(const mavlink_gimbal_device_attitude_status_t &gimb_att)
+{
+}
+
 void TFlowMilesi::onMavlinkAP_Attitude(const mavlink_attitude_t& att)
 {
+    // Betaflight default rate: ~128ms -> ~8Hz
+    // TODO: Need to be rised to atleast 25Hz for normal Processing
+
     struct timespec now_ts;
     clock_gettime(CLOCK_MONOTONIC, &now_ts);
     ap_imu.tv_sec = now_ts.tv_sec; 
@@ -172,8 +187,12 @@ void TFlowMilesi::onMavlinkAP_Attitude(const mavlink_attitude_t& att)
     ap_imu.roll  = att.roll;
     ap_imu.pitch = att.pitch;
     ap_imu.yaw   = att.yaw;
-    g_info("ATT_E: roll=%5.1f pitch=%5.1f yaw=%5.1f", 
-        RAD2DEG(att.roll), RAD2DEG(att.pitch), RAD2DEG(att.yaw));
+
+    PRESC(0x0F) {
+        g_info("ATT_E: roll=%5.1f pitch=%5.1f yaw=%5.1f",
+            RAD2DEG(att.roll), RAD2DEG(att.pitch), RAD2DEG(att.yaw));
+    }
+
 }
 
 void TFlowMilesi::onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &attq)
@@ -198,8 +217,7 @@ void TFlowMilesi::onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &att
     q_pitch = quaternion_pitch(attq.q1, attq.q2, attq.q3, attq.q4);
     q_yaw   = quaternion_yaw  (attq.q1, attq.q2, attq.q3, attq.q4);
 
-    {
-        static int presc = 0;
+    PRESC(0x0F) {
         g_info("ATT_Q: roll=%5.1f pitch=%5.1f yaw=%5.1f",
             RAD2DEG(q_roll), RAD2DEG(q_pitch), RAD2DEG(q_yaw));
     }
@@ -222,9 +240,14 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
 #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
     switch (msg.msgid){
         case MAVLINK_MSG_ID_ATTITUDE_QUATERNION:
-            onMavlinkAP_AttitudeQ(*(mavlink_attitude_quaternion_t*)&msg.payload64); break;
+            onMavlinkAP_AttitudeQ(*(mavlink_attitude_quaternion_t*)&msg.payload64);
+            break;
         case MAVLINK_MSG_ID_ATTITUDE:
-            onMavlinkAP_Attitude(*(mavlink_attitude_t*)&msg.payload64); break;
+            onMavlinkAP_Attitude(*(mavlink_attitude_t*)&msg.payload64);
+            break;
+        case MAVLINK_MSG_ID_GIMBAL_DEVICE_ATTITUDE_STATUS: 
+            onMavlinkAP_GimbalAttitude(*(mavlink_gimbal_device_attitude_status_t*)&msg.payload64);
+            break;
         default:
             break;
     }
@@ -234,7 +257,13 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         static struct timespec now_ts;
         static struct timespec last_dbg_ts;
         clock_gettime(CLOCK_MONOTONIC, &now_ts);
+#if VERBOSE
+        { // Show every message
+#elif CHATTY
         if (diff_timespec_msec(&now_ts, &last_dbg_ts) > 300) {
+#else
+        if (0) {
+#endif
             const mavlink_message_info_t *msg_info = mavlink_get_message_info(&msg);
             g_info("UAV -> GCS [%-40s] %d seq=%d src=%d:%d",
                 msg_info->name, msg.msgid, msg.seq, msg.sysid, msg.compid);
@@ -304,18 +333,15 @@ int TFlowMilesi::targetingCtrl(int jstck_x, int jstck_y, uint16_t butt, uint16_t
         }
     }
 
-    {
-        static int presc = 0;
-        if ((presc++ & 0x0F) == 0) {
-            g_debug("TRGT: pos=%5.3f,%5.3f evt=%c (%d) dt=%5.1f",
-                cursor_x, cursor_y,
-                selection_evt & MILESI_TRGT_SEL_UP    ? 'U' :        // Up
-                selection_evt & MILESI_TRGT_SEL_DOWN  ? 'D' :        // Down
-                selection_evt & MILESI_TRGT_SEL_LEFT  ? 'L' :        // Left
-                selection_evt & MILESI_TRGT_SEL_RIGHT ? 'R' : '-',   // Right
-                selection_evt_id,
-                dt_sec * 1000);
-        }
+    PRESC(0x0F) {
+        g_debug("TRGT: pos=%5.3f,%5.3f evt=%c (%d) dt=%5.1f",
+            cursor_x, cursor_y,
+            selection_evt & MILESI_TRGT_SEL_UP    ? 'U' :        // Up
+            selection_evt & MILESI_TRGT_SEL_DOWN  ? 'D' :        // Down
+            selection_evt & MILESI_TRGT_SEL_LEFT  ? 'L' :        // Left
+            selection_evt & MILESI_TRGT_SEL_RIGHT ? 'R' : '-',   // Right
+            selection_evt_id,
+            dt_sec * 1000);
     }
 
     return 0;
@@ -323,6 +349,13 @@ int TFlowMilesi::targetingCtrl(int jstck_x, int jstck_y, uint16_t butt, uint16_t
 
 int TFlowMilesi::onMavlinkGCManualControl(const mavlink_manual_control_t &man_ctrl)
 {
+/*
+     TODO: Q: Why it is part of Capture? Should it be part of Process.Algo, i.e.
+           Capture receives raw Mavlink Manual Control, send it to Algo, and
+           then Algo do all logic/targeting job.
+           Probably because in some modes control send to AP in other to Process
+*/
+
     static uint16_t prev_buttons = 0;
     if ((man_ctrl.buttons | prev_buttons) & MILESI_TRGT_SEL_EN) {
 
@@ -334,9 +367,7 @@ int TFlowMilesi::onMavlinkGCManualControl(const mavlink_manual_control_t &man_ct
         targetingCtrl(jstck_x, jstck_y, man_ctrl.buttons, prev_buttons);
         prev_buttons = man_ctrl.buttons;
 #if 0
-        {
-            static int presc = 0;
-            if ((++presc & 0x1F) == 0) {
+        PRESC(0x1F) {
                 g_info("GCS -> UAV [MANUAL_CONTROL] x=%5d y=%5d butt=[%c%c%c%c%c], 0x%04X",
                     man_ctrl.x, man_ctrl.y,
                     man_ctrl.buttons & MILESI_TRGT_SEL_UP    ? 'U' : ' ',        // Up
@@ -345,11 +376,11 @@ int TFlowMilesi::onMavlinkGCManualControl(const mavlink_manual_control_t &man_ct
                     man_ctrl.buttons & MILESI_TRGT_SEL_RIGHT ? 'R' : ' ',        // Right
                     man_ctrl.buttons & MILESI_TRGT_SEL_EN    ? '+' : ' ',
                     man_ctrl.buttons);
-            }
         }
 #endif
         return 0;   // Consumed
-    } 
+    }
+
     if ((man_ctrl.buttons | prev_buttons) & MILESI_PILOTING_EN) {
         // Joysticks controls the flight 
         // Upate the data to be send to TFlow Process for rendering
@@ -361,13 +392,16 @@ int TFlowMilesi::onMavlinkGCManualControl(const mavlink_manual_control_t &man_ct
         user_jstk_ctrl.y = -man_ctrl.x;
         user_jstk_ctrl.z = man_ctrl.z;
         user_jstk_ctrl.r = man_ctrl.r;
-        
+        user_jstk_ctrl_updated = 1;
+
         // return 1;   // Send to AP
         return 0;   // Temporary. Remove it as soon as the AP is ready to accept this packet
     }
     else {
-        g_info("GCS -> UAV [MANUAL_CONTROL] x=%5d y=%5d z=%5d r=%5d s=%5d t=%5d butt=0x%04X",
-            man_ctrl.x, man_ctrl.y, man_ctrl.z, man_ctrl.r,  man_ctrl.s, man_ctrl.t, man_ctrl.buttons);
+        PRESC(0x0F) {
+            g_info("GCS -> UAV [MANUAL_CONTROL] x=%5d y=%5d z=%5d r=%5d s=%5d t=%5d butt=0x%04X",
+                man_ctrl.x, man_ctrl.y, man_ctrl.z, man_ctrl.r, man_ctrl.s, man_ctrl.t, man_ctrl.buttons);
+        }
     }
     return 0;   // Consumed
 
@@ -712,7 +746,8 @@ int TFlowMilesi::parseMgMsg(union mg_tlv_u *mg_tlv,
         int v;
         
         int x = controller_buttons.array_items().at(4).int_value();
-        
+
+        i =  5; n = MILESI_PILOTING_EN;    v = !!controller_buttons.array_items().at(i).int_value(); mav_buttons |= v ? n : 0;
         i =  4; n = MILESI_TRGT_SEL_EN;    v = !!controller_buttons.array_items().at(i).int_value(); mav_buttons |= v ? n : 0;
         i = 12; n = MILESI_TRGT_SEL_UP;    v = !!controller_buttons.array_items().at(i).int_value(); mav_buttons |= v ? n : 0;
         i = 13; n = MILESI_TRGT_SEL_DOWN;  v = !!controller_buttons.array_items().at(i).int_value(); mav_buttons |= v ? n : 0;
@@ -773,13 +808,6 @@ int TFlowMilesi::onMgTLVMsg()
 
     if (bytes_read != bytes_to_read) return -1;
 
-    {
-        static int presc = 0;
-        if ((presc++ & 0xFF) == 0) {
-            g_info("====================== CNT %d", dbg_cnt);
-        }
-    }
-
     do {
         // Header received. Get TLV value
         bytes_to_read = in_mg_tlv.hdr.len;
@@ -827,3 +855,11 @@ int TFlowMilesi::onMgTLVMsg()
     return 0;
     
 }
+
+#if 0
+GIMBAL_MANAGER_SET_MANUAL_CONTROL (288)
+GIMBAL_MANAGER_SET_ATTITUDE (282)
+GIMBAL_MANAGER_SET_PITCHYAW (287) - Set gimbal manager pitch and yaw angles (high rate message). 
+GIMBAL_DEVICE_ATTITUDE_STATUS (285) 5 Hz
+
+#endif

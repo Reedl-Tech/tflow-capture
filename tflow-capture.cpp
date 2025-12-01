@@ -6,6 +6,8 @@
 
 #include <json11.hpp>
 
+#include "tflow-buf-srv.hpp"
+
 #include "tflow-capture.hpp"
 
 using namespace json11;
@@ -118,37 +120,36 @@ int TFlowCapture::onBufPlayer(TFlowBuf& buf)
 #endif
 
 TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname) :
+    cam0(nullptr),
+#if WITH_AP    
+    autopilot(nullptr),
+#endif
+#if CAPTURE_PLAYER    
+    player(nullptr)
+#endif    
     context(_context),
-    ctrl(*this, cfg_fname)
+    ctrl(*this, cfg_fname)        // Att!: Must be constructed after submodules' pointers initialization
 {
     main_loop = Glib::MainLoop::create(context, false);
 
     Glib::signal_timeout().connect(sigc::mem_fun(*this, &TFlowCapture::onIdle), IDLE_INTERVAL_MSEC);
 
-    buf_srv = new TFlowBufSrv(context,
-        std::bind(&TFlowCapture::onCustomMsg, this, std::placeholders::_1));
-
-    cam = nullptr;
-    cam_last_check_ts.tv_sec = 0;
-    cam_last_check_ts.tv_nsec = 0;
+    cam0_last_check_ts.tv_sec = 0;
+    cam0_last_check_ts.tv_nsec = 0;
 
 #if CAPTURE_PLAYER    
-    player = nullptr;
     player_last_check_ts.tv_sec = 0;
     player_last_check_ts.tv_nsec = 0;
 #endif
 
 #if WITH_AP
     autopilot = TFlowAP::createAPInstance(context);
-#elif 
-    autopilot = nullptr;
 #endif
 
 }
 
 TFlowCapture::~TFlowCapture()
 {
-    delete buf_srv;
 
 #if WITH_AP
     if (autopilot) {
@@ -265,7 +266,7 @@ const struct fmt_info* TFlowCapture::getCamFmt()
     }
     else if (use_default_idx && use_default_format) {
         // Get _Camera_ format index by mathcing fmt
-        for (struct fmt_info &cam_fmt : cam->fmt_info_enum) {
+        for (struct fmt_info &cam_fmt : cam0->fmt_info_enum) {
             if (cam_fmt.fmt_cc.u32 == V4L2_PIX_FMT_GREY){
                 
                 cam_fmt.height = cam_fmt.frmsize.discrete.height;
@@ -274,10 +275,10 @@ const struct fmt_info* TFlowCapture::getCamFmt()
             }
         }
 
-        if (cam->fmt_info_enum[0].height != 0 || 
-            cam->fmt_info_enum[0].width  != 0 ){
+        if (cam0->fmt_info_enum[0].height != 0 || 
+            cam0->fmt_info_enum[0].width  != 0 ){
             g_warning("Using default camera format [0]");
-            return &cam->fmt_info_enum[0];
+            return &cam0->fmt_info_enum[0];
         }
         else {
             g_warning("WxH must be specified.");
@@ -297,7 +298,7 @@ const struct fmt_info* TFlowCapture::getCamFmt()
     }
 
     // Get _Camera_ format index by mathcing fmt
-    for (struct fmt_info &cam_fmt : cam->fmt_info_enum) {
+    for (struct fmt_info &cam_fmt : cam0->fmt_info_enum) {
         switch ( cam_fmt.frmsize.type ) {
         case V4L2_FRMSIZE_TYPE_DISCRETE:
             if ( ( cam_fmt.fmt_cc.u32 == cfg_fmt.fmt_cc.u32 ) &&
@@ -335,23 +336,23 @@ int TFlowCapture::onBufAP(TFlowBuf &buf)
 
 void TFlowCapture::checkCamState(struct timespec* now_ts)
 {
-    if (cam_state_flag.v == Flag::SET) {
-        if (cam->is_stall()) {
-            cam_state_flag.v = Flag::FALL;
+    if (cam0_state_flag.v == Flag::SET) {
+        if (cam0->is_stall()) {
+            cam0_state_flag.v = Flag::FALL;
         }
         return;
     }
 
-    if (cam_state_flag.v == Flag::CLR) {
+    if (cam0_state_flag.v == Flag::CLR) {
 
         /* Don't try connect to camera to often */
-        if (diff_timespec_msec(now_ts, &cam_last_check_ts) > 5000) {
-            cam_state_flag.v = Flag::RISE;
+        if (diff_timespec_msec(now_ts, &cam0_last_check_ts) > 5000) {
+            cam0_state_flag.v = Flag::RISE;
         }
         return;
     }
 
-    if (cam_state_flag.v == Flag::UNDEF || cam_state_flag.v == Flag::RISE) {
+    if (cam0_state_flag.v == Flag::UNDEF || cam0_state_flag.v == Flag::RISE) {
         int rc;
 
         // TODO: How to put all supported configuration into the config before 
@@ -360,48 +361,58 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         //       The Ctrl configuration stores number of Format in enumeration list.
         //       If index is valid then use this format to start the stream
         do {
-            cam_last_check_ts = *now_ts;
+            cam0_last_check_ts = *now_ts;
 
             int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
             
             TFlowCtrlCapture::cfg_v4l2_ctrls *cfg_v4l2 = 
                 (TFlowCtrlCapture::cfg_v4l2_ctrls *)ctrl.cmd_flds_config.v4l2.v.ref;
 
-            cam = new TFlowCaptureV4L2(context, cfg_buffs_num, 1, cfg_v4l2);
-            
-            /* Link Camera and TFlowBufferServer*/
-            cam->buf_srv = buf_srv;
+            cam0 = new TFlowCaptureV4L2(context,
+                std::string("Capture0"),
+                std::string("com.reedl.tflow.capture0.buf-server"),
+                cfg_buffs_num, 1, cfg_v4l2,
+                std::bind(&TFlowCapture::onBufAP, this, std::placeholders::_1),
+                std::bind(&TFlowCapture::onCustomMsg, this, std::placeholders::_1));
 
-            buf_srv->cam = cam;
-            buf_srv->onBuf = std::bind(&TFlowCapture::onBufAP, this, std::placeholders::_1);
+            // AV: Sometimes camera can't initialize just after open.
+            //     Probably it is related with Sensor initialization time with old drivers.
+            //     I.e. non blocking initilization. Let's add some explicit delay
+            //     If it won't help exit the process as a last resort. Systemctl should restart as again.
+            //     Second time driver should starts faster as I2c registers already initialized.
+            usleep(200000);
 
-            rc = cam->Init(); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
-            if (rc) break;
+            rc = cam0->Init(); // TODO: Add camera configuration here (WxH, format, frame rate, etc)
+            // if (rc) break;
+            if (rc) {
+                if (cam0->dev_fd == -1) {
+                    g_error("Can't open camera - critical error");
+                    exit(1);
+                }
+            }
 
-            if (cam->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_COIN417G2) {
+            if (cam0->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_COIN417G2) {
                 cfg_v4l2->flyn384.ui_ctrl = &ui_group_def;
             }
-            else if (cam->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_TWIN412) {
+            else if (cam0->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_TWIN412) {
                 cfg_v4l2->flyn384.ui_ctrl = &ui_group_def;
             }
-            else if (cam->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_TWIN412G2) {
+            else if (cam0->sensor_api_type == TFlowCaptureV4L2::SENSOR_API_TYPE::FLYN_TWIN412G2) {
                 cfg_v4l2->twin412g2.ui_ctrl = &ui_group_def;
             }
 
-            rc = cam->StreamOn(getCamFmt());
+            rc = cam0->StreamOn(getCamFmt());
             if (rc) break;
 
             // Loop over all connected clients and advertise Camera's FD
-            if (buf_srv) {
-                buf_srv->onCamFD();
-            }
+            cam0->onSrcFD();
 
-            cam_state_flag.v = Flag::SET;
+            cam0_state_flag.v = Flag::SET;
 
         } while (0);
 
         if (rc) {
-            cam_state_flag.v = Flag::FALL;
+            cam0_state_flag.v = Flag::FALL;
 #if 0
             if ( cam->dev_fd != -1 || cam->sub_dev_fd != -1 ) {
                 // Camera was opened but something goes wrong
@@ -415,21 +426,21 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
         }
         else {
             /* Camera is open. Now we can advertise video buffers */
-            buf_srv->sck_state_flag.v = Flag::RISE;
+            cam0->sck_state_flag.v = Flag::RISE;
         }
         return;
     }
 
-    if (cam_state_flag.v == Flag::FALL) {
+    if (cam0_state_flag.v == Flag::FALL) {
         // All Cli ports need to be closed and buffers released 
         // prior the camera close
-        if (buf_srv->sck_state_flag.v != Flag::CLR) {
-            buf_srv->sck_state_flag.v = Flag::FALL;
+        if (cam0->sck_state_flag.v != Flag::CLR) {
+            cam0->sck_state_flag.v = Flag::FALL;
         } else {
             // close the camera
-            delete cam;
-            cam = NULL;
-            cam_state_flag.v = Flag::CLR;
+            delete cam0;
+            cam0 = nullptr;
+            cam0_state_flag.v = Flag::CLR;
         }
     }
 
@@ -465,11 +476,12 @@ int TFlowCapture::onIdle()
 
     }
 
-    buf_srv->onIdle(&now_ts);
+    if (cam0) {
+        cam0->onIdle(now_ts);
+    }
 
     ctrl.ctrl_srv.onIdle(now_ts);
 
     return G_SOURCE_CONTINUE;
 }
-
 

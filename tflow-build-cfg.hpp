@@ -6,4 +6,4 @@
 #define WITH_AP 1
 
 // Detatiled camera format enumeration
-#define CAM_DESCR 0									
+#define CAM_DESCR 1

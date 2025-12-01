@@ -18,7 +18,7 @@
 
 #define JSTCK_DEAD_ZONE 10
 
-#define MILESI_PILOTING_EN         (1 << 10)
+#define MILESI_PILOTING_EN         (1 << 10)    // TODO: Rename to TARGETING_ASSIST
 
 #define MILESI_TRGT_SEL_EN         (1 << 9)
 #define MILESI_TRGT_SEL_UP         (1 << 11)
@@ -71,9 +71,14 @@ public:
         float pitch;        /*< [rad] Pitch angle (-pi..+pi)*/
         float yaw;          /*< [rad] Yaw angle (-pi..+pi)*/
 
-        /* TODO: Add camera position from AP or Sensor's IMU */
+        /* Poke from GIMBAL_DEVICE_ATTITUDE_STATUS */
+        float gimbal_qw;
+        float gimbal_qx;
+        float gimbal_qy;
+        float gimbal_qz;
+        uint16_t gimbal_flags;     /* GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME or GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME */
 
-    } ap_imu;
+    } ap_imu;                                                                                                       
 
     // Filled from TFlow aux GC mav message on UDP interface
     struct jstk_ctrl {
@@ -87,6 +92,8 @@ public:
         int r;
     } user_jstk_ctrl;
     
+    int user_jstk_ctrl_updated;
+
 #pragma pack(pop)
 
     int in_mg_tlv_bytes_read;
@@ -102,6 +109,7 @@ public:
     void onUDPMsg(const char *udp_msg, int udp_msg_len) override;
 
     void onMavlinkAP(const mavlink_message_t &msg, const mavlink_status_t &status);  // Mavlink message from Autopilot
+    void onMavlinkAP_GimbalAttitude(const mavlink_gimbal_device_attitude_status_t &gimb_att);
     void onMavlinkAP_Attitude(const mavlink_attitude_t &att);
     void onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &attq);
 
@@ -181,6 +189,7 @@ private:
     int targeting_en;
     float cursor_x;
     float cursor_y;
+
     uint16_t selection_evt; // Choose target from left/right/up/down
     int selection_evt_id;   // Incremented on each new selection_evt
 

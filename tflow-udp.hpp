@@ -15,7 +15,7 @@ public:
     ~TFlowUDP();
 
     void onIdle_no_ts();
-    void onIdle(struct timespec now_ts);
+    void onIdle(const struct timespec &now_ts);
 
     int Connect();
     void Disconnect();

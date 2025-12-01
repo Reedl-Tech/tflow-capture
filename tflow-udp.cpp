@@ -177,7 +177,7 @@ void TFlowUDP::onIdle_no_ts()
     onIdle(now_ts);
 }
 
-void TFlowUDP::onIdle(struct timespec now_ts)
+void TFlowUDP::onIdle(const struct timespec &now_ts)
 {
     if (sck_state_flag.v == Flag::CLR) {
         if (diff_timespec_msec(&now_ts, &last_conn_check_ts) > 1000) {
