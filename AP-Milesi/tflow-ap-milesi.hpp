@@ -177,12 +177,11 @@ private:
     //char*            in_mg_msg;
 
     pthread_t        mg_th;
-    pthread_cond_t   mg_th_cond;
     struct mg_mgr    mg_manager;
+    int              mg_terminate_thread;
 
     static void* _mg_thread(void* ctx);
     static void _on_mg_msg(struct mg_connection* c, int ev, void* ev_data);
-
 
     // === Targeting 
     // Data generated from MavLink MANUAL CONTROL and added to each frame    

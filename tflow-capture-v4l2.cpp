@@ -45,6 +45,7 @@ TFlowCaptureV4L2::TFlowCaptureV4L2(MainContextPtr _context,
     v4l2_buf_template.length = planes_num;
     v4l2_buf_template.index = 0;
 
+    frame_seq = 0;
     stat_cnt_frames_num = 0;
 
     streaming_watchdog_cnt = 0;         // Watchdog is enabled on StreamOn
@@ -94,8 +95,7 @@ int TFlowCaptureV4L2::onBuff(Glib::IOCondition io_cond)
             now_ts.tv_sec = tp.tv_sec;
             now_ts.tv_usec = tp.tv_nsec / 1000;
 
-
-            rc = buf_consume(v4l2_buf.index, 0, now_ts);
+            rc = buf_consume(v4l2_buf.index, frame_seq++, now_ts);
         }
 
         if (rc) {

@@ -514,6 +514,9 @@ void TFlowMilesi::CloseMg()
         mg_pipe_src.reset();
     }
 
+    mg_terminate_thread = 1;
+    pthread_join(mg_th, nullptr);
+
     return;
 }
 
@@ -612,7 +615,8 @@ void* TFlowMilesi::_mg_thread(void* ctx)
     mg_log_set(MG_LL_INFO);             // Set log level
     mg_http_listen(&m->mg_manager, "http://0.0.0.0:8021", m->_on_mg_msg, (void*)m);
     mg_wakeup_init(&m->mg_manager);     // Initialise wakeup socket pair
-    for (;;) {                          // Event loop
+
+    while(m->mg_terminate_thread == 0) {                      // Event loop
         mg_mgr_poll(&m->mg_manager, 1000);
     }
     mg_mgr_free(&m->mg_manager);
@@ -635,11 +639,10 @@ int TFlowMilesi::OpenMg()
     mg_pipe_src->attach(context);
 
      /* Create mongoose thread */
+    mg_terminate_thread = 0;
+
     pthread_attr_t attr;
-
-    pthread_cond_init(&mg_th_cond, nullptr);
     pthread_attr_init(&attr);
-
     pthread_create(&mg_th, &attr, _mg_thread, this);
     pthread_attr_destroy(&attr);
 

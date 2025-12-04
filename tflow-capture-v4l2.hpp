@@ -181,6 +181,8 @@ private:
 
     const TFlowCtrlCapture::cfg_v4l2_ctrls *cfg;
 
+    int frame_seq;
+
     /* Statistics counters */
     int stat_cnt_frames_num;
 };
