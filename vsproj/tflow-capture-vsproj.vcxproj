@@ -485,7 +485,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'">
     <PostBuildEvent>
-      <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/home/root</Command>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.3:/home/root</Command>
     </PostBuildEvent>
     <ClCompile>
       <CppLanguageStandard>gnu++20</CppLanguageStandard>
@@ -501,7 +501,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">
     <PostBuildEvent>
-      <Command>pscp $(OutDir)tflow-capture root@192.168.2.3:/root</Command>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.2:/root</Command>
     </PostBuildEvent>
     <ClCompile>
       <CppLanguageStandard>gnu++11</CppLanguageStandard>

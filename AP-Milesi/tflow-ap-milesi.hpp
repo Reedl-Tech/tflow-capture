@@ -67,9 +67,9 @@ public:
         float yawspeed;     /*< [rad/s] Yaw angular speed*/
 
         /* Direct translation from Mavlink ATTITUDE */ 
-        float roll;         /*< [rad] Roll angle (-pi..+pi)*/
-        float pitch;        /*< [rad] Pitch angle (-pi..+pi)*/
-        float yaw;          /*< [rad] Yaw angle (-pi..+pi)*/
+        float roll;         /*< [rad] Roll angle  (-pi..+pi) */
+        float pitch;        /*< [rad] Pitch angle (-pi..+pi) */
+        float yaw;          /*< [rad] Yaw angle   (-pi..+pi) */
 
         /* Poke from GIMBAL_DEVICE_ATTITUDE_STATUS */
         float gimbal_qw;
@@ -78,7 +78,46 @@ public:
         float gimbal_qz;
         uint16_t gimbal_flags;     /* GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME or GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME */
 
-    } ap_imu;                                                                                                       
+
+    } ap_imu_milesi;                                                                                                       
+
+    struct imu_anchor_v0 {
+        
+        uint32_t sign;        // ANC1   0x414E4331
+        uint32_t tv_sec;      // Local timestamp
+        uint32_t tv_usec;     // Local timestamp
+
+        /* Direct translation from Mavlink ATTITUDE_QUATERNION */
+        float qw;
+        float qx;
+        float qy;
+        float qz;
+        float rollspeed;    /*< [rad/s] Roll angular speed*/
+        float pitchspeed;   /*< [rad/s] Pitch angular speed*/
+        float yawspeed;     /*< [rad/s] Yaw angular speed*/
+
+        /* Direct translation from Mavlink ATTITUDE */ 
+        float roll;         /*< [rad] Roll angle  (-pi..+pi) */
+        float pitch;        /*< [rad] Pitch angle (-pi..+pi) */
+        float yaw;          /*< [rad] Yaw angle   (-pi..+pi) */
+
+        /* Poke from GIMBAL_DEVICE_ATTITUDE_STATUS */
+        float gimbal_qw;
+        float gimbal_qx;
+        float gimbal_qy;
+        float gimbal_qz;
+        uint16_t gimbal_flags;     /* GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME or GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME */
+
+        float altitude_local;             
+        float altitude_msl;
+        float altitude_terrain;
+
+        uint8_t gps_fix_type;
+        float   gps_lat;
+        float   gps_lon;
+        float   gps_alt_msl;
+
+    } ap_imu_anchor;                                                                                                       
 
     // Filled from TFlow aux GC mav message on UDP interface
     struct jstk_ctrl {
@@ -112,6 +151,13 @@ public:
     void onMavlinkAP_GimbalAttitude(const mavlink_gimbal_device_attitude_status_t &gimb_att);
     void onMavlinkAP_Attitude(const mavlink_attitude_t &att);
     void onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &attq);
+    void onMavlinkAP_Altitude(const mavlink_altitude_t &alt);
+
+    void onMavlinkAP_GLOBAL_POSITION_INT    (const mavlink_global_position_int_t     &global_position_int    );
+    void onMavlinkAP_GLOBAL_POSITION_INT_COV(const mavlink_global_position_int_cov_t &global_position_int_cov);
+    void onMavlinkAP_LOCAL_POSITION_NED     (const mavlink_local_position_ned_t      &local_position_ned     );
+    void onMavlinkAP_LOCAL_POSITION_NED_COV (const mavlink_local_position_ned_cov_t  &local_position_ned_cov );
+    void onMavlinkAP_GPS_RAW_INT            (const mavlink_gps_raw_int_t             &gps_raw_int            );
 
     void onMavlinkGC(const mavlink_message_t &msg, const mavlink_status_t &status);  // Mavlink message from Ground Control
     int onMavlinkGCManualControl(const mavlink_manual_control_t &man_ctrl);
@@ -133,9 +179,10 @@ public:
     int onBuf(TFlowBuf &buf);
     /* ====================================== */
 
-    int onBufTargeting(uint8_t *buf);
-    int onBufAPIMU(uint8_t *buf);
-    int onBufUserctrl(uint8_t *buf);
+    int onBufTargeting(uint8_t *buf, size_t max_size);
+    int onBufAPIMU_Milesi(uint8_t *buf, size_t max_size);
+    int onBufAPIMU_Anchor(uint8_t *buf, size_t max_size);
+    int onBufUserctrl(uint8_t *buf, size_t max_size);
 
 private:
 

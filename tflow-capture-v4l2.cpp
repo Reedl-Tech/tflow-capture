@@ -343,7 +343,7 @@ void TFlowCaptureV4L2::getSensorType()
     int rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
     if (rc) {
         g_critical("Ooops, can't get sensor type (%d) - %s", errno, strerror(errno));
-        // return; Tempororary to support old FLYN sensors on kernel 6.1
+        return;
     }
 
 // 0x0A COIN417G2/TWIN412 Observation
@@ -365,8 +365,7 @@ void TFlowCaptureV4L2::getSensorType()
             sensor_api_type = SENSOR_API_TYPE::FLYN_TWIN412G2;
             break;
         default:
-            sensor_api_type = SENSOR_API_TYPE::FLYN_COIN417G2;  // Temporary for kernel 6.1 and old sensors FW
-            //sensor_api_type = SENSOR_API_TYPE::UNDEF;
+            sensor_api_type = SENSOR_API_TYPE::UNDEF;
     }
 
     g_info("FLYN384: API TYPE - %s",
