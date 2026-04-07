@@ -112,6 +112,10 @@ public:
         float altitude_msl;
         float altitude_terrain;
 
+        float loc_ned_x;
+        float loc_ned_y;
+        float loc_ned_z;
+
         uint8_t gps_fix_type;
         float   gps_lat;
         float   gps_lon;

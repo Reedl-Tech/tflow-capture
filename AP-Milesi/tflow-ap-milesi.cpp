@@ -221,7 +221,7 @@ void TFlowMilesi::onMavlinkAP_Attitude(const mavlink_attitude_t& att)
     ap_imu_anchor.yaw   = att.yaw;
 #endif 
 
-    PRESC(0x0F) {
+    PRESC(0x1F) {
         g_info("ATT_E: roll=%5.1f pitch=%5.1f yaw=%5.1f",
             RAD2DEG(att.roll), RAD2DEG(att.pitch), RAD2DEG(att.yaw));
     }
@@ -261,7 +261,7 @@ void TFlowMilesi::onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &att
     q_pitch = quaternion_pitch(attq.q1, attq.q2, attq.q3, attq.q4);
     q_yaw   = quaternion_yaw  (attq.q1, attq.q2, attq.q3, attq.q4);
 
-    PRESC(0x0F) {
+    PRESC(-1) {
         g_info("ATT_Q: roll=%5.1f pitch=%5.1f yaw=%5.1f",
             RAD2DEG(q_roll), RAD2DEG(q_pitch), RAD2DEG(q_yaw));
     }
@@ -279,7 +279,7 @@ void TFlowMilesi::onMavlinkAP_Altitude(const mavlink_altitude_t &alt)
     ap_imu_anchor.altitude_msl     = alt.altitude_amsl;
     ap_imu_anchor.altitude_terrain = alt.altitude_terrain;
 
-    PRESC(0x0F) {
+    PRESC(0x1F) {
         g_info("ALT: local=%5.1f amsl=%5.1f terr=%5.1f home=%5.1f mono=%5.1f",
             alt.altitude_local, alt.altitude_amsl, alt.altitude_terrain, 
             alt.altitude_relative, alt.altitude_monotonic);
@@ -334,6 +334,10 @@ void TFlowMilesi::onMavlinkAP_LOCAL_POSITION_NED_COV(const mavlink_local_positio
 
 void TFlowMilesi::onMavlinkAP_LOCAL_POSITION_NED(const mavlink_local_position_ned_t& local_position_ned)
 {
+    ap_imu_anchor.loc_ned_x = local_position_ned.x;
+    ap_imu_anchor.loc_ned_y = local_position_ned.y;
+    ap_imu_anchor.loc_ned_z = local_position_ned.z;
+
     PRESC(0x1F) {
         g_info("LOCAL_POSITION_NED: [NED] x=%5.1f y=%5.1f z=%5.1f",
             local_position_ned.x,
@@ -364,6 +368,13 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         case MAVLINK_MSG_ID_ATTITUDE:
             onMavlinkAP_Attitude(*(const mavlink_attitude_t*)&msg.payload64);
             break;
+
+        case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
+            onMavlinkAP_LOCAL_POSITION_NED(*(const mavlink_local_position_ned_t*)&msg.payload64);
+            break;
+        case MAVLINK_MSG_ID_ALTITUDE:
+            onMavlinkAP_Altitude(*(const mavlink_altitude_t*)&msg.payload64);
+            break;
         case MAVLINK_MSG_ID_GIMBAL_DEVICE_ATTITUDE_STATUS: 
             onMavlinkAP_GimbalAttitude(*(const mavlink_gimbal_device_attitude_status_t*)&msg.payload64);
             break;
@@ -376,9 +387,6 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         case MAVLINK_MSG_ID_GPS_RAW_INT:
             onMavlinkAP_GPS_RAW_INT(*(const mavlink_gps_raw_int_t *)&msg.payload64);    
             break;
-        case MAVLINK_MSG_ID_LOCAL_POSITION_NED_COV:
-            onMavlinkAP_LOCAL_POSITION_NED_COV(*(const mavlink_local_position_ned_cov_t  *)&msg.payload64);
-            break;
         default:
             break;
     }
@@ -388,6 +396,7 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         static struct timespec now_ts;
         static struct timespec last_dbg_ts;
         clock_gettime(CLOCK_MONOTONIC, &now_ts);
+
 #if VERBOSE
         { // Show every message
 #elif CHATTY
@@ -396,7 +405,7 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         if (0) {
 #endif
             const mavlink_message_info_t *msg_info = mavlink_get_message_info(&msg);
-            g_info("UAV -> GCS [%-40s] %d seq=%d src=%d:%d",
+            g_info("UAV -> GCS [%-40s] %4d seq=%5d src=%d:%d",
                 msg_info->name, msg.msgid, msg.seq, msg.sysid, msg.compid);
             last_dbg_ts = now_ts;
         }
