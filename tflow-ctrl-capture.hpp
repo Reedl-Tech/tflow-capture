@@ -9,13 +9,6 @@
 
 #include "tflow-ctrl-capture-ui.hpp"
 
-#if WITH_AP
-#include "tflow-ap.hpp"
-
-// Structure that link TFlowCtrl with user specific Autopilot
-extern TFlowAP::tflow_cfg_ap cmd_flds_cfg_ap;
-#endif
-
 class TFlowCtrlCapture;
 class TFlowCapture;
 struct fmt_info;
