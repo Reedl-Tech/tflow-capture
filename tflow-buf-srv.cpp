@@ -415,7 +415,7 @@ int TFlowBufSCliPort::onMsgRcv()
             if ((in_msg.hdr.id > TFlowBufPck::TFLOWBUF_MSG_CUSTOM_) && srv->onCustomMsg) {
                 return srv->onCustomMsg(in_msg);
 #if CODE_BROWSE
-    int TFlowCapture::onCustomMsgNavigator(const struct pck_navigator& in_msg_nav);
+    int TFlowCapture::onCustomMsgAnchor(const struct pck_navigator& in_msg_nav);
 #endif
             }
             else {

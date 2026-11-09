@@ -1,6 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="6.6-8dev-Fixar|ARM">
+      <Configuration>6.6-8dev-Fixar</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="6.6-8dev-Fixar|ARM64">
+      <Configuration>6.6-8dev-Fixar</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="6.6-8dev-Fixar|x64">
+      <Configuration>6.6-8dev-Fixar</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="6.6-8dev-Fixar|x86">
+      <Configuration>6.6-8dev-Fixar</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="6.6-8dev|ARM">
       <Configuration>6.6-8dev</Configuration>
       <Platform>ARM</Platform>
@@ -90,6 +106,7 @@
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Mickledore-Milesi|ARM64'">true</RemoteCopyFile>
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='6.6-8dev|ARM64'">true</RemoteCopyFile>
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">true</RemoteCopyFile>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='6.6-8dev-Fixar|ARM64'">true</RemoteCopyFile>
     </ClCompile>
     <ClCompile Include="..\mongoose.c" />
     <ClCompile Include="..\tflow-buf-srv.cpp" />
@@ -378,7 +395,6 @@
     <ClInclude Include="buildin.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.editorconfig_" />
     <None Include="..\tflow-capture-config.json" />
     <None Include=".editorconfig" />
   </ItemGroup>
@@ -428,6 +444,13 @@
     <RemoteProjectRelDir />
     <UseCompiler>true</UseCompiler>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev-Fixar|ARM64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <RemoteRootDir>~/8dev/compulab-nxp-bsp/build-ucm-imx8m-plus-bubo/workspace/sources/tflow-capture</RemoteRootDir>
+    <RemoteProjectRelDir />
+    <UseCompiler>false</UseCompiler>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="Shared" />
@@ -471,6 +494,15 @@
     <NMakeIncludeSearchPath>.;..;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev-Fixar|ARM64'">
+    <OutDir />
+    <RemoteDeployDir />
+    <RemoteBuildCommandLine>pwd &amp;&amp; ./build-6.6-8dev-Fixar.sh compile</RemoteBuildCommandLine>
+    <RemoteCleanCommandLine>pwd &amp;&amp; ./build-6.6-8dev-Fixar.sh cleansstate</RemoteCleanCommandLine>
+    <RemoteBuildOutputs>../oe-workdir/tflow-capture-1.0/tflow-capture</RemoteBuildOutputs>
+    <NMakeIncludeSearchPath>.;..;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot-native\usr\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\c++\12.3.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\blkid;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\giomm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gio-unix-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glib-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\glibmm-2.4;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\gstreamer-1.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\libmount;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\include\sigc++-2.0;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\giomm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glib-2.0\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\glibmm-2.4\include;..\..\ucm-imx8mp-staging\recipe-sysroot\usr\lib\sigc++-2.0\include</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>buildin.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <RemoteBuildCommandLine>pwd</RemoteBuildCommandLine>
     <RemoteCopySourceMethod>rsync</RemoteCopySourceMethod>
@@ -502,6 +534,14 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='8dev_scarthgap|ARM64'">
     <PostBuildEvent>
       <Command>pscp $(OutDir)tflow-capture root@192.168.2.3:/root</Command>
+    </PostBuildEvent>
+    <ClCompile>
+      <CppLanguageStandard>gnu++11</CppLanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev-Fixar|ARM64'">
+    <PostBuildEvent>
+      <Command>pscp $(OutDir)tflow-capture root@192.168.2.4:/root</Command>
     </PostBuildEvent>
     <ClCompile>
       <CppLanguageStandard>gnu++11</CppLanguageStandard>

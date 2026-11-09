@@ -68,16 +68,91 @@ TFlowMilesi::TFlowMilesi(MainContextPtr _context, const TFlowMilesiCfg::cfg_mile
     aux_data_size = 1024*1024;
     aux_data_buf = (uint8_t*)calloc(1, aux_data_size);
 
-    ap_imu.sign = 0x494D5531;           // IMU1
+    ap_imu_milesi.sign = 0x4D4C5332;   // MLS2
+    ap_imu_anchor.sign = 0x414E4331;   // ANC1
     
     user_jstk_ctrl.sign = 0x4A53544B;   // JSTK
     user_jstk_ctrl_updated = 0;
 
-    OpenMg();
+    heart_beat_ts.tv_sec = 0;
+    heart_beat_ts.tv_nsec = 0;
+
+    // OpenMg();
 }
 
 int TFlowMilesi::onCaptureMsgRcv(const TFlowBufPck::pck &in_msg)
 {
+    struct timespec now_ts;
+    clock_gettime(CLOCK_MONOTONIC, &now_ts);
+
+    if (in_msg.hdr.id != TFLOWBUF_MSG_CUSTOM_ANCHOR) {
+        return 0;
+    }
+
+    const TFlowAnchorMsg in_msg_anc = *((const TFlowAnchorMsg*)&in_msg);
+
+    uint16_t anchor_yaw = 
+        (in_msg_anc.north_azimuth != 0) ? in_msg_anc.north_azimuth : 36000;
+
+    if (in_msg_anc.flags & 0x01) {
+        // ignore coordinate
+        anchor_yaw = 0;
+    }
+
+    if (in_msg_anc.flags & 0x02) {
+        // ignore velocity
+        // ???
+    }
+
+    uint16_t ignore_flags =
+        GPS_INPUT_IGNORE_FLAG_ALT                 |
+        GPS_INPUT_IGNORE_FLAG_HDOP                |
+        GPS_INPUT_IGNORE_FLAG_VDOP                |
+        GPS_INPUT_IGNORE_FLAG_VEL_HORIZ           |
+        GPS_INPUT_IGNORE_FLAG_VEL_VERT            | 
+        GPS_INPUT_IGNORE_FLAG_SPEED_ACCURACY      |
+        GPS_INPUT_IGNORE_FLAG_HORIZONTAL_ACCURACY |
+        GPS_INPUT_IGNORE_FLAG_VERTICAL_ACCURACY;
+
+    // No logic here - just repack data to AP message
+    uint8_t buf[128];
+    uint16_t buff_len = mavlink_msg_gps_input_pack(
+        1,                                  // uint8_t system_id   (PX4)
+        MAV_COMP_ID_ONBOARD_COMPUTER2,      // uint8_t component_id
+        &gps_input_msg,                     // mavlink_message_t* msg,
+        now_ts.tv_nsec / 1000,              // time_usec
+        2,                                  // gps_id          
+        ignore_flags,                       // ignore_flags    
+        0,                                  // time_week_ms    
+        0,                                  // time_week       
+        2,                                  // fix_type  - 2D fix      
+        in_msg_anc.lat,                     // lat [degE7]
+        in_msg_anc.lon,                     // lon [degE7]
+        0.f,                                // alt                  not in use
+        0.f,                                // hdop                 not in use
+        0.f,                                // vdop                 not in use
+        0.f,                                // vn                   not in use   
+        0.f,                                // ve                   not in use   
+        0.f,                                // vd                   not in use   
+        0.f,                                // speed_accuracy       not in use   
+        0.f,                                // horiz_accuracy       not in use   
+        0.f,                                // vert_accuracy        not in use   
+        1,                                  // satellites_visible   
+        anchor_yaw);                        // yaw [cdeg]
+
+    assert(buff_len < sizeof(buf));
+
+    uint16_t gps_input_len = mavlink_msg_to_send_buffer(buf, &gps_input_msg);
+
+    int rc = UDPDataSend(buf, gps_input_len);
+
+    PRESC(0x7F) {
+        g_info("ANCHOR -> GCS [GPS_INPUT] ll=[%.6f  %.6f]  Az=%.1fdeg",
+            (float)in_msg_anc.lat / 1e7f,
+            (float)in_msg_anc.lon / 1e7f,
+            (float)in_msg_anc.north_azimuth / 100);
+    }
+
     return 0;
 }
 
@@ -86,11 +161,46 @@ void TFlowMilesi::onIdle(const struct timespec &now_ts)
     TFlowSerial::onIdle(now_ts);
 
     TFlowUDP::onIdle(now_ts);
+
+    sendHeartBeat(now_ts);
 }
 
-int TFlowMilesi::onBufTargeting(uint8_t* buf)
+void TFlowMilesi::sendHeartBeat(const struct timespec &now_ts)
+{
+    
+    if (diff_timespec_msec(&now_ts, &heart_beat_ts) < 1000) {
+        return;
+    }
+
+    uint8_t buf[32];
+    uint16_t buff_len = mavlink_msg_heartbeat_pack(
+        1,                                  // uint8_t system_id   (PX4)
+        MAV_COMP_ID_ONBOARD_COMPUTER2,      // uint8_t component_id
+        &heartbeat_msg,                     // mavlink_message_t* msg,
+        MAV_TYPE_ONBOARD_CONTROLLER,        // uint8_t type, 
+        MAV_AUTOPILOT_PX4,                  // uint8_t autopilot,
+        MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,  // uint8_t base_mode
+        0,                                  // uint32_t custom_mode,
+        MAV_STATE_ACTIVE);                  // uint8_t system_status
+
+    assert(buff_len < sizeof(buf));
+
+    uint16_t hb_len = mavlink_msg_to_send_buffer(buf, &heartbeat_msg);
+
+    int rc = UDPDataSend(buf, hb_len);
+
+    PRESC(0x03) {
+        g_info("ANCHOR -> AP [HEARTBEAT] seq=%5d", heartbeat_msg.seq);
+        heart_beat_ts = now_ts;
+    }
+
+}
+
+int TFlowMilesi::onBufTargeting(uint8_t* buf, size_t max_size)
 {
     struct targeting_data *aux_targeting_data = (struct targeting_data *)buf;
+
+    if ( max_size < sizeof(struct targeting_data)) return 0;
 
     aux_targeting_data->sign = 0x54475431;        // TGT1   0x54475431
 
@@ -111,8 +221,10 @@ int TFlowMilesi::onBufTargeting(uint8_t* buf)
 }
 
 
-int TFlowMilesi::onBufUserctrl(uint8_t* buf)
+int TFlowMilesi::onBufUserctrl(uint8_t* buf, size_t max_size)
 {
+    if ( max_size < sizeof(jstk_ctrl)) return 0;
+
     if (user_jstk_ctrl_updated) {
         user_jstk_ctrl_updated = 0;
         memcpy(buf, &user_jstk_ctrl, sizeof(jstk_ctrl));
@@ -121,10 +233,20 @@ int TFlowMilesi::onBufUserctrl(uint8_t* buf)
     return 0;
 }
 
-int TFlowMilesi::onBufAPIMU(uint8_t* buf)
+int TFlowMilesi::onBufAPIMU_Milesi(uint8_t* buf, size_t max_size)
 {
-    memcpy(buf, &ap_imu, sizeof(imu_milesi_v0));
-    return sizeof(imu_milesi_v0);
+    if ( max_size < sizeof(imu_milesi_v2)) return 0;
+
+    memcpy(buf, &ap_imu_milesi, sizeof(imu_milesi_v2));
+    return sizeof(imu_milesi_v2);
+}
+
+int TFlowMilesi::onBufAPIMU_Anchor(uint8_t* buf, size_t max_size)
+{
+    if ( max_size < sizeof(imu_anchor_v0)) return 0;
+
+    memcpy(buf, &ap_imu_anchor, sizeof(imu_anchor_v0));
+    return sizeof(imu_anchor_v0);
 }
 
 int TFlowMilesi::onBuf(TFlowBuf &buf)
@@ -135,9 +257,14 @@ int TFlowMilesi::onBuf(TFlowBuf &buf)
 #endif
 
     aux_data_len = 0;
-    aux_data_len += onBufTargeting(&aux_data_buf[aux_data_len]);
-    aux_data_len += onBufAPIMU    (&aux_data_buf[aux_data_len]);
-    aux_data_len += onBufUserctrl (&aux_data_buf[aux_data_len]);
+
+#if PROCESS_TRACKER
+    aux_data_len += onBufAPIMU_Milesi(&aux_data_buf[aux_data_len], aux_data_size - aux_data_len);
+    aux_data_len += onBufTargeting(&aux_data_buf[aux_data_len], aux_data_size - aux_data_len);      // From Mavlink Manual Control (joysticks)
+    aux_data_len += onBufUserctrl (&aux_data_buf[aux_data_len], aux_data_size - aux_data_len);      // From Mavlink Manual Control (joysticks)
+#elif PROCESS_ANCHOR
+    aux_data_len += onBufAPIMU_Anchor(&aux_data_buf[aux_data_len], aux_data_size - aux_data_len);
+#endif
 
     // The data will be copied into a frame packet
     buf.aux_data_len = aux_data_len;
@@ -177,20 +304,38 @@ void TFlowMilesi::onMavlinkAP_GimbalAttitude(const mavlink_gimbal_device_attitud
 void TFlowMilesi::onMavlinkAP_Attitude(const mavlink_attitude_t& att)
 {
     // Betaflight default rate: ~128ms -> ~8Hz
-    // TODO: Need to be rised to atleast 25Hz for normal Processing
+    // TODO: Need to be rise to atleast 50Hz for normal Processing
 
     struct timespec now_ts;
     clock_gettime(CLOCK_MONOTONIC, &now_ts);
-    ap_imu.tv_sec = now_ts.tv_sec; 
-    ap_imu.tv_usec = now_ts.tv_nsec / 1000;
 
-    ap_imu.roll  = att.roll;
-    ap_imu.pitch = att.pitch;
-    ap_imu.yaw   = att.yaw;
+#if PROCESS_TRACKER
+    ap_imu_milesi.tv_sec = now_ts.tv_sec; 
+    ap_imu_milesi.tv_usec = now_ts.tv_nsec / 1000;
 
-    PRESC(0x0F) {
-        g_info("ATT_E: roll=%5.1f pitch=%5.1f yaw=%5.1f",
-            RAD2DEG(att.roll), RAD2DEG(att.pitch), RAD2DEG(att.yaw));
+    ap_imu_milesi.roll  = att.roll;
+    ap_imu_milesi.pitch = att.pitch;
+    ap_imu_milesi.yaw   = att.yaw;
+
+#elif PROCESS_ANCHOR
+    ap_imu_anchor.tv_sec = now_ts.tv_sec; 
+    ap_imu_anchor.tv_usec = now_ts.tv_nsec / 1000;
+
+    ap_imu_anchor.roll  = att.roll;
+    ap_imu_anchor.pitch = att.pitch;
+    ap_imu_anchor.yaw   = att.yaw;
+#endif 
+
+    PRESC(0x3F) {
+        static struct timespec last_ts = { 0, 0 };
+        double att_rate = -1;
+        if (last_ts.tv_sec) {
+            att_rate = (double)1000 * _presc_period / ( diff_timespec_msec(&now_ts, &last_ts));
+        }
+        g_info("ATT_E: roll=%5.1f pitch=%5.1f yaw=%5.1f rate=%.1fHz",
+            RAD2DEG(att.roll), RAD2DEG(att.pitch), RAD2DEG(att.yaw), att_rate);
+
+        last_ts = now_ts;
     }
 
 }
@@ -203,13 +348,17 @@ void TFlowMilesi::onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &att
     //ap_imu.tv_sec = now_ts.tv_sec; 
     //ap_imu.tv_usec = now_ts.tv_nsec / 1000;
 
-    ap_imu.qw = attq.q1;
-    ap_imu.qx = attq.q2;
-    ap_imu.qy = attq.q3;
-    ap_imu.qz = attq.q4;
-    ap_imu.rollspeed  = attq.rollspeed;
-    ap_imu.pitchspeed = attq.pitchspeed;
-    ap_imu.yawspeed   = attq.yawspeed;
+#if PROCESS_TRACKER
+
+#elif PROCESS_ANCHOR
+    ap_imu_anchor.qw = attq.q1;
+    ap_imu_anchor.qx = attq.q2;
+    ap_imu_anchor.qy = attq.q3;
+    ap_imu_anchor.qz = attq.q4;
+    ap_imu_anchor.rollspeed  = attq.rollspeed;
+    ap_imu_anchor.pitchspeed = attq.pitchspeed;
+    ap_imu_anchor.yawspeed   = attq.yawspeed;
+#endif 
 
     float q_roll, q_pitch, q_yaw;
 
@@ -217,13 +366,115 @@ void TFlowMilesi::onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &att
     q_pitch = quaternion_pitch(attq.q1, attq.q2, attq.q3, attq.q4);
     q_yaw   = quaternion_yaw  (attq.q1, attq.q2, attq.q3, attq.q4);
 
-    PRESC(0x0F) {
+    PRESC(-1) {
+        // Just to copare quaternion and Euclidean angles
         g_info("ATT_Q: roll=%5.1f pitch=%5.1f yaw=%5.1f",
             RAD2DEG(q_roll), RAD2DEG(q_pitch), RAD2DEG(q_yaw));
     }
-
-    
 }
+
+void TFlowMilesi::onMavlinkAP_Altitude(const mavlink_altitude_t &alt)
+{
+    // TODO: define which one is easier to use Euler angles or Quaternions
+    //struct timespec now_ts;
+    //clock_gettime(CLOCK_MONOTONIC, &now_ts);
+    //ap_imu.tv_sec = now_ts.tv_sec; 
+    //ap_imu.tv_usec = now_ts.tv_nsec / 1000;
+
+#if PROCESS_TRACKER
+    ap_imu_milesi.altitude_local   = alt.altitude_local;
+    ap_imu_milesi.altitude_msl     = alt.altitude_amsl;
+    ap_imu_milesi.altitude_terrain = alt.altitude_terrain;
+#elif PROCESS_ANCHOR
+    ap_imu_anchor.altitude_local   = alt.altitude_local;
+    ap_imu_anchor.altitude_msl     = alt.altitude_amsl;
+    ap_imu_anchor.altitude_terrain = alt.altitude_terrain;
+#endif
+
+    PRESC(0x1F) {
+        g_info("ALT: local=%5.1f amsl=%5.1f terr=%5.1f home=%5.1f mono=%5.1f",
+            alt.altitude_local, alt.altitude_amsl, alt.altitude_terrain, 
+            alt.altitude_relative, alt.altitude_monotonic);
+    }
+
+}
+
+void TFlowMilesi::onMavlinkAP_GLOBAL_POSITION_INT_COV(const mavlink_global_position_int_cov_t& global_position_int_cov)
+{
+    //ap_imu_anchor.gps_lat     = (float)global_position_int_cov.lat / 1e+7f;
+    //ap_imu_anchor.gps_lon     = (float)global_position_int_cov.lon / 1e+7f;
+    //ap_imu_anchor.gps_alt_msl = (float)global_position_int_cov.alt / 1000;
+
+    PRESC(0x1F) {
+        g_info("GLOBAL_POSITION_INT_COV: est=%d lat=%5.1f lon=%5.1f alt=%5.1f ralt=%5.1f",
+            (int)global_position_int_cov.estimator_type,
+            (float)global_position_int_cov.lat / 1e+7f,
+            (float)global_position_int_cov.lon / 1e+7f,
+            (float)global_position_int_cov.alt / 1000,             // In meters
+            (float)global_position_int_cov.relative_alt /1000);    // In meters
+    }
+}
+void TFlowMilesi::onMavlinkAP_GLOBAL_POSITION_INT(const mavlink_global_position_int_t& global_position_int)
+{
+#if PROCESS_TRACKER
+    ap_imu_milesi.gps_lat     = (float)global_position_int.lat / 1e+7f;
+    ap_imu_milesi.gps_lon     = (float)global_position_int.lon / 1e+7f;
+    ap_imu_milesi.gps_alt_msl = (float)global_position_int.alt / 1000;
+#elif PROCESS_ANCHOR
+    ap_imu_anchor.gps_lat     = (float)global_position_int.lat / 1e+7f;
+    ap_imu_anchor.gps_lon     = (float)global_position_int.lon / 1e+7f;
+    ap_imu_anchor.gps_alt_msl = (float)global_position_int.alt / 1000;
+#endif
+
+    PRESC(0x3F) {
+        g_info("GLOBAL_POSITION_INT: lat=%5.1f lon=%5.1f alt=%5.1f ralt=%5.1f",
+            (float)global_position_int.lat / 1e+7f,
+            (float)global_position_int.lon / 1e+7f,
+            (float)global_position_int.alt / 1000,             // In meters
+            (float)global_position_int.relative_alt /1000);    // In meters
+    }
+}
+void TFlowMilesi::onMavlinkAP_GPS_RAW_INT(const mavlink_gps_raw_int_t& gps_raw_int)
+{
+    PRESC(0x1F) {
+        g_info("GPS_RAW_INT: lat=%5.1f lon=%5.1f alt=%5.1f",
+            (float)gps_raw_int.lat / 1e+7f,
+            (float)gps_raw_int.lon / 1e+7f,
+            (float)gps_raw_int.alt / 1000);    // In meters
+    }
+}
+void TFlowMilesi::onMavlinkAP_LOCAL_POSITION_NED_COV(const mavlink_local_position_ned_cov_t& local_position_ned_cov)
+{
+    PRESC(0x1F) {
+        g_info("LOCAL_POSITION_NED_COV: [NED] x=%5.1f y=%5.1f z=%5.1f",
+            local_position_ned_cov.x,
+            local_position_ned_cov.y,
+            local_position_ned_cov.z);
+    }
+
+}
+
+void TFlowMilesi::onMavlinkAP_LOCAL_POSITION_NED(const mavlink_local_position_ned_t& local_position_ned)
+{
+#if PROCESS_TRACKER
+    ap_imu_milesi.loc_ned_x = local_position_ned.x;
+    ap_imu_milesi.loc_ned_y = local_position_ned.y;
+    ap_imu_milesi.loc_ned_z = local_position_ned.z;
+#elif PROCESS_ANCHOR
+    ap_imu_anchor.loc_ned_x = local_position_ned.x;
+    ap_imu_anchor.loc_ned_y = local_position_ned.y;
+    ap_imu_anchor.loc_ned_z = local_position_ned.z;
+#endif
+
+    PRESC(0x1F) {
+        g_info("LOCAL_POSITION_NED: [NED] x=%5.1f y=%5.1f z=%5.1f",
+            local_position_ned.x,
+            local_position_ned.y,
+            local_position_ned.z);
+    }
+
+}
+
 void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status_t &status)
 {
     // TODO: 1) rework to zero-copy packets
@@ -232,21 +483,46 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
     //       4) avoid ATTITUDE and other STATUS (battery, RSSI, etc.) packets duplication
     //       5) Collect attitude
 
+    int rc = 0;
     uint8_t buf[300];
     uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-    int rc = UDPDataSend(buf, len);
+
+#if PROCESS_TRACKER
+    // In Milesi Tracker configuration we act as a hub between GC and AP
+    // Accordingly, send all MAVLINK received packets from UDP to Serial
+    // rc = UDPDataSend(buf, len);
+#elif PROCESS_ANCHOR
+
+#endif
+
     
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
     switch (msg.msgid){
         case MAVLINK_MSG_ID_ATTITUDE_QUATERNION:
-            onMavlinkAP_AttitudeQ(*(mavlink_attitude_quaternion_t*)&msg.payload64);
+            onMavlinkAP_AttitudeQ(*(const mavlink_attitude_quaternion_t*)&msg.payload64);
             break;
         case MAVLINK_MSG_ID_ATTITUDE:
-            onMavlinkAP_Attitude(*(mavlink_attitude_t*)&msg.payload64);
+            onMavlinkAP_Attitude(*(const mavlink_attitude_t*)&msg.payload64);
+            break;
+
+        case MAVLINK_MSG_ID_LOCAL_POSITION_NED:
+            onMavlinkAP_LOCAL_POSITION_NED(*(const mavlink_local_position_ned_t*)&msg.payload64);
+            break;
+        case MAVLINK_MSG_ID_ALTITUDE:
+            onMavlinkAP_Altitude(*(const mavlink_altitude_t*)&msg.payload64);
             break;
         case MAVLINK_MSG_ID_GIMBAL_DEVICE_ATTITUDE_STATUS: 
-            onMavlinkAP_GimbalAttitude(*(mavlink_gimbal_device_attitude_status_t*)&msg.payload64);
+            onMavlinkAP_GimbalAttitude(*(const mavlink_gimbal_device_attitude_status_t*)&msg.payload64);
+            break;
+        case MAVLINK_MSG_ID_GLOBAL_POSITION_INT_COV:
+            onMavlinkAP_GLOBAL_POSITION_INT_COV(*(const mavlink_global_position_int_cov_t *)&msg.payload64);    
+            break;
+        case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
+            onMavlinkAP_GLOBAL_POSITION_INT(*(const mavlink_global_position_int_t*)&msg.payload64);    
+            break;
+        case MAVLINK_MSG_ID_GPS_RAW_INT:
+            onMavlinkAP_GPS_RAW_INT(*(const mavlink_gps_raw_int_t *)&msg.payload64);    
             break;
         default:
             break;
@@ -257,6 +533,7 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         static struct timespec now_ts;
         static struct timespec last_dbg_ts;
         clock_gettime(CLOCK_MONOTONIC, &now_ts);
+
 #if VERBOSE
         { // Show every message
 #elif CHATTY
@@ -265,7 +542,7 @@ void TFlowMilesi::onMavlinkAP(const mavlink_message_t &msg, const mavlink_status
         if (0) {
 #endif
             const mavlink_message_info_t *msg_info = mavlink_get_message_info(&msg);
-            g_info("UAV -> GCS [%-40s] %d seq=%d src=%d:%d",
+            g_info("UAV -> GCS [%-40s] %4d seq=%5d src=%d:%d",
                 msg_info->name, msg.msgid, msg.seq, msg.sysid, msg.compid);
             last_dbg_ts = now_ts;
         }
@@ -323,7 +600,9 @@ int TFlowMilesi::targetingCtrl(int jstck_x, int jstck_y, uint16_t butt, uint16_t
         MILESI_TRGT_SEL_UP    |
         MILESI_TRGT_SEL_DOWN  |
         MILESI_TRGT_SEL_LEFT  |
-        MILESI_TRGT_SEL_RIGHT;
+        MILESI_TRGT_SEL_RIGHT |
+        MILESI_TRGT_SEL_START |
+        MILESI_TRGT_SEL_STOP;
 
     uint16_t butt_diff = (butt ^ prev_butt);
     if (butt_diff & trgt_sel_butt) {                // Button changed
@@ -333,17 +612,61 @@ int TFlowMilesi::targetingCtrl(int jstck_x, int jstck_y, uint16_t butt, uint16_t
         }
     }
 
+    if ((selection_evt & MILESI_TRGT_SEL_START) ||
+        (selection_evt & MILESI_TRGT_SEL_STOP)) {
+        targetingCtrlLaunch(!!(selection_evt & MILESI_TRGT_SEL_START));
+    }
+
     PRESC(0x0F) {
         g_debug("TRGT: pos=%5.3f,%5.3f evt=%c (%d) dt=%5.1f",
             cursor_x, cursor_y,
             selection_evt & MILESI_TRGT_SEL_UP    ? 'U' :        // Up
             selection_evt & MILESI_TRGT_SEL_DOWN  ? 'D' :        // Down
             selection_evt & MILESI_TRGT_SEL_LEFT  ? 'L' :        // Left
-            selection_evt & MILESI_TRGT_SEL_RIGHT ? 'R' : '-',   // Right
+            selection_evt & MILESI_TRGT_SEL_RIGHT ? 'R' :        // Right
+            selection_evt & MILESI_TRGT_SEL_START ? '>' :        // Start
+            selection_evt & MILESI_TRGT_SEL_STOP  ? 'o' : '-',   // stop
             selection_evt_id,
             dt_sec * 1000);
     }
 
+    return 0;
+}
+
+int TFlowMilesi::targetingCtrlLaunch(int launch)
+{
+    static uint8_t target_system = 1;
+    static uint8_t target_component = 1;
+
+    uint8_t buf[64];
+    mavlink_message_t command_long_msg;
+    float pwm_value = 1500.f + (launch ? -300 : 300);
+
+    for (int chan = 0; chan < 10; chan++) {
+        uint16_t buff_len = mavlink_msg_command_long_pack(
+            254, 24,
+            &command_long_msg,
+            target_system,
+            target_component,
+            MAV_CMD_DO_SET_SERVO,
+            0,
+            (float)chan,                           // Servo instance number
+            pwm_value, // PWM(normally between 1000 and 2000)
+            0, // float param3
+            0, // float param4,
+            0, // float param5,
+            0, // float param6, 
+            0  // float param7
+        );
+
+        assert(buff_len < sizeof(buf));
+        uint16_t do_servo_len = mavlink_msg_to_send_buffer(buf, &command_long_msg);
+        int rc = UDPDataSend(buf, do_servo_len);
+
+        PRESC(0) {
+            g_info("AGT -> AP [CMD_DO_SERVO] chan=%d val=%f", chan, pwm_value);
+        }
+    }
     return 0;
 }
 
@@ -361,8 +684,8 @@ int TFlowMilesi::onMavlinkGCManualControl(const mavlink_manual_control_t &man_ct
 
 #define F310 1
 #if F310
-        int jstck_x = man_ctrl.y;
-        int jstck_y = -man_ctrl.x;
+        int jstck_x = man_ctrl.x;
+        int jstck_y = man_ctrl.y;
 #endif
         targetingCtrl(jstck_x, jstck_y, man_ctrl.buttons, prev_buttons);
         prev_buttons = man_ctrl.buttons;
@@ -419,7 +742,7 @@ void TFlowMilesi::onMavlinkGC(const mavlink_message_t &msg, const mavlink_status
     uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
     int forward_to_ap = 1;
     
-#define TFLOW_AUXGC_MAV_SYSID 2
+#define TFLOW_AUXGC_MAV_SYSID 254
 
     // Check is message received from TFlow auxilary ground control.
     if (msg.msgid == MAVLINK_MSG_ID_MANUAL_CONTROL && msg.sysid == TFLOW_AUXGC_MAV_SYSID) {
@@ -429,7 +752,7 @@ void TFlowMilesi::onMavlinkGC(const mavlink_message_t &msg, const mavlink_status
         //msg.sysid = ???;
         //msg.compid = ???;
     }
-
+    forward_to_ap = 0;  // Delme after debug
     if (forward_to_ap) {
         int rc = TFlowSerial::serialDataSend(buf, len);
 
@@ -473,10 +796,20 @@ void TFlowMilesi::onMavlinkGC(const mavlink_message_t &msg, const mavlink_status
 
 void TFlowMilesi::onUDPMsg(const char *udp_msg, int udp_msg_len)
 {
+    // TODO: rework to complete message RX not parsing byte by byte
+    mavlink_reset_channel_status(MAVLINK_COMM_0);
     for ( int i = 0; i < udp_msg_len; i++ ) {
+#if PROCESS_TRACKER
+        // In Milesi Tracker configuration we act as a hub between GC and AP
         if ( mavlink_parse_char(gc_mav_chan, udp_msg[i], &gc_msg, &gc_status) ) {
             onMavlinkGC(this->gc_msg, this->gc_status);
         }
+#elif PROCESS_ANCHOR
+        // In Milesi Anchor configuration we connected to AP via UDP
+        if (mavlink_parse_char(ap_mav_chan, udp_msg[i], &this->ap_udp_msg, &this->ap_udp_status)) {
+            onMavlinkAP(this->ap_udp_msg, this->ap_udp_status);
+        }
+#endif
     }
 
 }
@@ -486,8 +819,8 @@ int TFlowMilesi::onSerialDataRcv()
     ssize_t bytes_read = read(serial_sck_fd, ap_raw_buf, sizeof(ap_raw_buf));
 
     for ( int i = 0; i < bytes_read; i++ ) {
-        if ( mavlink_parse_char(ap_mav_chan, ap_raw_buf [ i ], &this->ap_msg, &this->ap_status) ) {
-            onMavlinkAP(this->ap_msg, this->ap_status);
+        if ( mavlink_parse_char(ap_mav_chan, ap_raw_buf[i], &this->ap_serial_msg, &this->ap_serial_status) ) {
+            onMavlinkAP(this->ap_serial_msg, this->ap_serial_status);
         }
     }
     
@@ -513,6 +846,9 @@ void TFlowMilesi::CloseMg()
         mg_pipe_src->destroy();
         mg_pipe_src.reset();
     }
+
+    mg_terminate_thread = 1;
+    pthread_join(mg_th, nullptr);
 
     return;
 }
@@ -569,9 +905,10 @@ void TFlowMilesi::_on_mg_msg(struct mg_connection* c, int ev, void* ev_data)
         size_t cert_len = 0;
         size_t key_len = 0;
         struct mg_tls_opts opts = {
+            .ca = {nullptr, 0},         // .ca   = mg_file_read(&mg_fs_posix, "/home/root/cert/ca.crt", NULL)
             .cert = mg_file_read(&mg_fs_posix, "/home/root/cert/server.crt", &cert_len),
             .key  = mg_file_read(&mg_fs_posix, "/home/root/cert/server.key", &key_len),
-            // .ca   = mg_file_read(&mg_fs_posix, "/home/root/cert/ca.crt", NULL)
+            .name = {nullptr, 0}
         };
         opts.cert.len = cert_len;
         opts.key.len = key_len;
@@ -612,7 +949,8 @@ void* TFlowMilesi::_mg_thread(void* ctx)
     mg_log_set(MG_LL_INFO);             // Set log level
     mg_http_listen(&m->mg_manager, "http://0.0.0.0:8021", m->_on_mg_msg, (void*)m);
     mg_wakeup_init(&m->mg_manager);     // Initialise wakeup socket pair
-    for (;;) {                          // Event loop
+
+    while(m->mg_terminate_thread == 0) {                      // Event loop
         mg_mgr_poll(&m->mg_manager, 1000);
     }
     mg_mgr_free(&m->mg_manager);
@@ -635,11 +973,10 @@ int TFlowMilesi::OpenMg()
     mg_pipe_src->attach(context);
 
      /* Create mongoose thread */
+    mg_terminate_thread = 0;
+
     pthread_attr_t attr;
-
-    pthread_cond_init(&mg_th_cond, nullptr);
     pthread_attr_init(&attr);
-
     pthread_create(&mg_th, &attr, _mg_thread, this);
     pthread_attr_destroy(&attr);
 

@@ -154,12 +154,13 @@ int TFlowUDP::Connect()
 	//bind socket to port
     rc = bind(sck_fd, (const struct sockaddr*)&local_addr, sizeof(local_addr));
 	if ( rc == -1) {
-        g_warning("TFlowUDP: Can't bind to %s (%d) - %s", addr_str, errno, strerror(errno));
+        g_warning("TFlowUDP: Can't bind to %s:%hd (%d) - %s", addr_str, 
+            ntohs(local_addr.sin_port), errno, strerror(errno));
         addr_nok = 1;
         return -1;
 	}
 
-	g_info("TFlowUDP: Bond sucessfully");
+	g_info("TFlowUDP: Bond sucessfully on port %hd", ntohs(local_addr.sin_port));
 
     sck_src = Glib::IOSource::create(sck_fd, (Glib::IOCondition)(G_IO_IN | G_IO_ERR | G_IO_HUP));
     sck_src->connect(sigc::mem_fun(*this, &TFlowUDP::onMsg));
@@ -297,7 +298,7 @@ int TFlowUDP::UDPDataSend(uint8_t *buf, size_t buf_len)
     if (bytes_written != bytes_to_wr) {
         g_warning("TFlowSerial: Can't write whole packet - %s (%d)", 
             strerror(errno), errno);
-
+                                                        
         Disconnect();
 
         // Try to reconnect later

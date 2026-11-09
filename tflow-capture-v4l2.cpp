@@ -12,6 +12,29 @@
 #include "tflow-capture.hpp"
 #include "tflow-capture-v4l2.hpp"
 
+static struct timespec diff_timespec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    assert(time1);
+    assert(time0);
+    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
+        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
+    if (diff.tv_nsec < 0) {
+        diff.tv_nsec += 1000000000; // nsec/sec
+        diff.tv_sec--;
+    }
+    return diff;
+}
+
+static double diff_timespec_msec(
+    const struct timespec* time1,
+    const struct timespec* time0)
+{
+    struct timespec d_tp = diff_timespec(time1, time0);
+    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
+}
+
 TFlowCaptureV4L2::TFlowCaptureV4L2(MainContextPtr _context, 
     const std::string& _buf_srv_name,
     const std::string& _buf_sck_name,
@@ -45,6 +68,7 @@ TFlowCaptureV4L2::TFlowCaptureV4L2(MainContextPtr _context,
     v4l2_buf_template.length = planes_num;
     v4l2_buf_template.index = 0;
 
+    frame_seq = 0;
     stat_cnt_frames_num = 0;
 
     streaming_watchdog_cnt = 0;         // Watchdog is enabled on StreamOn
@@ -94,8 +118,54 @@ int TFlowCaptureV4L2::onBuff(Glib::IOCondition io_cond)
             now_ts.tv_sec = tp.tv_sec;
             now_ts.tv_usec = tp.tv_nsec / 1000;
 
+            rc = buf_consume(v4l2_buf.index, frame_seq++, now_ts);
 
-            rc = buf_consume(v4l2_buf.index, 0, now_ts);
+#if 0   // Dump IMU timestamps for Offline analysis
+            {
+                static int allow_dump = 0;
+                static int r = 1;
+                static int cnt = 1;
+                static struct timespec tp_start;
+                static struct timespec tp_buf_start;
+
+                    if (allow_dump || r) {
+                    // Dump text data for scilab
+                    static FILE* data_file = fopen("imu_ts_raw.dat", "w+");
+
+                    if (r) {
+                        r = 0;
+                        allow_dump = 1;
+                        tp_start = tp;
+                        tp_buf_start.tv_sec =  v4l2_buf.timestamp.tv_sec;
+                        tp_buf_start.tv_nsec =  v4l2_buf.timestamp.tv_usec * 1000;
+
+                        fprintf(data_file, "START: TP:%10d   %10d   BUF: %10d   %10d\r\n",
+                            tp.tv_sec, tp.tv_nsec, tp_buf_start.tv_sec, tp_buf_start.tv_nsec);
+
+                    }
+
+
+                    struct timespec tp_buf;
+                    tp_buf.tv_sec  = v4l2_buf.timestamp.tv_sec;
+                    tp_buf.tv_nsec = v4l2_buf.timestamp.tv_usec * 1000;
+
+                    double dt = diff_timespec_msec(&tp, &tp_start);
+                    double dt_buf = diff_timespec_msec(&tp_buf, &tp_buf_start);
+                    if (dt < 0) {
+                        printf("===");
+                    }
+                    fprintf(data_file, "%.3f   %.3f  %.3f   %.3f   %10d   %10d\r\n",
+                        dt, dt_buf, (float)v4l2_buf.timestamp.tv_usec/1e3f, (float)tp.tv_nsec/1e6f,
+                        v4l2_buf.sequence, frame_seq);
+
+                    cnt++;
+                    if (allow_dump == 0) {
+                        fclose(data_file);
+                    }
+                }
+            }
+#endif
+
         }
 
         if (rc) {
@@ -343,7 +413,7 @@ void TFlowCaptureV4L2::getSensorType()
     int rc = ioctl(sub_dev_fd, VIDIOC_G_EXT_CTRLS, &controls);
     if (rc) {
         g_critical("Ooops, can't get sensor type (%d) - %s", errno, strerror(errno));
-        // return; Tempororary to support old FLYN sensors on kernel 6.1
+        return;
     }
 
 // 0x0A COIN417G2/TWIN412 Observation
@@ -365,8 +435,7 @@ void TFlowCaptureV4L2::getSensorType()
             sensor_api_type = SENSOR_API_TYPE::FLYN_TWIN412G2;
             break;
         default:
-            sensor_api_type = SENSOR_API_TYPE::FLYN_COIN417G2;  // Temporary for kernel 6.1 and old sensors FW
-            //sensor_api_type = SENSOR_API_TYPE::UNDEF;
+            sensor_api_type = SENSOR_API_TYPE::UNDEF;
     }
 
     g_info("FLYN384: API TYPE - %s",

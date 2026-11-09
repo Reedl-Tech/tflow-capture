@@ -42,4 +42,14 @@
     <AdditionalDebuggerCommands>set substitute-path /usr/src/debug/tflow-capture/1.0 /home/av/8dev-Scarthgap/compulab-nxp-bsp/build-ucm-imx8m-plus-bubo/workspace/sources/tflow-capture</AdditionalDebuggerCommands>
     <RemoteGDBPath>C:\MyWorks\LKD\tflow-sdk\gdb\aarch64-none-elf-gdb.exe</RemoteGDBPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='6.6-8dev-Fixar|ARM64'">
+    <RemoteTarget>972847318;10.128.1.93 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteDebuggerCommand>/root/tflow-capture</RemoteDebuggerCommand>
+    <RemoteDebuggerWorkingDirectory>/root/</RemoteDebuggerWorkingDirectory>
+    <RemoteDebuggingMode>gdbserver</RemoteDebuggingMode>
+    <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
+    <RemoteDebuggingTarget>1866622111;192.168.2.4 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <AdditionalDebuggerCommands>set substitute-path /usr/src/debug/tflow-capture/1.0 /home/av/8dev/compulab-nxp-bsp/build-ucm-imx8m-plus-bubo/workspace/sources/tflow-capture</AdditionalDebuggerCommands>
+    <RemoteGDBPath>C:\MyWorks\LKD\tflow-sdk\gdb\aarch64-none-elf-gdb.exe</RemoteGDBPath>
+  </PropertyGroup>
 </Project>

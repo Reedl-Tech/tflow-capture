@@ -845,7 +845,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.editorconfig_" />
     <None Include="..\tflow-capture-config.json" />
     <None Include=".editorconfig" />
   </ItemGroup>

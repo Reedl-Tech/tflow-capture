@@ -27,5 +27,7 @@ public:
   static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
 #endif
 
+/* -1 -> never; 0 -> always */
 #define PRESC(_x) static int presc##__COUNTER__##__func__ = 0;\
+    static const int _presc_period = _x+1;\
     if (0 == (presc##__COUNTER__##__func__++ & _x))

@@ -84,6 +84,7 @@ static int _onBufPlayer(void* ctx, TFlowBuf& buf)
 
 int TFlowCapture::onCustomMsg(const TFlowBufPck::pck& in_msg)
 {
+    /* Message received from a TFlowProcess */
     if (in_msg.hdr.id <= TFlowBufPck::TFLOWBUF_MSG_CUSTOM_) return 0;
 
     // Return -1 to close the cli_port
@@ -93,7 +94,6 @@ int TFlowCapture::onCustomMsg(const TFlowBufPck::pck& in_msg)
 
 #if CODE_BROWSE
         TFlowMilesi::onCaptureMsgRcv(in_msg);
-        TFlowFixar::onCaptureMsgRcv(in_msg);
 #endif
     return 0;
 }
@@ -374,7 +374,7 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
                 cfg_buffs_num, 1, cfg_v4l2,
                 std::bind(&TFlowCapture::onBufAP, this, std::placeholders::_1),
                 std::bind(&TFlowCapture::onCustomMsg, this, std::placeholders::_1));
-
+    
             // AV: Sometimes camera can't initialize just after open.
             //     Probably it is related with Sensor initialization time with old drivers.
             //     I.e. non blocking initilization. Let's add some explicit delay

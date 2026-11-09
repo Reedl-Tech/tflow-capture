@@ -7,3 +7,7 @@
 
 // Detatiled camera format enumeration
 #define CAM_DESCR 1
+
+#define PROCESS_TRACKER 1
+#define PROCESS_ANCHOR  0
+

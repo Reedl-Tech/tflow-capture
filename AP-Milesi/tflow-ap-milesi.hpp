@@ -20,14 +20,18 @@
 
 #define MILESI_PILOTING_EN         (1 << 10)    // TODO: Rename to TARGETING_ASSIST
 
-#define MILESI_TRGT_SEL_EN         (1 << 9)
-#define MILESI_TRGT_SEL_UP         (1 << 11)
-#define MILESI_TRGT_SEL_DOWN       (1 << 12)
-#define MILESI_TRGT_SEL_LEFT       (1 << 13)
-#define MILESI_TRGT_SEL_RIGHT      (1 << 14)
+#define MILESI_TRGT_SEL_EN         (1 << 4)
+#define MILESI_TRGT_SEL_UP         (1 << 12)
+#define MILESI_TRGT_SEL_DOWN       (1 << 13)
+#define MILESI_TRGT_SEL_LEFT       (1 << 14)
+#define MILESI_TRGT_SEL_RIGHT      (1 << 15)
+
+#define MILESI_TRGT_SEL_START      (1 << 3)
+#define MILESI_TRGT_SEL_STOP       (1 << 0)
 
 class TFlowMilesi : public TFlowSerial, public TFlowAP, public TFlowUDP {
 public:
+    static constexpr int TFLOWBUF_MSG_CUSTOM_ANCHOR = (TFlowBufPck::TFLOWBUF_MSG_CUSTOM_ + 2);    // 0x82
 
     // Convert input message to Manual control
 #pragma pack(push, 1)
@@ -51,9 +55,35 @@ public:
 
     // Filled from incoming ATTITUDE message from autopilot on serial interface
     // Based on ox4 Mavlink messages
-    struct imu_milesi_v0 {
+    struct imu_milesi_v2 {
         
-        uint32_t sign;        // IMU1   0x494D5531
+        uint32_t sign;        // MLS2   0x494D5532
+        uint32_t tv_sec;      // Local timestamp
+        uint32_t tv_usec;     // Local timestamp
+
+        /* Direct translation from Mavlink ATTITUDE */ 
+        float roll;         /*< [rad] Roll angle  (-pi..+pi) */
+        float pitch;        /*< [rad] Pitch angle (-pi..+pi) */
+        float yaw;          /*< [rad] Yaw angle   (-pi..+pi) */
+
+        float altitude_local;
+        float altitude_msl;
+        float altitude_terrain;
+
+        float loc_ned_x;
+        float loc_ned_y;
+        float loc_ned_z;
+
+        uint8_t gps_fix_type;
+        float   gps_lat;
+        float   gps_lon;
+        float   gps_alt_msl;
+
+    } ap_imu_milesi;                                                                                                       
+
+    struct imu_anchor_v0 {
+        
+        uint32_t sign;        // ANC1   0x414E4331
         uint32_t tv_sec;      // Local timestamp
         uint32_t tv_usec;     // Local timestamp
 
@@ -67,9 +97,9 @@ public:
         float yawspeed;     /*< [rad/s] Yaw angular speed*/
 
         /* Direct translation from Mavlink ATTITUDE */ 
-        float roll;         /*< [rad] Roll angle (-pi..+pi)*/
-        float pitch;        /*< [rad] Pitch angle (-pi..+pi)*/
-        float yaw;          /*< [rad] Yaw angle (-pi..+pi)*/
+        float roll;         /*< [rad] Roll angle  (-pi..+pi) */
+        float pitch;        /*< [rad] Pitch angle (-pi..+pi) */
+        float yaw;          /*< [rad] Yaw angle   (-pi..+pi) */
 
         /* Poke from GIMBAL_DEVICE_ATTITUDE_STATUS */
         float gimbal_qw;
@@ -78,7 +108,20 @@ public:
         float gimbal_qz;
         uint16_t gimbal_flags;     /* GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME or GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME */
 
-    } ap_imu;                                                                                                       
+        float altitude_local;             
+        float altitude_msl;
+        float altitude_terrain;
+
+        float loc_ned_x;
+        float loc_ned_y;
+        float loc_ned_z;
+
+        uint8_t gps_fix_type;
+        float   gps_lat;
+        float   gps_lon;
+        float   gps_alt_msl;
+
+    } ap_imu_anchor;                                                                                                       
 
     // Filled from TFlow aux GC mav message on UDP interface
     struct jstk_ctrl {
@@ -112,6 +155,13 @@ public:
     void onMavlinkAP_GimbalAttitude(const mavlink_gimbal_device_attitude_status_t &gimb_att);
     void onMavlinkAP_Attitude(const mavlink_attitude_t &att);
     void onMavlinkAP_AttitudeQ(const mavlink_attitude_quaternion_t &attq);
+    void onMavlinkAP_Altitude(const mavlink_altitude_t &alt);
+
+    void onMavlinkAP_GLOBAL_POSITION_INT    (const mavlink_global_position_int_t     &global_position_int    );
+    void onMavlinkAP_GLOBAL_POSITION_INT_COV(const mavlink_global_position_int_cov_t &global_position_int_cov);
+    void onMavlinkAP_LOCAL_POSITION_NED     (const mavlink_local_position_ned_t      &local_position_ned     );
+    void onMavlinkAP_LOCAL_POSITION_NED_COV (const mavlink_local_position_ned_cov_t  &local_position_ned_cov );
+    void onMavlinkAP_GPS_RAW_INT            (const mavlink_gps_raw_int_t             &gps_raw_int            );
 
     void onMavlinkGC(const mavlink_message_t &msg, const mavlink_status_t &status);  // Mavlink message from Ground Control
     int onMavlinkGCManualControl(const mavlink_manual_control_t &man_ctrl);
@@ -133,13 +183,18 @@ public:
     int onBuf(TFlowBuf &buf);
     /* ====================================== */
 
-    int onBufTargeting(uint8_t *buf);
-    int onBufAPIMU(uint8_t *buf);
-    int onBufUserctrl(uint8_t *buf);
+    int onBufTargeting(uint8_t *buf, size_t max_size);
+    int onBufAPIMU_Milesi(uint8_t *buf, size_t max_size);
+    int onBufAPIMU_Anchor(uint8_t *buf, size_t max_size);
+    int onBufUserctrl(uint8_t *buf, size_t max_size);
 
 private:
 
     MainContextPtr context;
+
+    struct timespec heart_beat_ts;
+    void sendHeartBeat(const struct timespec &now_ts);
+
 
 #pragma pack(push, 1)
     struct targeting_data {
@@ -154,19 +209,51 @@ private:
     };
 #pragma pack(pop)
 
+
+
+#pragma pack (push,1)
+struct TFlowAnchorMsg {
+
+    operator TFlowBufPck::pck&() const { return *((TFlowBufPck::pck*)(void*)this); }
+
+    TFlowBufPck::pck_hdr hdr;
+    int32_t    lat;                   // 
+    int32_t    lon;                   // 
+    int32_t    north_azimuth;         // Azimuth angle to North n centidegrees
+    uint8_t    position_quality;      // Position confidence coefficient, accuracy    0 - position can’t be used, 255 - position max accuracy
+
+    float      velocity_N;            // Movement direction
+    float      velocity_E;            // 
+    int32_t    velocity_heading;      // Azimuth angle to North in centi degrees
+    uint8_t    velocity_is_valid;     // 
+
+    uint32_t   sync_time;             // Last position synchronization time (in ms)
+    uint8_t    video_quality;         // Video quality    0 - bad quality … 255 - best quality
+    uint8_t    flags;                // TFlowNavigator synchronization mode    0 - GPS assisted, 1 - IMU assisted, 2 - Standalone.
+};
+#pragma pack(pop)
+
     // Copied into the captured buffer
     uint32_t aux_data_size;
     uint32_t aux_data_len;
     uint8_t *aux_data_buf;
 
     uint8_t ap_raw_buf [ 512 ];
-    mavlink_status_t ap_status;
-    mavlink_message_t ap_msg;
     int ap_mav_chan = 0;
+
+    mavlink_status_t ap_serial_status;
+    mavlink_message_t ap_serial_msg;
+
+    mavlink_status_t ap_udp_status;
+    mavlink_message_t ap_udp_msg;
 
     mavlink_status_t gc_status;
     mavlink_message_t gc_msg;
     int gc_mav_chan = 0;
+
+    mavlink_message_t heartbeat_msg;
+    mavlink_message_t gps_input_msg;    // Is used as temporary storage for generated GPS_INPUT packet. 
+                                        // Filled by data received from TFlowAnchor
 
     // === control over WS (aka Mongoose) ===
     // TODO: move to a dedicated class?
@@ -177,12 +264,11 @@ private:
     //char*            in_mg_msg;
 
     pthread_t        mg_th;
-    pthread_cond_t   mg_th_cond;
     struct mg_mgr    mg_manager;
+    int              mg_terminate_thread;
 
     static void* _mg_thread(void* ctx);
     static void _on_mg_msg(struct mg_connection* c, int ev, void* ev_data);
-
 
     // === Targeting 
     // Data generated from MavLink MANUAL CONTROL and added to each frame    
@@ -197,4 +283,5 @@ private:
 
     float jstck2pos(int j, float dt_ms);
     int targetingCtrl(int jstck_x, int jstck_y, uint16_t butt, uint16_t prev_butt);
+    int targetingCtrlLaunch(int launch);
 };
