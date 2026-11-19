@@ -245,13 +245,6 @@ int TFlowCtrlCapture::sub_dev_name_is_valid()
     return 1;
 }
 
-#if CAPTURE_PLAYER
-int TFlowCtrlCapture::player_fname_is_valid()
-{
-    // check cmd_flds_config.player_fname.v.str;
-    return 1;
-}
-#endif
 /*********************************/
 /*** Application specific part ***/
 /*********************************/
@@ -583,6 +576,21 @@ int TFlowCtrlCapture::cmd_cb_config(const json11::Json& j_in_params, Json::objec
         onConfigV4L2();
     }
 
+    if (cmd_flds_config.ptt_tilt.flags & FIELD_FLAG::CHANGED) {
+        app.ptt_tilt.onConfig();
+    }
+    if (cmd_flds_config.ptt_pan.flags & FIELD_FLAG::CHANGED) {
+        app.ptt_pan.onConfig();
+    }
+
+    if (cmd_flds_config.ptt_local_addr.flags & FIELD_FLAG::CHANGED ||
+        cmd_flds_config.ptt_remote_addr.flags & FIELD_FLAG::CHANGED) {
+
+        app.ptt_gc_link.onConfig(
+            cmd_flds_config.ptt_remote_addr.v.c_str,
+            cmd_flds_config.ptt_local_addr.v.c_str);
+    }
+    
     // Composes all required config params and clears changed flag.
     // Also advance config ID on configuration change.
     // If previous config_id doesn't match with one receive in command, then

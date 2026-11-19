@@ -10,8 +10,8 @@
 #include "tflow-ctrl-capture.hpp"
 #include "tflow-buf-srv.hpp"
 #include "tflow-buf-pck.hpp"
-#include "tflow-ap.hpp"
-#include "tflow-player.h"
+#include "tflow-pwm.hpp"
+#include "tflow-udp.hpp"
 #include "tflow-capture-v4l2.hpp"
 
 struct fmt_info {
@@ -37,12 +37,6 @@ public:
     
     int onIdle();
 
-    // Functions that fill aux_ap_data from the proper source - AP or media file
-    int onBufAP(TFlowBuf& buf);
-#if CAPTURE_PLAYER
-    int onBufPlayer(TFlowBuf& buf);
-#endif
-
     // Custom messages handler from buffer server's clients.
     // For instance, the tflow-process->navigator returns result of algorithm 
     // processing to send it back to the Auto Pilot.
@@ -50,6 +44,46 @@ public:
 
     TFlowCaptureV4L2 *cam0;
     //TFlowCaptureV4L2 *cam1;
+
+    struct ptt_aux_data {
+
+    } aux;
+
+    int onPttGcMsg(const char* udp_msg, int udp_msg_len);
+
+    // Functions that fill aux_data with PTT specific 
+    int onBufPtt(TFlowBuf& buf);
+    TFlowPWM ptt_pan;       // Servo control
+    TFlowPWM ptt_tilt;      // Servo control
+    TFlowUDP ptt_gc_link;   // Connection with Ground Control
+
+    int aux_data_size;
+    uint8_t* aux_data_buf;
+
+#pragma pack(push, 1)
+    // AUX data within video frame
+    struct ptt_aux_v0 {
+        uint32_t sign;
+        uint32_t tv_sec;      // Local timestamp
+        uint32_t tv_usec;     // Local timestamp
+        float pan_val;
+        float pan_speed;
+        float pan_trgt;
+        float tilt_val;
+        float tilt_speed;
+        float tilt_trgt;
+    };
+
+    // Control message from PTT GC (IP/UDP link)
+    struct ptt_gc_v0 {
+        uint32_t sign;
+        float pan_val;
+        float pan_speed;
+        float tilt_val;
+        float tilt_speed;
+        uint32_t mode;          // Scan vertical/horizontal/manual/etc
+    };
+#pragma pack(pop)
 
 private:
     void checkCamState(struct timespec *now_tp);
@@ -59,17 +93,10 @@ private:
     Flag   cam0_state_flag;     // FL_SET -> camera opened; FL_CLR -> camera closed
     struct timespec cam0_last_check_ts;
 
-#if CAPTURE_PLAYER
-    void checkPlayerState(struct timespec* now_tp);
-    TFlowPlayer* player;
-    Flag   player_state_flag;     // FL_SET -> player active; FL_CLR -> player disabled
-#endif
-
-#if WITH_AP
-    TFlowAP *autopilot;
-#endif 
-
     const struct fmt_info* getCamFmt();
 
+    int onPttTimer();
+
+    
 };
 

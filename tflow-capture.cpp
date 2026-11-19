@@ -1,8 +1,10 @@
 #include "tflow-build-cfg.hpp"
 #include <iostream>
 #include <functional>
+#include <cmath>
 
 #include "tflow-glib.hpp"
+#include "tflow-common.hpp"
 
 #include <json11.hpp>
 
@@ -11,34 +13,77 @@
 #include "tflow-capture.hpp"
 
 using namespace json11;
+using namespace std;
 
 v4l2_buffer g_buf;
 
+// Values specific for the servo MODEL: RDS3218 @ PTT
+std::vector<int> ptt_pan_dtc_range_value  = {  40, 195 };
+std::vector<int> ptt_tilt_dtc_range_value = { 120, 160 };
+
+struct TFlowCtrlUI::uictrl ui_sl_dtc_val = {
+    .label = "Servo pos 0..1",
+    .type = TFlowCtrlUI::UICTRL_TYPE::SLIDER,
+    .size = -1,
+    .slider = {.min = 0, .max = 100}
+};
+
+struct TFlowCtrlUI::uictrl ui_sl2_pan_dtc_range = {
+    .label = nullptr,
+    .type = TFlowCtrlUI::UICTRL_TYPE::SLIDER2,
+    .size = -1,
+    .slider = {.min = 0, .max = 200}
+};
+
+struct TFlowCtrlUI::uictrl ui_sl2_tilt_dtc_range = {
+    .label = nullptr,
+    .type = TFlowCtrlUI::UICTRL_TYPE::SLIDER2,
+    .size = -1,
+    .slider = {.min = 0, .max = 200}
+};
+
+struct TFlowCtrlUI::uictrl ui_sw_force_en = {
+    .label = "Force",
+    .type = TFlowCtrlUI::UICTRL_TYPE::SWITCH,
+};
+
+TFlowPWMCfg::cfg_tflow_servo_cntrl ptt_pan_cmd_flds_cfg = {
+        TFLOW_CMD_HEAD("PTT Pan"),
+        .channel         = { "pan_channel",         TFlowCtrl::CFT_NUM,  0, {.num =              0 } },
+        .period          = { "pan_period",          TFlowCtrl::CFT_NUM,  0, {.num =   20 * 1000000 } },   // In nano sec
+        .initial_val     = { "pan_init_val",        TFlowCtrl::CFT_DBL,  0, {.dbl =   1.0          }, &ui_edit_def },
+        .degr2dtc        = { "pan_degr2dtc",        TFlowCtrl::CFT_DBL,  0, {.dbl = (10.0/9*10000) }, &ui_edit_def },
+        .move_speed      = { "pan_move_speed",      TFlowCtrl::CFT_DBL,  0, {.dbl =            1.0 }, &ui_edit_def },
+        .update_time_min = { "pan_update_time_min", TFlowCtrl::CFT_DBL,  0, {.dbl =           30.0 }, &ui_edit_def },   // minimal PWM update time in ms
+        .force_up        = { "pan_force_up",        TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_switch_def },
+        .force_down      = { "pan_force_down",      TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_switch_def },
+        .dtc_range       = { "pan_dtc_range",       TFlowCtrl::CFT_VNUM, 0, {.vnum = &ptt_pan_dtc_range_value}, &ui_sl2_pan_dtc_range },
+        .force_dtc_en    = { "pan_force_dtc_en",    TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_sw_force_en },
+        .force_dtc_degr  = { "pan_force_dtc_degr",  TFlowCtrl::CFT_NUM,  0, {.num =             20 }  },
+        .force_dtc_val   = { "pan_force_dtc_val",   TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_sl_dtc_val  },
+        TFLOW_CMD_EOMSG
+    };
+
+TFlowPWMCfg::cfg_tflow_servo_cntrl ptt_tilt_cmd_flds_cfg = {
+        TFLOW_CMD_HEAD("PTT Tilt"),
+        .channel         = { "tilt_channel",         TFlowCtrl::CFT_NUM,  0, {.num =              1 } },
+        .period          = { "tilt_period",          TFlowCtrl::CFT_NUM,  0, {.num =   20 * 1000000 } },   // In nano sec
+        .initial_val     = { "tilt_init_val",        TFlowCtrl::CFT_DBL,  0, {.dbl = 0.5            }, &ui_edit_def },
+        .degr2dtc        = { "tilt_degr2dtc",        TFlowCtrl::CFT_DBL,  0, {.dbl = (10.0/9*10000) }, &ui_edit_def },
+        .move_speed      = { "tilt_move_speed",      TFlowCtrl::CFT_DBL,  0, {.dbl =            1.0 }, &ui_edit_def },
+        .update_time_min = { "tilt_update_time_min", TFlowCtrl::CFT_DBL,  0, {.dbl =           30.0 }, &ui_edit_def },   // minimal PWM update time in ms
+        .force_up        = { "tilt_force_up",        TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_switch_def },
+        .force_down      = { "tilt_force_down",      TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_switch_def },
+        .dtc_range       = { "tilt_dtc_range",       TFlowCtrl::CFT_VNUM, 0, {.vnum = &ptt_tilt_dtc_range_value}, &ui_sl2_tilt_dtc_range },
+        .force_dtc_en    = { "tilt_force_dtc_en",    TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_sw_force_en },
+        .force_dtc_degr  = { "tilt_force_dtc_degr",  TFlowCtrl::CFT_NUM,  0, {.num =             20 }},
+        .force_dtc_val   = { "tilt_force_dtc_val",   TFlowCtrl::CFT_NUM,  0, {.num =              0 }, &ui_sl_dtc_val },
+        TFLOW_CMD_EOMSG
+    };
+
+
 #define IDLE_INTERVAL_MSEC 300
-
-static struct timespec diff_timespec(
-    const struct timespec* time1,
-    const struct timespec* time0)
-{
-    assert(time1);
-    assert(time0);
-    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
-        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
-    if (diff.tv_nsec < 0) {
-        diff.tv_nsec += 1000000000; // nsec/sec
-        diff.tv_sec--;
-    }
-    return diff;
-}
-
-static double diff_timespec_msec(
-    const struct timespec* time1,
-    const struct timespec* time0)
-{
-    struct timespec d_tp = diff_timespec(time1, time0);
-    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
-}
-
+#define PTT_INTERVAL_MSEC 10
 
 TFlowBuf::TFlowBuf()
 {
@@ -74,166 +119,57 @@ int TFlowBuf::age() {
     return (now_ms - proc_frame_ms);
 }
 
-#if CAPTURE_PLAYER
-static int _onBufPlayer(void* ctx, TFlowBuf& buf)
-{
-    TFlowCapture* m = (TFlowCapture*)ctx;
-    return m->onBufPlayer(buf);
-}
-#endif
-
 int TFlowCapture::onCustomMsg(const TFlowBufPck::pck& in_msg)
 {
     /* Message received from a TFlowProcess */
     if (in_msg.hdr.id <= TFlowBufPck::TFLOWBUF_MSG_CUSTOM_) return 0;
 
-    // Return -1 to close the cli_port
-#if WITH_AP
-    return autopilot->onCaptureMsgRcv(in_msg);
-#endif
-
-#if CODE_BROWSE
-        TFlowMilesi::onCaptureMsgRcv(in_msg);
-#endif
     return 0;
 }
 
-#if CAPTURE_PLAYER
-/* 
- * Add data aux to TFlow buffer, data updated externaly by another module,
- * i.e. TFlowPlayer
- */
-int TFlowCapture::onBufPlayer(TFlowBuf& buf)
+int TFlowCapture::onPttGcMsg(const char* udp_msg, int udp_msg_len)
 {
-#if CODE_BROWSE
-    // caled from 
-    TFlowBufSrv::buf_consume();
-#endif
+    // Get Pan/Tilt control message
+    const struct ptt_gc_v0* ptt_gc = (const struct ptt_gc_v0*)udp_msg;
+    assert(ptt_gc->sign == 0x50545430);               // PTT0
+    
+    if (isfinite(ptt_gc->pan_val)) {
+        ptt_pan.move_target = MAX(0, MIN(ptt_gc->pan_val, 1));
+    }
 
-    //  MJPEGCapture::ap_data and   TFlowCapture::ap_data are matched one-to-one
-    MJPEGCapture::ap_data* player_imu = player->shm_tbl[buf.index].aux_data;
-
-    buf.aux_data = (uint8_t*)&aux_ap_data;
-    buf.aux_data_len = sizeof(aux_ap_data);
+    if (isfinite(ptt_gc->tilt_val)) {
+        ptt_tilt.move_target = MAX(0, MIN(ptt_gc->tilt_val, 1));
+    }
+    
+    //ptt_pan.move_speed = 0.; // defined by config
+    //ptt_tilt.move_speed = 0.; // defined by config
     return 0;
 }
-#endif
 
 TFlowCapture::TFlowCapture(MainContextPtr _context, const std::string cfg_fname) :
     cam0(nullptr),
-#if WITH_AP    
-    autopilot(nullptr),
-#endif
-#if CAPTURE_PLAYER    
-    player(nullptr)
-#endif    
     context(_context),
+    ptt_pan(&ptt_pan_cmd_flds_cfg),
+    ptt_tilt(&ptt_tilt_cmd_flds_cfg),
+    ptt_gc_link(std::bind(&TFlowCapture::onPttGcMsg, this, std::placeholders::_1, std::placeholders::_2)),
     ctrl(*this, cfg_fname)        // Att!: Must be constructed after submodules' pointers initialization
 {
     main_loop = Glib::MainLoop::create(context, false);
-
+   
     Glib::signal_timeout().connect(sigc::mem_fun(*this, &TFlowCapture::onIdle), IDLE_INTERVAL_MSEC);
+    Glib::signal_timeout().connect(sigc::mem_fun(*this, &TFlowCapture::onPttTimer), PTT_INTERVAL_MSEC);
 
     cam0_last_check_ts.tv_sec = 0;
     cam0_last_check_ts.tv_nsec = 0;
 
-#if CAPTURE_PLAYER    
-    player_last_check_ts.tv_sec = 0;
-    player_last_check_ts.tv_nsec = 0;
-#endif
-
-#if WITH_AP
-    autopilot = TFlowAP::createAPInstance(context);
-#endif
-
+    aux_data_size = 1024;
+    aux_data_buf = (uint8_t*)calloc(1, aux_data_size);
 }
 
 TFlowCapture::~TFlowCapture()
 {
 
-#if WITH_AP
-    if (autopilot) {
-        delete autopilot;
-    }
-#endif
 }
-
-#if CAPTURE_PLAYER
-void TFlowCapture::checkPlayerState(struct timespec *now_ts)
-{
-    if (player_state_flag.v == Flag::SET) {
-        return;
-    }
-
-    if (player_state_flag.v == Flag::CLR) {
-
-        // Check media file name
-        if (!ctrl.player_fname_is_valid()) return;
-
-        /* Don't try open the file to often 
-         * TODO: Should we try only once?
-         */
-        if (diff_timespec_msec(now_ts, &player_last_check_ts) > 1000) {
-            player_last_check_ts = *now_ts;
-            player_state_flag.v = Flag::RISE;
-        }
-    }
-    
-    if (player_state_flag.v == Flag::UNDEF || player_state_flag.v == Flag::RISE) {
-        int rc;
-
-        // Check player device name
-        if (!ctrl.player_fname_is_valid()) return;
-
-        do {
-            int cfg_buffs_num = ctrl.cmd_flds_config.buffs_num.v.num;
-            assert(player);
-            player = new TFlowPlayer(context, cfg_buffs_num, 61.5f);
-
-            /* Link Player and TFlowBufferServer*/
-            player->buf_srv = buf_srv;
-
-            buf_srv->player = player;
-            buf_srv->registerOnBuf(this, _onBufPlayer);
-
-            rc = player->Init(ctrl.player_fname_get());
-            if (rc) break;
-
-            // int player_state = ctrl.cmd_flds_config.player_state.v.num;
-            // int player_state = 1;   // Play/Pause
-
-            //if (player_state == 1) {
-            //    rc = player->StreamOn();
-            //    if (rc) break;
-            //}
-
-            player_state_flag.v = Flag::SET;
-        }
-        while (0);
-        
-        if (rc) {
-            // Can't open media file - try again later 
-            cam_state_flag.v = Flag::CLR;
-        }
-        else {
-            /* Media file is open. Now we can advertise video buffers */
-            buf_srv->sck_state_flag.v = Flag::RISE;
-        }
-        return;
-    }
-
-    if (player_state_flag.v == Flag::FALL) {
-        
-        buf_srv->sck_state_flag.v == Flag::FALL;
-
-        // close the media file and the Player
-        delete player;
-        player = NULL;
-        player_state_flag.v = Flag::CLR;
-    }
-
-}
-#endif
 
 const struct fmt_info* TFlowCapture::getCamFmt() 
 {
@@ -320,16 +256,23 @@ const struct fmt_info* TFlowCapture::getCamFmt()
     return nullptr;
 }
 
-int TFlowCapture::onBufAP(TFlowBuf &buf)
+int TFlowCapture::onBufPtt(TFlowBuf &buf)
 {
     // Called on every received video frame.
     // Custom submodules can do some work here.
     // For ex. add custom data to frame's AUX section.
 
-#if WITH_AP
-    autopilot->onBuf(buf);
-#endif
-    // player->onBuf
+    // Fill PTT structure 
+    // set pointer to PTT aux_data
+    struct ptt_aux_v0* aux_ptt_v0 = (struct ptt_aux_v0*)aux_data_buf;
+    aux_ptt_v0->sign = 0x50545430;               // PTT0
+    aux_ptt_v0->tv_sec = buf.ts.tv_sec;
+    aux_ptt_v0->tv_usec = buf.ts.tv_usec;
+    aux_ptt_v0->pan_val = ptt_pan.get_val();
+    aux_ptt_v0->tilt_val = ptt_tilt.get_val();
+
+    buf.aux_data = aux_data_buf;
+    buf.aux_data_len = sizeof(struct ptt_aux_v0);
 
     return 0;
 }
@@ -372,7 +315,7 @@ void TFlowCapture::checkCamState(struct timespec* now_ts)
                 std::string("Capture0"),
                 std::string("com.reedl.tflow.capture0.buf-server"),
                 cfg_buffs_num, 1, cfg_v4l2,
-                std::bind(&TFlowCapture::onBufAP, this, std::placeholders::_1),
+                std::bind(&TFlowCapture::onBufPtt, this, std::placeholders::_1),
                 std::bind(&TFlowCapture::onCustomMsg, this, std::placeholders::_1));
     
             // AV: Sometimes camera can't initialize just after open.
@@ -457,31 +400,24 @@ int TFlowCapture::onIdle()
         checkCamState(&now_ts);
     }
 
-#if CAPTURE_PLAYER
-    else {
-        // Draft - not tested
-        checkPlayerState(&now_ts);
-    }
-#endif
-
-    if (autopilot) {
-        autopilot->onIdle(now_ts);
-#if CODE_BROWSE
-            // Milesi
-            TFlowSerial::onIdle(now_ts);
-            TFlowUDP::onIdle(now_ts);
-            // Fixar
-            TFlowSerial::onIdle(now_ts);
-#endif
-
-    }
-
     if (cam0) {
         cam0->onIdle(now_ts);
     }
+
+    ptt_gc_link.onIdle(now_ts);
 
     ctrl.ctrl_srv.onIdle(now_ts);
 
     return G_SOURCE_CONTINUE;
 }
 
+int TFlowCapture::onPttTimer()
+{
+    struct timespec now_ts;
+    clock_gettime(CLOCK_MONOTONIC, &now_ts);
+
+    ptt_pan.move_update(now_ts);
+    ptt_tilt.move_update(now_ts);
+
+    return G_SOURCE_CONTINUE;
+}

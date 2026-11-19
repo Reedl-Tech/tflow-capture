@@ -4,12 +4,6 @@
 
 class TFlowCtrlCaptureUI {
 private:
-    const char *serial_baud_entries[4] = {
-            " 57600",
-            "115200",
-            "921600",
-            nullptr 
-    };
 
     const char *gst_testpatt_entries[5] = {
             "Live",
@@ -43,13 +37,20 @@ public:
 
     /*********** Capture top ****************/
 
-    struct TFlowCtrlUI::uictrl ui_serial_baud = {
-            .label = "UART baud",
-            .label_pos = 1,
-            .type = TFlowCtrlUI::UICTRL_TYPE::DROPDOWN,
-            .size = 7,
-            .dropdown = {.val = (const char **)&serial_baud_entries }
+    /************* PTT related *************/
+    struct TFlowCtrlUI::uictrl ui_edit_udp_remote_addr = {
+        // 192.168.123.123:12345
+        .label = "GC <addr:port>",
+        .type = TFlowCtrlUI::UICTRL_TYPE::EDIT,
+        .size = 21
     };
+
+    struct TFlowCtrlUI::uictrl ui_edit_udp_local_addr = {
+        .label = "Bind to <addr:port>",
+        .type = TFlowCtrlUI::UICTRL_TYPE::EDIT,
+        .size = 21
+    };
+    /***************************************/
 
     /*********** CAPTURE/V4L2 ***********************/
     struct TFlowCtrlUI::uictrl ui_custom_flip_def = {
@@ -211,45 +212,6 @@ public:
         .type = TFlowCtrlUI::UICTRL_TYPE::SWITCH,
     };
 
-#if 0
-    /*********** CAPTURE/V4L2/ATIC/COMPRESSION **********************/
-    TFlowCtrlUI::uictrl ui_compr_en = {
-            .name = "compr_en",
-            .type = TFlowCtrlUI::UICTRL_TYPE::SWITCH,
-    };
-
-    TFlowCtrlUI::uictrl ui_compr_rst = {
-            .name = "reset",
-            .type = TFlowCtrlUI::UICTRL_TYPE::BUTTON,
-    };
-
-    TFlowCtrlUI::uictrl ui_hist_en = {
-            .name = "hist_en",
-            .type = TFlowCtrlUI::UICTRL_TYPE::SWITCH,
-    };
-
-    TFlowCtrlUI::uictrl ui_custom_histogramm = {
-            .name = "hist",
-            .type = (TFlowCtrlUI::UICTRL_TYPE)UICTRL_TYPE_CUSTOM::HISTOGRAMM,
-    };
-
-    TFlowCtrlUI::uictrl ui_custom_p1 = {
-            .name = "p1",
-            .type = (TFlowCtrlUI::UICTRL_TYPE)UICTRL_TYPE_CUSTOM::POINT,
-    };
-    TFlowCtrlUI::uictrl ui_custom_p2 = {
-            .name = "p2",
-            .type = (TFlowCtrlUI::UICTRL_TYPE)UICTRL_TYPE_CUSTOM::POINT,
-    };
-    TFlowCtrlUI::uictrl ui_custom_p3 = {
-            .name = "p3",
-            .type = (TFlowCtrlUI::UICTRL_TYPE)UICTRL_TYPE_CUSTOM::POINT,
-    };
-    TFlowCtrlUI::uictrl ui_custom_p4 = {
-            .name = "p4",
-            .type = (TFlowCtrlUI::UICTRL_TYPE)UICTRL_TYPE_CUSTOM::POINT,
-    };
-#endif
 };
 
 

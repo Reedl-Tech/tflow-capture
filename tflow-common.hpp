@@ -31,3 +31,7 @@ public:
 #define PRESC(_x) static int presc##__COUNTER__##__func__ = 0;\
     static const int _presc_period = _x+1;\
     if (0 == (presc##__COUNTER__##__func__++ & _x))
+
+#include <time.h>
+double diff_timespec_msec(const struct timespec* time1, const struct timespec* time0);
+struct timespec diff_timespec(const struct timespec* time1, const struct timespec* time0);

@@ -18,8 +18,9 @@ find_package(PkgConfig REQUIRED)
 add_executable (tflow-capture
     "main.cpp"
     "tflow-build-cfg.hpp"
-    "tflow-common.hpp"
     "tflow-glib.hpp"
+    "tflow-common.hpp"
+    "tflow-common.cpp"
     "tflow-capture.cpp"
     "tflow-capture.hpp"
     "tflow-capture-v4l2.cpp"
@@ -37,10 +38,10 @@ add_executable (tflow-capture
     "tflow-ctrl-capture-ui.hpp"
     "tflow-ctrl.hpp"
     "tflow-ctrl.cpp"
-    "tflow-serial.cpp"
-    "tflow-serial.hpp"
     "tflow-udp.cpp"
     "tflow-udp.hpp"
+    "tflow-pwm.cpp"
+    "tflow-pwm.hpp"
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

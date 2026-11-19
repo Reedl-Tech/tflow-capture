@@ -8,9 +8,14 @@
 #include "tflow-ctrl-srv.hpp"
 
 #include "tflow-ctrl-capture-ui.hpp"
+#include "tflow-pwm.hpp"
 
 class TFlowCtrlCapture;
 class TFlowCapture;
+
+extern TFlowPWMCfg::cfg_tflow_servo_cntrl ptt_pan_cmd_flds_cfg;
+extern TFlowPWMCfg::cfg_tflow_servo_cntrl ptt_tilt_cmd_flds_cfg;
+
 struct fmt_info;
 
 class TFlowCtrlSrvCapture : public TFlowCtrlSrv {
@@ -28,8 +33,6 @@ private:
     std::unordered_map<int, TFlowCtrlCliPort> ctrl_clis;
 };
 
-//extern class TFlowCtrlUI ctrl_ui;
-//TFlowCtrlProcessUI
 class TFlowCtrlCapture : private TFlowCtrlCaptureUI, public TFlowCtrl {
 public:
 
@@ -219,22 +222,24 @@ public:
         tflow_cmd_field_t   fmt_idx;        // The index of the currently used format from the fmt_enum
         tflow_cmd_field_t   preffered_w;    // Prefered width/height selected by a user in case of 
         tflow_cmd_field_t   preffered_h;    // STEPWISE and CONTINUOS frame size
-#if WITH_AP
-        tflow_cmd_field_t   ap;
-#endif        
         tflow_cmd_field_t   v4l2;
+        tflow_cmd_field_t   ptt_pan;
+        tflow_cmd_field_t   ptt_tilt;
+        tflow_cmd_field_t   ptt_local_addr;
+        tflow_cmd_field_t   ptt_remote_addr;
         tflow_cmd_field_t   eomsg;
     } cmd_flds_config = {
-        .state        = { "state",        CFT_NUM, 0, {.num =  0}      },
-        .buffs_num    = { "buffs_num",    CFT_NUM, 0, {.num =  4}      },
-        .fmt_enum     = { "fmt_enum",     CFT_STR, 0, {.str = nullptr} },     // WxH CCCC, ...
-        .fmt_idx      = { "fmt_idx",      CFT_NUM, 0, {.num = -1}      },     // Invalidate index
-        .preffered_w  = { "pref_width",   CFT_NUM, 0, {.num = -1}      },     // 
-        .preffered_h  = { "pref_height",  CFT_NUM, 0, {.num = -1}      },     // 
-#if WITH_AP
-        .ap           = { "ap",           CFT_REF_SKIP, 0, {.ref = &cmd_flds_cfg_ap.head } , &ui_group_def },
-#endif        
-        .v4l2         = { "v4l2",         CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2.head)} , &ui_group_def },
+        .state           = { "state",           CFT_NUM, 0, {.num =  0}      },
+        .buffs_num       = { "buffs_num",       CFT_NUM, 0, {.num =  4}      },
+        .fmt_enum        = { "fmt_enum",        CFT_STR, 0, {.str = nullptr} },     // WxH CCCC, ...
+        .fmt_idx         = { "fmt_idx",         CFT_NUM, 0, {.num = -1}      },     // Invalidate index
+        .preffered_w     = { "pref_width",      CFT_NUM, 0, {.num = -1}      },     // 
+        .preffered_h     = { "pref_height",     CFT_NUM, 0, {.num = -1}      },     // 
+        .v4l2            = { "v4l2",         CFT_REF, 0, {.ref = &(cmd_flds_cfg_v4l2.head)} , &ui_group_def },
+        .ptt_pan         = { "ptt_pan",         CFT_REF, 0, {.ref = &ptt_pan_cmd_flds_cfg.head } , &ui_group_def },
+        .ptt_tilt        = { "ptt_tilt",        CFT_REF, 0, {.ref = &ptt_tilt_cmd_flds_cfg.head } , &ui_group_def },
+        .ptt_local_addr  = { "ptt_local_addr",  CFT_STR, 0, {.str = strdup("0.0.0.0:14550")}, &ui_edit_udp_local_addr},
+        .ptt_remote_addr = { "ptt_remote_addr", CFT_STR, 0, {.str = strdup("192.168.2.10:14550")}, &ui_edit_udp_remote_addr},
         TFLOW_CMD_EOMSG
     };
 

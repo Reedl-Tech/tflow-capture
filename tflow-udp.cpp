@@ -11,43 +11,21 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 
-
 #include "tflow-common.hpp"
 #include "tflow-glib.hpp"
-//#include "tflow-perfmon.hpp"
 
 #include "tflow-udp.hpp"
 
-static struct timespec diff_timespec(
-    const struct timespec* time1,
-    const struct timespec* time0)
-{
-    assert(time1);
-    assert(time0);
-    struct timespec diff = { .tv_sec = time1->tv_sec - time0->tv_sec, //
-        .tv_nsec = time1->tv_nsec - time0->tv_nsec };
-    if (diff.tv_nsec < 0) {
-        diff.tv_nsec += 1000000000; // nsec/sec
-        diff.tv_sec--;
-    }
-    return diff;
-}
-
-static double diff_timespec_msec(
-    const struct timespec* time1,
-    const struct timespec* time0)
-{
-    struct timespec d_tp = diff_timespec(time1, time0);
-    return d_tp.tv_sec * 1000 + (double)d_tp.tv_nsec / (1000 * 1000);
-}
-
 int TFlowUDP::parseCfgAddrPort(struct sockaddr_in *sock_addr_out, const char *cfg_addr_port_in)
 {
-    const char *colon = strchr(cfg_addr_port_in, ':');
+    const char *colon;
     char addr_clone[128];
     const char *addr;
     uint16_t port = 0;
 
+    if (!cfg_addr_port_in) return -1;
+
+    colon = strchr(cfg_addr_port_in, ':');
     if ( colon ) {
         // Port specified - lets split port and address
         strncpy(addr_clone, cfg_addr_port_in, (colon - cfg_addr_port_in));
@@ -80,23 +58,24 @@ int TFlowUDP::parseCfgAddrPort(struct sockaddr_in *sock_addr_out, const char *cf
     return 0;
 }
 
-TFlowUDP::TFlowUDP(MainContextPtr app_context,
-    const char *_remote_addr, const char *_local_addr)
+TFlowUDP::TFlowUDP(
+    std::function<int(const char* udp_msg, int udp_msg_len)> _app_onUDPMsg)
 {
-    context = app_context;
+    app_onUDPMsg = _app_onUDPMsg;
+
+    context = Glib::MainContext::get_default();
     sck_state_flag.v = Flag::UNDEF;
     
     clock_gettime(CLOCK_MONOTONIC, &last_send_ts);
-    last_conn_check_ts.tv_sec = 0;
+    last_conn_check_ts.tv_sec = -999;
     last_conn_check_ts.tv_nsec = 0;
 
-    udp_in_msg_size = 1024 * 1024;
+    udp_in_msg_size = 65536;
     udp_in_msg = (char*)g_malloc(udp_in_msg_size);
 
-    addr_nok = 0;
-    addr_nok |= parseCfgAddrPort(&remote_addr, _remote_addr);
-    addr_nok |= parseCfgAddrPort(&local_addr, _local_addr);
-
+    addr_nok = 1;       // Will be checked on Config apply
+    memset(&remote_addr, 0, sizeof(remote_addr));
+    memset(&local_addr, 0, sizeof(local_addr));
 }
 
 TFlowUDP::~TFlowUDP()
@@ -183,7 +162,9 @@ void TFlowUDP::onIdle(const struct timespec &now_ts)
     if (sck_state_flag.v == Flag::CLR) {
         if (diff_timespec_msec(&now_ts, &last_conn_check_ts) > 1000) {
             last_conn_check_ts = now_ts;
-            sck_state_flag.v = Flag::RISE;
+            if (!addr_nok) {
+                sck_state_flag.v = Flag::RISE;
+            }
         }
         return;
     }
@@ -220,6 +201,16 @@ void TFlowUDP::onIdle(const struct timespec &now_ts)
         // Try to reconnect later
         sck_state_flag.v = Flag::CLR;
     }
+}
+
+void TFlowUDP::onConfig(const char* remote_addr_str, const char* local_addr_str)
+{
+    addr_nok = 0;
+    addr_nok |= parseCfgAddrPort(&remote_addr, remote_addr_str);
+    addr_nok |= parseCfgAddrPort(&local_addr, local_addr_str);
+
+    last_conn_check_ts.tv_sec = -999;   // Reconnect ASAP
+    sck_state_flag.v = Flag::FALL;
 }
 
 gboolean TFlowUDP::onMsg(Glib::IOCondition io_cond)
@@ -261,9 +252,11 @@ int TFlowUDP::onMsgRcv()
         return -1;
     }
     
-    onUDPMsg(udp_in_msg, res);
+    if (app_onUDPMsg) {
+        app_onUDPMsg(udp_in_msg, res);
+    }
 #if CODE_BROWSE
-        TFlowMilesi::onUDPMsg(in_msg);
+        TFlowCapture::onPttGCMsg(in_msg);
 #endif
 
     return 0;

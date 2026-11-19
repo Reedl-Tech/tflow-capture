@@ -8,9 +8,7 @@
 class TFlowUDP {
 
 public:
-    TFlowUDP(
-        MainContextPtr app_context,
-        const char *remote_addr, const char *local_addr);
+    TFlowUDP(std::function<int(const char* udp_msg, int udp_msg_len)> app_onUDPMsg);
 
     ~TFlowUDP();
 
@@ -19,11 +17,12 @@ public:
 
     int Connect();
     void Disconnect();
+    void onConfig(const char* remote_addr, const char* local_addr);
     gboolean onMsg(Glib::IOCondition);
     int onMsgRcv();
     int UDPDataSend(uint8_t *buf, size_t buf_len);
 
-    virtual void onUDPMsg (const char *udp_msg, int udp_msg_len) = 0;
+    std::function<int(const char* udp_msg, int udp_msg_len)> app_onUDPMsg;
 
 private:
     MainContextPtr context;
